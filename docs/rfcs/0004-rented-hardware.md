@@ -8,7 +8,7 @@ created: 2026-09-25
 updated: 2026-09-25
 supersedes: []
 superseded_by: []
-discussion:
+discussion: https://github.com/OstiaHQ/ostia/pull/9
 ---
 
 # RFC-0004: Rented hardware automation
