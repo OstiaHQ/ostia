@@ -1,0 +1,39 @@
+name: 📐 Design proposal (pre-RFC)
+description: Float a design before writing a full RFC.
+labels: [design, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this to check interest and direction before writing an RFC. If maintainers agree, the next step is an RFC pull request; see docs/README.md for the process and template.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One paragraph on what you want to build or change.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: The problem and who has it. Link the PRD section or RFCs this builds on.
+    validations:
+      required: true
+  - type: textarea
+    id: sketch
+    attributes:
+      label: Design sketch
+      description: Components and interfaces touched, rough data flow, main risks.
+    validations:
+      required: true
+  - type: checkboxes
+    id: rfc-trigger
+    attributes:
+      label: Why an RFC is needed
+      options:
+        - label: New component or public module
+        - label: Public API, C ABI or wire protocol change
+        - label: Change to a contract between layers
+        - label: New third-party dependency
+        - label: Hot-path design (data movement, partitioning, flow control)

@@ -1,0 +1,32 @@
+name: ✨ Feature request
+description: Suggest a capability Ostia doesn't have yet.
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Large or cross-cutting changes (new components, public API or ABI changes, new dependencies, hot-path designs) need an RFC. Use the design proposal template for those.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [ostia-fabric, ostia-exchange, ostia-runtime, ostia-query, ostia-telemetry, build / packaging, docs, not sure]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

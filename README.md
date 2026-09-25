@@ -12,4 +12,10 @@ Ostia is at the design stage. Start with the [product requirements](docs/product
 | ostia-query | 3 | SQL and dataframe queries on GPUs |
 | ostia-telemetry | all | Metrics, traces and debug checks that compile out when off |
 
-Licensed under the [Apache License 2.0](LICENSE).
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes, the commit convention and the CLA, and follow the [Code of Conduct](CODE_OF_CONDUCT.md). For questions see [SUPPORT.md](SUPPORT.md); for security problems see [SECURITY.md](SECURITY.md). How the project is run is described in [GOVERNANCE.md](GOVERNANCE.md).
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE).

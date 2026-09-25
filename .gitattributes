@@ -1,0 +1,18 @@
+# Normalize line endings to LF in the repository.
+* text=auto eol=lf
+
+# Treat CUDA sources as C++ for diffs and GitHub language stats.
+*.cu   diff=cpp linguist-language=Cuda
+*.cuh  diff=cpp linguist-language=Cuda
+*.cpp  diff=cpp
+*.hpp  diff=cpp
+*.h    diff=cpp
+
+# Rendered figures are generated from docs/**/figures/src; collapse them in diffs.
+docs/**/figures/*.svg linguist-generated=true -diff
+
+# Binary files.
+*.png    binary
+*.pdf    binary
+*.nsys-rep binary
+*.ncu-rep  binary
