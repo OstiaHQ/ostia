@@ -1,5 +1,7 @@
 # Ostia
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/OstiaHQ/ostia/badge)](https://scorecard.dev/viewer/?uri=github.com/OstiaHQ/ostia)
+
 Topology-aware GPU data infrastructure: a fabric that moves bytes over the best path the hardware offers, a columnar exchange for shuffles, a distributed runtime and a query engine on top.
 
 Ostia is at the design stage. Start with the [product requirements](docs/product/prd.md), and see [docs/README.md](docs/README.md) for how designs are proposed, reviewed and found.
