@@ -1,0 +1,6 @@
+# Default owner for everything until more maintainers join.
+* @ShAlireza
+
+# Design documents and the process that governs them.
+/docs/ @ShAlireza
+/tools/docs/ @ShAlireza
