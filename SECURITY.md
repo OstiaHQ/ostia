@@ -5,7 +5,7 @@
 Please report security problems privately. **Do not open a public issue, discussion or pull request.**
 
 1. **Preferred:** use GitHub's [private vulnerability reporting](https://github.com/OstiaHQ/ostia/security/advisories/new): open the repository's **Security** tab and choose **Report a vulnerability**.
-2. **Alternative:** email alireza.shateri@intuigence.ai with the subject `[ostia security]`.
+2. **Alternative:** email alirezashateri7@gmail.com with the subject `[ostia security]`.
 
 Include what you found, the affected component (fabric, exchange, runtime, query, telemetry), steps or code to reproduce it, and the hardware and network setup if it matters.
 

@@ -10,7 +10,7 @@ This version of the Agreement allows an entity (the "Corporation") to submit Con
 
 The Project is distributed under the Apache License 2.0. The Project Owner may also distribute the Project, including Your Contributions, under other licenses, including commercial licenses.
 
-**How to sign:** fill in the fields below, sign, and email a PDF of the completed agreement to alireza.shateri@intuigence.ai. Each designated employee also signs the [Individual CLA](individual-cla.md) through the bot on their first pull request.
+**How to sign:** fill in the fields below, sign, and email a PDF of the completed agreement to alirezashateri7@gmail.com. Each designated employee also signs the [Individual CLA](individual-cla.md) through the bot on their first pull request.
 
 | Field | Value |
 | --- | --- |
