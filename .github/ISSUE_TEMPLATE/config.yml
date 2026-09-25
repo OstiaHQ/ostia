@@ -5,4 +5,4 @@ contact_links:
     about: Ask questions and discuss ideas in GitHub Discussions.
   - name: 🔒 Report a security vulnerability
     url: https://github.com/OstiaHQ/ostia/security/advisories/new
-    about: Report security problems privately, never in a public issue.
+    about: Report security problems privately, never in a public issue. See SECURITY.md.
