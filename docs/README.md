@@ -80,5 +80,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 ## Index
 
 <!-- index:start -->
-No RFCs or ADRs yet.
+| Document | Title | Status | Components | Created |
+| --- | --- | --- | --- | --- |
+| [RFC-0003](rfcs/0003-topology-fixtures.md) | Topology fixtures | Draft | fabric, build | 2026-09-25 |
 <!-- index:end -->
