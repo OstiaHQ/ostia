@@ -8,14 +8,14 @@ created: 2026-09-25
 updated: 2026-09-25
 supersedes: []
 superseded_by: []
-discussion:
+discussion: https://github.com/OstiaHQ/ostia/pull/7
 ---
 
 # RFC-0001: M0 foundations
 
 ## Summary
 
-This RFC designs the foundations that M0 builds before any Ostia data path exists: the toolchain and supported platforms, how dependencies are obtained, the repository and CMake layout with enforced layering, CI (including GPU CI on a public repository), the telemetry build levels, the benchmark harness and the M0 gate, and how the competitive landscape is verified. Two parts are designed in their own RFCs and summarised here: topology fixtures ([RFC-0003](#7-topology-fixtures-summary)) and rented-hardware automation ([RFC-0004](#8-rented-hardware-summary)). The telemetry runtime (counters, trace rings, exporters) is RFC-0002, which is reserved and written next.
+This RFC designs the foundations that M0 builds before any Ostia data path exists: the toolchain and supported platforms, how dependencies are obtained, the repository and CMake layout with enforced layering, CI (including GPU CI on a public repository), the telemetry build levels, the benchmark harness and the M0 gate, and how the competitive landscape is verified. Two parts are designed in their own RFCs and summarised here: topology fixtures ([RFC-0003, PR #8](https://github.com/OstiaHQ/ostia/pull/8)) and rented-hardware automation ([RFC-0004, PR #9](https://github.com/OstiaHQ/ostia/pull/9)). The telemetry runtime (counters, trace rings, exporters) is RFC-0002, which is reserved and written next.
 
 When this RFC is implemented, every later pull request builds and tests on Linux and macOS, runs on a GPU when a maintainer approves it, and can cite a numbered, checkable requirement from this document.
 
@@ -461,7 +461,7 @@ The prototype's published figures (public repository `fardatalab/MGI`, formerly 
 
 ### 7. Topology fixtures (summary)
 
-Topology fixtures are captured descriptions of real machines, scrubbed of identifiers, that let discovery and the planner be tested offline on any laptop. The planner is Ostia's edge, its bugs depend on hardware shape, and CI never has those shapes (D9). **RFC-0003** designs the capture tool, the scrubbing rules, the fixture format and replay. It also owns the **capture artifact manifest**, the contract RFC-0004 relies on before fetching fixtures and destroying a rented machine.
+Topology fixtures are captured descriptions of real machines, scrubbed of identifiers, that let discovery and the planner be tested offline on any laptop. The planner is Ostia's edge, its bugs depend on hardware shape, and CI never has those shapes (D9). **RFC-0003** ([PR #8](https://github.com/OstiaHQ/ostia/pull/8)) designs the capture tool, the scrubbing rules, the fixture format and replay. It also owns the **capture artifact manifest**, the contract RFC-0004 relies on before fetching fixtures and destroying a rented machine.
 
 **Done when**
 
@@ -470,7 +470,7 @@ Topology fixtures are captured descriptions of real machines, scrubbed of identi
 
 ### 8. Rented hardware (summary)
 
-Gate benchmarks run on rented machines for the three D9 reference setups: a node with NVLink GPUs, a pair of nodes with GPUDirect RDMA NICs, and a TCP or EFA pair. **RFC-0004** designs the one-command up/run/down tool, the enforced spend limits, the providers and fallbacks, credentials and quotas. It consumes RFC-0003's manifest contract. Its spend is the $1,000 rented-hardware sub-budget of the M0 budget.
+Gate benchmarks run on rented machines for the three D9 reference setups: a node with NVLink GPUs, a pair of nodes with GPUDirect RDMA NICs, and a TCP or EFA pair. **RFC-0004** ([PR #9](https://github.com/OstiaHQ/ostia/pull/9)) designs the one-command up/run/down tool, the enforced spend limits, the providers and fallbacks, credentials and quotas. It consumes RFC-0003's manifest contract. Its spend is the $1,000 rented-hardware sub-budget of the M0 budget.
 
 **Done when**
 
