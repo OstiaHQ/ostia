@@ -63,7 +63,7 @@ For example: `✨ feat(fabric): add UCX backend for GPUDirect RDMA`
 Ostia is open core: the open-source edition is Apache-2.0, and the project owner also offers commercial editions. To keep that possible, every contributor signs a Contributor License Agreement (CLA) once, before their first pull request is merged. You keep the copyright in your contributions; the CLA grants the project a license to use them, including in commercially licensed editions.
 
 - **Individuals:** read the [Individual CLA](docs/legal/individual-cla.md). On your first pull request, a bot asks you to sign by posting a comment. It takes one comment and covers all future contributions.
-- **Companies:** if your employer owns your work, your employer signs the [Corporate CLA](docs/legal/corporate-cla.md) and emails it to alireza.shateri@intuigence.ai, listing the employees it authorizes.
+- **Companies:** if your employer owns your work, your employer signs the [Corporate CLA](docs/legal/corporate-cla.md) and emails it to alirezashateri7@gmail.com, listing the employees it authorizes.
 
 ## Development setup
 
