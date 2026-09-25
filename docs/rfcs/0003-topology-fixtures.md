@@ -8,7 +8,7 @@ created: 2026-09-25
 updated: 2026-09-25
 supersedes: []
 superseded_by: []
-discussion:
+discussion: https://github.com/OstiaHQ/ostia/pull/8
 ---
 
 # RFC-0003: Topology fixtures
@@ -17,7 +17,7 @@ discussion:
 
 A topology fixture is a captured, scrubbed description of a real machine: its GPUs, NVLinks, PCIe tree, NUMA nodes and NICs, plus the link bandwidths measured on it. This RFC designs the capture tool, the artifact manifest that other tools rely on, the scrubbing rules that make fixtures safe to publish, the on-disk format, and how fixtures replay into Fabric's topology model so discovery and the planner can be tested on any laptop.
 
-It is part of M0 and is summarised in [RFC-0001 §7 (Topology fixtures)](https://github.com/OstiaHQ/ostia/pull/7). RFC-0004 (Rented hardware automation) runs the capture tool on every rented machine and depends on the manifest contract in §2.
+It is part of M0 and is summarised in [RFC-0001 §7 (Topology fixtures)](https://github.com/OstiaHQ/ostia/pull/7). [RFC-0004 (Rented hardware automation)](https://github.com/OstiaHQ/ostia/pull/9) runs the capture tool on every rented machine and depends on the manifest contract in §2.
 
 ## Motivation
 
