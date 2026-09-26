@@ -1,7 +1,7 @@
 ---
 number: 4
 title: Rented hardware automation
-status: Draft
+status: In review
 authors: [ShAlireza]
 components: [build]
 created: 2026-09-25

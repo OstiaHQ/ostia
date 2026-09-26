@@ -82,5 +82,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 <!-- index:start -->
 | Document | Title | Status | Components | Created |
 | --- | --- | --- | --- | --- |
-| [RFC-0004](rfcs/0004-rented-hardware.md) | Rented hardware automation | Draft | build | 2026-09-25 |
+| [RFC-0004](rfcs/0004-rented-hardware.md) | Rented hardware automation | In review | build | 2026-09-25 |
 <!-- index:end -->
