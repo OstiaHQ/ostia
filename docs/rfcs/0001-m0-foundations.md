@@ -15,7 +15,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/7
 
 ## Summary
 
-This RFC designs the foundations that M0 builds before any Ostia data path exists: the toolchain and supported platforms, how dependencies are obtained, the repository and CMake layout with enforced layering, CI (including GPU CI on a public repository), the telemetry build levels, the benchmark harness and the M0 gate, and how the competitive landscape is verified. Two parts are designed in their own RFCs and summarised here: topology fixtures ([RFC-0003, PR #8](https://github.com/OstiaHQ/ostia/pull/8)) and rented-hardware automation ([RFC-0004, PR #9](https://github.com/OstiaHQ/ostia/pull/9)). The telemetry runtime (counters, trace rings, exporters) is RFC-0002, which is reserved and written next.
+This RFC designs the foundations that M0 builds before any Ostia data path exists: the toolchain and supported platforms, how dependencies are obtained, the repository and CMake layout with enforced layering, CI (including GPU CI on a public repository), the telemetry build levels, the benchmark harness and the M0 gate, and how the competitive landscape is verified. Two parts are designed in their own RFCs and summarised here: topology fixtures ([RFC-0003, PR #8](https://github.com/OstiaHQ/ostia/pull/8)) and rented-hardware automation ([RFC-0004, PR #9](https://github.com/OstiaHQ/ostia/pull/9)). The telemetry runtime (counters, trace rings, exporters) is RFC-0002 ([PR #10](https://github.com/OstiaHQ/ostia/pull/10)).
 
 When this RFC is implemented, every later pull request builds and tests on Linux and macOS, runs on a GPU when a maintainer approves it, and can cite a numbered, checkable requirement from this document.
 
@@ -358,7 +358,7 @@ OSTIA_COUNT(bytes_sent, pop_next()); // wrong: pop_next() does not run in an `of
 
 - `tools/ci/check_telemetry_macros.py` fails if any header under `*/include/` uses these macros or includes `config.h`, which keeps public headers level-independent.
 - Every flavour has the same soname, and a flavour applies to the whole installed stack. Each component records its compile-time level and checks it against `ostia_telemetry_build_level()` at initialisation; a mismatch fails immediately with both levels in the message.
-- The fabric RFC must reserve a protocol-negotiation field before any telemetry level changes the message layout (trace IDs in `trace` builds, PRD).
+- No telemetry level changes Fabric's wire format: RFC-0002 ([PR #10](https://github.com/OstiaHQ/ostia/pull/10)) sends trace context once per exchange and derives chunk span IDs, so peers built at different levels interoperate.
 
 **Done when**
 
