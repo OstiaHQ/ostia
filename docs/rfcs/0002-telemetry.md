@@ -64,7 +64,7 @@ graph LR
 
 ### 1. Metric model
 
-Each component declares its metrics and trace events in a catalog, `<component>/telemetry.toml`. A generator run by CMake turns it into dense compile-time IDs, typed handles and the metrics reference in `docs/guides/telemetry-reference.md`. An `off` build generates nothing.
+Each component declares its metrics and trace events in a catalog, `<component>/telemetry.toml`. A generator run by CMake turns it into dense compile-time IDs, typed handles and the metrics reference in `docs/guides/telemetry-reference.md`. In an `off` build it generates only storage-free `constexpr` handles, so instrumentation call sites still compile (RFC-0001 §5); no storage and no code are generated.
 
 ```toml
 [[metric]]
@@ -195,7 +195,7 @@ The context is **W3C Trace Context**: a 128-bit trace ID, a 64-bit span ID and f
 - **Within a process:** a thread-local current context, plus explicit passing at asynchronous boundaries. For example, the progress thread restores an operation's context when it completes it.
 - **From Layer 2 and 3:** exchange creation takes an optional parent context through the C ABI. Without one, the exchange starts a new root.
 
-This replaces the PRD's "IDs travel in 1a message headers" with the same chain at lower cost. A follow-up updates the PRD's wording, and RFC-0001 §5's note about a negotiation field no longer applies.
+This replaces the PRD's "IDs travel in 1a message headers" with the same chain at lower cost. A follow-up updates the PRD's wording; RFC-0001 §5 already records that no telemetry level changes the wire format.
 
 ### 8. Perfetto and NVTX export
 
@@ -284,7 +284,7 @@ RFC-0001 §6.6's overhead gate measures these with interleaved A/B runs on the s
 
 | Test | Runs on |
 | --- | --- |
-| Catalog generator: rejects bad names, units, duplicate names, a mirrored metric with a counter; generates nothing in `off` builds | CPU CI |
+| Catalog generator: rejects bad names, units, duplicate names, a mirrored metric with a counter; generates only storage-free handles in `off` builds | CPU CI |
 | Counter blocks: concurrent writers sum correctly; thread exit keeps totals; attribute overflow goes to `other`; TSan clean | CPU CI |
 | GPU counters: test kernel counts correctly; switched-off set writes nothing; switch applies to later launches | GPU CI |
 | OTLP export against a local collector in a container; `file` exporter golden output; endpoint down does not block or lose counters | CPU CI |
