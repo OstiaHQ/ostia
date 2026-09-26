@@ -5,7 +5,7 @@ status: Draft
 authors: [ShAlireza]
 components: [build]
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-26
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/9
@@ -57,7 +57,7 @@ fallback:
   accelerators: A100-40GB-SXM:8
   max_usd_per_hour: 20
 max_duration_hours: 4
-benchmarks: [p2p_copy, pipelining, batching, dual_link, onpath_placement]
+benchmarks: [p2p_copy, pipelining, batching, dual_link, onpath_placement]   # gate workloads: RFC-0001 §6.4
 capture: true
 ```
 
@@ -129,10 +129,10 @@ M0's rented-hardware sub-budget is **$1,000**. RFC-0001 §4.3 holds the GPU CI s
 
 **Enforcement.** Caps must hold without the controller:
 
-- **Ledger with reservations.** Before launch, `rent` reserves the run's maximum cost (cap × max duration) against the sub-budget and refuses to launch if the reservation would exceed it, counting outstanding reservations of active runs. After teardown it records the actual cost and releases the difference. The ledger lives in a small private repository, so every machine sees the same state and costs stay out of the public repo.
+- **Ledger with reservations.** Before launch, `rent` reserves the run's maximum cost (cap × max duration) against the sub-budget and refuses to launch if the reservation would exceed it, counting outstanding reservations of active runs. After teardown it records the actual cost and releases the difference. The ledger lives in a small private repository, so every machine sees the same state and costs stay out of the public repo. A reservation is an atomic compare-and-swap: `rent` commits the new reservation on top of the ledger head it read and pushes without force; if another run pushed first, the push is rejected and `rent` re-reads and retries. Two concurrent runs can therefore never both spend the last of the budget.
 - **Per-setup caps:** `max_usd_per_hour` and `max_duration_hours` in the setup file.
 - **On-machine timer:** the first provisioning step on every node runs `shutdown -h +<max_duration>`, and every resource is tagged `ostia-rent=<run-id>`, `owner`, `expires=<time>`.
-- **Sweep:** `pixi run rent sweep` lists tagged instances through each provider's API (not SkyPilot's local state) and terminates expired ones. It runs locally before and after every `rent`, and on a schedule once CI credentials exist (§4). Until the scheduled sweep exists, the caps are documented as advisory.
+- **Sweep:** `pixi run rent sweep` lists tagged instances through each provider's API (not SkyPilot's local state) and terminates expired ones. It runs locally before and after every `rent`, and **on an hourly schedule from a default-branch workflow**, which is part of M0 (Rollout PR 7), with read-and-terminate-only credentials (§4). With the on-machine timer, this makes the caps enforced rather than advisory.
 - **Budget alarms** in each cloud account notify but do not stop anything; they are a last warning, not a cap.
 - Reaching the sub-budget, or RFC-0001's 10-week checkpoint, stops new launches until the re-scope review.
 
@@ -140,7 +140,8 @@ M0's rented-hardware sub-budget is **$1,000**. RFC-0001 §4.3 holds the GPU CI s
 
 - Gate runs use accounts separate from GPU CI's AWS account (RFC-0001 §4.2).
 - **At first,** `rent` runs from the maintainer's machine with local credentials.
-- **Later,** a `workflow_dispatch` workflow on the default branch runs `rent --yes`, using OIDC federation for AWS and Azure (no long-lived keys in GitHub), and scoped API keys stored as environment secrets, with required reviewers, for RunPod, Lambda and Nebius, which have no OIDC. The scheduled sweep ships with this workflow.
+- **The scheduled sweep** (M0, PR 7) uses OIDC federation for AWS and Azure and scoped API keys for RunPod, Lambda and Nebius, limited to listing and terminating instances. The keys are stored as secrets of a GitHub environment used only by the sweep workflow on the default branch.
+- **Later,** a `workflow_dispatch` workflow on the default branch runs `rent --yes` with launch permissions, using the same OIDC setup and environment secrets with required reviewers.
 
 ### 5. Quotas
 
@@ -199,7 +200,7 @@ All tests use a fake provider, so they run on CPU CI without cloud accounts.
 ## Rollout
 
 - Implemented by RFC-0001's Rollout **PR 7**, together with the gate runs and the placement re-run. Quota requests go out in **PR 0**.
-- The scheduled sweep and the CI `workflow_dispatch` path follow once OIDC and scoped keys are set up.
+- The scheduled sweep ships in PR 7 with its read-and-terminate credentials. The CI `workflow_dispatch` path for launching follows later.
 - **Merge order:** RFC-0001 ([PR #7](https://github.com/OstiaHQ/ostia/pull/7)) merges first; this RFC then takes current main and regenerates the index. Links to RFC-0001 and RFC-0003 ([PR #8](https://github.com/OstiaHQ/ostia/pull/8)) use their draft PRs until they are on main.
 - Must be Accepted before PR 7 starts.
 
