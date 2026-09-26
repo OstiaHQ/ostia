@@ -5,7 +5,7 @@ status: Draft
 authors: [ShAlireza]
 components: [build, telemetry, fabric, docs]
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-26
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/7
@@ -36,11 +36,12 @@ The repository is public and the project has one maintainer, so three constraint
 
 **Goals**
 
-- A contributor goes from clone to passing tests on macOS or Linux in three commands, without a GPU or a cloud account.
+- A contributor with pixi installed goes from clone to passing tests on macOS or Linux in three commands (`pixi install`, `pixi run build`, `pixi run test`), without a GPU or a cloud account.
 - Every pull request builds on Linux x86_64, Linux aarch64 and macOS, and on a GPU when a maintainer approves it.
 - Layering between components is enforced by configure-time checks and CI, not by convention.
 - The benchmark harness produces results that can be compared across commits and that refuse to pass when the evidence is not good enough.
 - The M0 gate is measured on rented reference setups, with calibration against independent tools.
+- Architectural decisions after this RFC are recorded as ADRs in `docs/adr/` (numbered from 0013), which is the PRD's M0 "decision log".
 
 **M0 is done when** every "Done when" list in §1–§9 is met, RFC-0002 (telemetry runtime), RFC-0003 (topology fixtures) and RFC-0004 (rented hardware) are accepted and implemented, and the gate runs in §6 pass.
 
@@ -62,29 +63,34 @@ The repository is public and the project has one maintainer, so three constraint
 
 - **Minimum CUDA is 12.8.** It is the first 12.x release with Blackwell (`sm_100`) support and runs on the older drivers that clusters keep. CI also builds with the latest CUDA 13.x (13.4 at the time of writing). CUDA 13 needs driver R580 or newer. The floor is revisited by ADR.
 - **Architectures:** SASS for `sm_80`, `sm_90` and `sm_100`, plus PTX for the newest listed architecture. `sm_80` SASS runs on `sm_86` and `sm_89`, so L4 and A10G CI machines need no extra target. Architectures not in the list, such as `sm_103` and `sm_120`, run through PTX JIT; set `CUDA_CACHE_PATH` so the JIT cost is paid once. Architecture-specific targets (`sm_90a`, `sm_100a`, needed for TMA and wgmma) are left to the kernel RFCs that need them.
-- A user-set `CMAKE_CUDA_ARCHITECTURES` always wins. The `dev` preset uses `native` only when a GPU is detected, because CMake fails at configure time when `native` is set and no GPU is present; otherwise it uses the release list. The configure summary prints the choice.
+- A user-set `CMAKE_CUDA_ARCHITECTURES` always wins. Otherwise the top-level `CMakeLists.txt` decides before `enable_language(CUDA)`: in the `dev` preset it uses `native` only when a GPU is detected (CMake fails at configure time when `native` is set and no GPU is present), and otherwise the release list. Presets are static and cannot detect hardware, so this logic lives in CMake code, not in `CMakePresets.json`. The configure summary prints the choice.
+- GPU CI builds only `sm_89` (the L4), to keep its build short; the full list is built by the nvcc compile-only CPU jobs.
 
 #### 1.2 Host compilers and language
 
 - nvcc compiles device code. Clang as the CUDA compiler is not supported in v1.
 - Supported host compilers, bounded by what each CUDA version accepts:
 
-| CUDA | GCC | Clang |
-| --- | --- | --- |
-| 12.8 | 11–14 | 17–19 |
-| 13.x | 11–16 | 17–22 |
+| CUDA | GCC | Clang | Source |
+| --- | --- | --- | --- |
+| 12.8 | 11–14 | 17–19 | CUDA 12.8 installation guide |
+| 13.4 (CI's 13.x) | 11–16 | 17–22 | CUDA 13.4 installation guide |
 
-- The nvcc compile-only CI jobs use GCC 11 with CUDA 12.8 and GCC 14 with CUDA 13.x.
+- Other 13.x minors have narrower upper bounds (13.0 stops at GCC 15 and Clang 20). CI pins 13.4, and the top-level `CMakeLists.txt` checks the host compiler against this table at configure time, failing with the detected and supported versions.
+- The nvcc compile-only CI jobs use GCC 11 with CUDA 12.8 and GCC 14 with CUDA 13.4.
+- **macOS** (host-only, no CUDA) uses conda-forge Clang 19 with libc++ from pixi, not Apple Clang, with a deployment target of macOS 14.0.
 - **C++20 everywhere** (D7). Public headers must compile as C++20 inside `.cu` translation units. The usable standard library is what GCC 11 and nvcc 12.8 support:
   - allowed: concepts, `<span>`, `<ranges>`, `<bit>` and `std::bit_cast`, `<source_location>`, `std::jthread`, `<latch>`, `<barrier>`, `<semaphore>`;
   - banned: `<format>` (GCC 13), constexpr `std::string`/`std::vector` and `std::atomic<std::shared_ptr>` (GCC 12), chrono time zones (GCC 14).
-  The GCC 11 job enforces the list by building everything.
+  The allowed list also holds on the macOS toolchain: libc++ 18 and later ship `std::jthread` and `stop_token` as non-experimental, and `<latch>`, `<barrier>` and `<semaphore>` are available at deployment target 14.0. The GCC 11 job and the macOS job enforce the list by building everything.
 - There is no `std::expected` in C++20, so Ostia has its own `ostia::Result<T>` whose member names mirror `std::expected`, making a later switch mechanical.
-- **C++23** is revisited by ADR when the floors reach CUDA 13.3 (the first nvcc with C++23) and GCC 13.
+- **C++23** is revisited by ADR when the floors reach CUDA 13.3 (whose release notes add C++23 to nvcc) and GCC 14 (NVIDIA's C++23 device-language guidance requires it).
 
 #### 1.3 CMake
 
-CMake **4.1 or newer**. It is the first line that knows both CUDA 13 and the 12.8 architectures, and pixi supplies it, so a high floor costs contributors nothing.
+CMake **4.1 or newer**. The CUDA 13 architecture tables first shipped in CMake 3.31.9, 4.0.4 and 4.1.0, so 4.1 is the lowest 4.x line with them. pixi supplies it, and the container jobs install a pinned 4.1 from Kitware's release archive, so a high floor costs contributors nothing.
+
+CMake 4 rejects `cmake_minimum_required` below 3.5 in dependencies. CPM-fetched dependencies that still declare one are configured with `CMAKE_POLICY_VERSION_MINIMUM=3.5`, scoped to that dependency.
 
 #### 1.4 Platforms and support tiers
 
@@ -92,15 +98,17 @@ CMake **4.1 or newer**. It is the first line that knows both CUDA 13 and the 12.
 | --- | --- | --- | --- |
 | 1 | Built and tested on every PR; gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`, `gpu-l4` |
 | 1 | Built and tested on every PR | macOS 15 arm64, host-only (no CUDA) | `macos-arm64-host` |
-| 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 (distro packages, no pixi) | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
+| 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 without pixi | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
 | 3 | Best effort | Other Linux distributions; building without pixi elsewhere | none |
+
+The Ubuntu 22.04 and Rocky 9 container jobs prove that Ostia builds without pixi. They use a pinned CMake 4.1 from Kitware plus distro packages for everything else (compiler, hwloc), build host-only at telemetry level `off` (neither distro packages opentelemetry-cpp, and their UCX is too old), and let CPM supply the source dependencies.
 
 aarch64 moves to tier 1 after a gate run passes on a rented Grace Hopper machine. On macOS, CUDA code is checked with a `linux/arm64` container that has the CUDA SBSA toolkit; it runs natively on Apple silicon and nvcc needs no GPU.
 
 **Done when**
 
-- [ ] `CMakePresets.json` encodes the architecture list, the `dev` fallback and the compiler ranges above.
-- [ ] The GCC 11 job builds all code with CUDA 12.8, and the GCC 14 job builds it with CUDA 13.x.
+- [ ] `CMakePresets.json` encodes the architecture list; the top-level `CMakeLists.txt` implements the `dev` GPU detection and the compiler-range check, with a configure test for each.
+- [ ] The GCC 11 job builds all code with CUDA 12.8, and the GCC 14 job builds it with CUDA 13.4.
 - [ ] `ostia::Result<T>` exists with `value()`, `error()`, `has_value()` and `operator bool` named as in `std::expected`.
 - [ ] The support-tier table is in `docs/guides/building.md`, and each tier-1 row has a green CI job.
 
@@ -108,13 +116,13 @@ aarch64 moves to tier 1 after a gate run passes on a rented Grace Hopper machine
 
 #### 2.1 How the build finds dependencies
 
-CMake uses `find_package()` only. It never downloads, builds or installs system packages itself, so anyone embedding Ostia can supply dependencies from conda, Spack, distro packages or wheels. What each source provides:
+There are two paths. **System dependencies** (UCX, hwloc, opentelemetry-cpp, CUDA) are found with `find_package()` only; the build never installs them. **Source dependencies** are fetched and configured by CPM during CMake configuration, unless a local package is found first. A packager who wants no downloads at all sets `CPM_LOCAL_PACKAGES_ONLY=ON` and supplies every package. Anyone embedding Ostia can therefore use conda, Spack, distro packages or wheels. What each source provides:
 
 | Source | Provides | Who uses it |
 | --- | --- | --- |
 | pixi (conda-forge) | CUDA toolkit, UCX + rdma-core (Linux), libhwloc, libopentelemetry-cpp (+ protobuf, curl), CMake, Ninja, ccache, clang tools, ruff, gersemi, pytest, scikit-build-core | Contributors and CI |
-| CPM.cmake, pinned by tag and commit SHA | nanobind, GoogleTest, nvbench, nanoarrow, CCCL | The source build; `CPM_USE_LOCAL_PACKAGES` and `CPM_<pkg>_SOURCE` let packagers substitute their own |
-| Loaded at runtime with `dlopen` | NVML, nvCOMP | Never linked or bundled |
+| CPM.cmake, pinned by tag and commit SHA | nanobind, GoogleTest, nvbench, nanoarrow, CCCL | The source build; `CPM_USE_LOCAL_PACKAGES`, `CPM_LOCAL_PACKAGES_ONLY` and `CPM_<pkg>_SOURCE` let packagers substitute their own |
+| Loaded at runtime with `dlopen` | NVML, nvCOMP | Never linked or bundled by Ostia's libraries |
 | The consumer | Everything above that `find_package()` looks for | People embedding Ostia |
 
 #### 2.2 pixi environments
@@ -138,18 +146,18 @@ This RFC is the approval that docs/README.md requires for new dependencies.
 | CCCL | Apache-2.0 with LLVM exception | CUB, Thrust, libcu++ | CPM, from GitHub | M0 | CUDA targets |
 | nanobind | BSD-3-Clause | Python bindings | CPM, one version for all extensions | M0 | every `python/` |
 | GoogleTest | BSD-3-Clause | C++ tests | CPM | M0 | tests |
-| nvbench | Apache-2.0 | In-process GPU benchmarks | CPM (not on conda-forge) | M0 | `bench/` |
+| nvbench | Apache-2.0 | In-process GPU benchmarks | CPM (not on conda-forge); its own NVML use is allowed because benchmark binaries are not shipped libraries | M0 | `bench/` |
 | nanoarrow | Apache-2.0 | Arrow C Device Data Interface (`NANOARROW_DEVICE_WITH_CUDA`) | CPM | M2 | exchange |
 | NVML | NVIDIA driver | GPU and NVLink discovery | `dlopen` | M0 (capture), M1 | fabric |
 | nvCOMP | NVIDIA proprietary, optional | Compression pushdown | `dlopen`, never bundled | M2 | exchange; out of default M0 resolution |
 
-- CCCL is taken from GitHub rather than the toolkit, which CCCL supports ("a newer CCCL with an older CUDA Toolkit"), so the CCCL version does not change with the CUDA version. CCCL 3.x supports only the latest patch release of CUDA 12.x and 13.x.
+- CCCL is taken from GitHub rather than the toolkit, which CCCL supports ("a newer CCCL with an older CUDA Toolkit"), so the CCCL version does not change with the CUDA version. CCCL 3.x supports CUDA 12.x and 13.x at their latest patch releases, which includes CUDA 12.8 (its latest patch is what CI pins).
 - nvCOMP is approved now and integrated with compression pushdown in M2. When integrated, it reports its capability explicitly, and any benchmark or test that requires it fails, rather than silently falling back, when it is missing or incompatible. Its redistribution terms are checked before any binary release (PRD, Third-party code).
 
 #### 2.4 Pinning and updates
 
 - `pixi.lock` pins conda packages. CPM pins by tag and full commit SHA, and CI caches `CPM_SOURCE_CACHE`. When an upstream tag disappears, the fix is a pull request that bumps the pin.
-- **Renovate** updates pixi (its `pixi` manager, with `pixi` in `allowedUnsafeExecutions` so it can regenerate `pixi.lock`) and CPM pins (a regex manager over `CPMAddPackage`, using github-tags). Dependabot supports neither. **Dependabot** keeps updating GitHub Actions only.
+- **Renovate** updates pixi (its `pixi` manager) and CPM pins (a regex manager over `CPMAddPackage`, using github-tags). Regenerating `pixi.lock` needs `pixi` in Renovate's global `allowedUnsafeExecutions`, which the hosted Renovate app does not allow, so Renovate runs **self-hosted** from a scheduled GitHub Actions workflow (`renovatebot/github-action`) with that global setting. Dependabot supports neither. **Dependabot** keeps updating GitHub Actions only.
 
 **Done when**
 
@@ -205,7 +213,7 @@ Components are ordered by **rank**: telemetry 0, fabric 1, exchange 2, runtime 3
 | runtime | exchange, fabric, telemetry |
 | query | runtime, exchange, telemetry |
 
-The authority for this table is PRD D12 together with this RFC. Runtime uses fabric's topology directly (PRD, Layer 2); a follow-up aligns the PRD's "only the layer directly below" sentence with the table.
+The authority for this table is PRD D12 together with this RFC. Runtime uses fabric's topology directly for placement (PRD, Layer 2), and query uses exchange's cost estimates (PRD, Layer 3). This PR updates the PRD's layering sentence to match: dependencies only point down, and the few direct edges past the layer immediately below are the ones in this table.
 
 ```mermaid
 graph BT
@@ -221,18 +229,18 @@ graph BT
     query --> telemetry
 ```
 
-Enforcement has three parts, each checking **direct** edges only. Exposure through a lower-rank component's public interface (query seeing fabric types through runtime) is allowed.
+Enforcement has three parts, each checking a component's **own direct** edges against the table. Exposure through another component's public interface is allowed: query code that includes a runtime header, which itself includes a fabric header, passes, because the fabric include is runtime's, not query's.
 
 1. **At configure time,** `ostia_add_component` rejects any `DEPENDS` entry that is not in the table. Disabling a component that another enabled component needs is a configure error naming the dependent.
-2. **After all targets exist,** the top-level `CMakeLists.txt` walks each `ostia_*` target's direct `LINK_LIBRARIES` and fails on any edge not in the table. This catches a raw `target_link_libraries` call that bypasses the helper.
-3. **In CI and pre-commit,** `tools/ci/check_layering.py` scans each component's direct `#include` lines. It fails on includes of a higher-rank component, on includes that reach into another component's `src/`, and on relative includes across component folders.
+2. **After all targets exist,** the top-level `CMakeLists.txt` walks each `ostia_*` target's `LINK_LIBRARIES` and `INTERFACE_LINK_LIBRARIES`, resolves `ostia::` aliases, and fails on any edge not in the table. Entries hidden in generator expressions cannot be evaluated at configure time, so CI also runs `cmake --graphviz` on a configured tree and checks its resolved edge list against the table. This catches a raw `target_link_libraries` call, including an INTERFACE edge, that bypasses the helper.
+3. **In CI and pre-commit,** `tools/ci/check_layering.py` scans the `#include` lines in each component's own files. An `<ostia/X/...>` include must name the component itself or one in its table row; it also fails on includes that reach into another component's `src/` and on relative includes across component folders.
 
 Every failure follows the error-message contract ([Failure handling](#failure-handling)), for example:
 
 ```text
-error: fabric/src/probe.cpp:12 includes <ostia/runtime/driver.hpp>
-  fabric (rank 1) may depend on: telemetry
-  fix: move the code to runtime, or change fabric's DEPENDS through an RFC (RFC-0001 §3.3)
+error: query/src/plan.cpp:12 includes <ostia/fabric/topology.hpp>
+  query may depend on: runtime, exchange, telemetry
+  fix: use runtime's or exchange's API, or change the dependency table through an RFC (RFC-0001 §3.3)
 ```
 
 #### 3.4 Host-only boundary
@@ -244,7 +252,7 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 - Python packages share the `ostia` import namespace (PEP 420). Each component installs into `ostia/<component>/`, and no package ships `ostia/__init__.py`.
 - **Development installs** are per-component scikit-build-core editable installs (scikit-build-core 1.0.1 or newer, which fixed shared namespace packages in redirect mode). One native build and install prefix per pixi environment and preset owns every `libostia-*.so`. Component editables link against that prefix and never build or bundle lower-rank native libraries. All extensions use the same pinned nanobind version.
 - `pixi run py-dev` installs the editables in rank order with `--no-build-isolation`, a persistent build directory and the selected preset. Rebuilding after a native change is an explicit, documented command. Switching telemetry flavour rebuilds the whole stack or fails clearly. Only implemented components get editables; placeholders get none.
-- Library lookup uses `$ORIGIN` on Linux and `@loader_path` on macOS.
+- **Library lookup.** The native prefix is the pixi environment's prefix: `libostia-*.so` installs into its `lib/`. Each extension installs into `site-packages/ostia/<component>/`, and CMake computes its `INSTALL_RPATH` as the relative path from there to the prefix's `lib/` (`$ORIGIN/../../../..`-style on Linux, `@loader_path/...` on macOS), so extensions find the one shared copy. The out-of-checkout test prints and checks the loaded library paths.
 - If these conditions cannot be met in PR 1, the fallback is one shared CMake install prefix with Python packages installed from it.
 
 **Done when**
@@ -268,53 +276,55 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 | `nvcc-12.8`, `nvcc-13` | ubuntu-24.04 | CUDA compile-only (GCC 11 / GCC 14) | Every PR |
 | `container-ubuntu2204`, `container-rocky9` | ubuntu-24.04 | Build with distro packages, no pixi | Every PR |
 | `sanitize-asan-ubsan`, `sanitize-tsan` | ubuntu-24.04 | Clang, `debug` level | Every PR |
-| `multiprocess-tcp` | ubuntu-24.04 | Multi-process tests over UCX TCP loopback | Every PR |
+| `multiprocess-tcp` | ubuntu-24.04 | Multi-process tests over UCX TCP loopback (`fabric/tests/multiprocess/`) | Every PR |
 | `lint` | ubuntu-24.04 | clang-format, ruff, gersemi, `check_layering.py`, `check_telemetry_macros.py`, `gen_index.py --check` | Every PR |
 | `docs-as-test` | ubuntu-24.04, fresh | Runs `docs/guides/building.md`'s host-only commands verbatim; records the time taken | Every PR |
 | `levels-full` | all | Full telemetry-level matrix on every configuration | Nightly |
 
 - clang-tidy runs on changed files in CI and as a manual pre-commit stage, because it needs `compile_commands.json` and is slow.
 - Required checks aim to finish within **20 minutes**. Jobs use per-PR concurrency groups with `cancel-in-progress`. Every job calls the same `pixi run` tasks a contributor runs locally (`pixi run check` is the required subset) and prints the command to reproduce a failure.
-- ccache runs through pixi, with `actions/cache`.
+- ccache runs through pixi, with `actions/cache`, for pull-request CPU jobs only (see §4.2 on caches).
+- In M0 the multi-process suite is a harness test: a launcher starts 2 or more processes, they rendezvous, and a raw UCX put moves a checksummed buffer between them. Fabric's own multi-process tests replace it in M1. It lives in `fabric/tests/multiprocess/` with the ctest label `multiprocess`.
 
 #### 4.2 GPU jobs
 
 **Runner.** An ephemeral AWS `g6.xlarge` (one L4, `sm_89`) per job, started by **Cirun**: it is free for public repositories and supports spot instances with fallback to on-demand. GitHub's own GPU runners were rejected: they are T4 (`sm_75`, below the architecture floor), and larger runners are not free for public repositories. RunsOn was rejected because an open-core company needs its commercial licence.
 
-**Authorisation.** A pull request's `pull_request` workflow runs the workflow file from the PR's own merge commit, so a fork could edit it to skip any check it contains. GPU jobs therefore never run from `pull_request` workflows:
+**Authorisation.** A pull request's `pull_request` workflow runs the workflow file from the PR's own merge commit, so a fork could edit it to skip any check it contains. GPU jobs therefore run only from workflow files on the default branch:
 
 ```mermaid
 sequenceDiagram
     participant C as Contributor (fork)
     participant M as Maintainer
     participant GH as GitHub
-    participant W as gpu.yml (default branch)
+    participant W as gpu-pr.yml (default branch)
     participant R as Cirun L4 runner
     C->>GH: push to PR
-    GH->>GH: label-reset workflow removes ci:gpu
+    GH->>GH: label-reset removes ci:gpu, cancels queued GPU runs
     M->>GH: review diff, add ci:gpu
-    GH->>W: workflow_run (default-branch file)
-    W->>W: record PR number + head SHA at label time
-    W->>M: environment "gpu" requires approval of that SHA
+    GH->>W: pull_request_target (labeled)
+    W->>M: run "GPU PR #N @ sha" waits for environment gpu-pr approval
     M->>W: approve
-    W->>R: request runner (pull_request: false in Cirun)
-    R->>R: checkout SHA, persist-credentials: false, run tests
-    C->>GH: new push
-    GH->>W: cancel queued run, label removed, re-approval needed
+    W->>GH: recheck: label present, head SHA unchanged
+    W->>R: request runner (Cirun allows default-branch workflows only)
+    R->>R: checkout head SHA, persist-credentials: false, run tests
 ```
 
-- The GPU workflow lives on the default branch and is started by `workflow_run` on the label event or by a maintainer's `workflow_dispatch`. It receives the PR number and the head SHA captured at label time, runs in a GitHub environment named `gpu` with required reviewers so the approver sees that exact commit, and checks out that SHA with `persist-credentials: false`.
-- Cirun's access control is set to `pull_request: false`, so no `pull_request` workflow can obtain a GPU runner even if a fork adds the runner label.
-- A label-reset workflow on `pull_request_target` (`synchronize` only, no checkout, `permissions: pull-requests: write`) removes `ci:gpu` on every push. A push after labelling cancels the queued run.
+- **`gpu-pr.yml`** runs on `pull_request_target` with `types: [labeled]` and a job-level `if: github.event.label.name == 'ci:gpu'`, so it always uses the default branch's workflow file. It has `permissions: contents: read`, references no secrets, and sets `run-name: GPU PR #<number> @ <head SHA>` so the approval screen names the exact commit (the environment itself shows a default-branch SHA). The job runs in environment **`gpu-pr`**, which requires a maintainer's approval.
+- After approval, a first step on a GitHub-hosted runner re-reads the PR through the API and stops unless the `ci:gpu` label is still present and the head SHA equals the one in the run name. Only then does the GPU job check out that SHA with `persist-credentials: false`.
+- A per-PR concurrency group with `cancel-in-progress` keeps one GPU run per PR. The **label-reset** workflow (`pull_request_target`, `synchronize` only, no checkout, `permissions: pull-requests: write, actions: write`) removes `ci:gpu` on every push and cancels that PR's queued or running GPU runs, so every new push needs a new review and label.
+- **`gpu-main.yml`** runs GPU jobs on pushes to `main` and on the nightly schedule, in environment **`gpu-main`**, which has no reviewers and a deployment-branch rule limiting it to `main`.
+- **Cirun configuration is central.** Access control and runner definitions (instance type, image, start-up script) live in the organisation's `.cirun` repository, not in a file a fork can edit in this repository. Access control allows runner requests only from `pull_request_target`, `push`, `schedule` and `workflow_dispatch` events on this repository (`pull_request: false`). If Cirun cannot guarantee that a fork's edits to runner configuration are ignored, GPU runs fail closed. PR 4's security test confirms this with a fork that edits both the workflows and any Cirun file.
 - The repository requires approval for all external contributors' workflows.
-- Pushes to `main` and the nightly schedule run GPU jobs without a label.
-- Contributors without label rights ask a maintainer for `ci:gpu`. The PR shows one of four states: awaiting label, running, passed, failed. Every new push needs a new label.
+- Contributors without label rights ask a maintainer for `ci:gpu`. The PR shows one of four states: awaiting label, running, passed, failed.
 
 **Isolation.** GPU CI runs in an AWS account separate from gate runs.
-- The VM has no instance profile, uses IMDSv2 with a hop limit of 1, allows security-group egress on port 443 only, and is destroyed after one job.
-- The workflow has minimal `permissions:` and passes no secrets to the job, and caches are read-only for PR runs, because `workflow_run` workflows otherwise get write tokens and cache access.
+- The VM has **no instance profile**, so the instance metadata service holds no credentials to steal. IMDSv2 is required with a hop limit of 1, which keeps containers on the VM away from it. Security-group egress is limited to port 443, and the VM is destroyed after one job.
+- The workflow has minimal `permissions:` and passes no secrets to the job.
+- **No cache crosses from PR runs to trusted runs.** A `pull_request_target` run executes untrusted code in the default branch's context, and that code can obtain the runner's token and write caches scoped to `main`. So PR GPU runs save no caches, and jobs that run on `main` or on a schedule restore none: they rebuild from `pixi.lock` (hash-verified packages) and SHA-pinned CPM sources.
 - Domain-level egress filtering (a proxy or AWS Network Firewall, about $290 a month per endpoint) is out of M0 scope.
 - The Cirun app's permissions are listed in `MAINTAINERS.md`, and it is installed on this repository only.
+- Each GPU job has a hard 60-minute timeout.
 
 **What GPU jobs run.**
 - Unit and integration tests at all telemetry levels.
@@ -331,15 +341,17 @@ sequenceDiagram
 | Cirun | Free for public repositories | — | $0 |
 | **GPU CI sub-budget for M0** | | About 2.5 months, plus retries | **$200** |
 
-The rented-hardware sub-budget ($1,000) and a $300 contingency make up the rest of the $1,500 (RFC-0004). The launcher refuses new GPU jobs once the GPU CI sub-budget is spent, and a maintainer decides at the re-scope review.
+The rented-hardware sub-budget ($1,000) and a $300 contingency make up the rest of the $1,500 (RFC-0004). **Enforcement:** the GPU CI account has an AWS Budgets action at $200 that attaches a deny policy to the role Cirun launches instances with, so no new GPU job can start; notifications fire at 50% and 80%. AWS updates budget data a few times a day, so the overshoot is bounded by a few hours of jobs, each capped at 60 minutes. A maintainer decides at the re-scope review.
 
 **Done when**
 
 - [ ] Every job in §4.1 is green on `main`, and required checks finish within 20 minutes on a typical PR.
 - [ ] The `docs-as-test` job passes and records its duration.
-- [ ] A test fork PR that edits the workflow files cannot obtain a GPU runner without approval.
-- [ ] A test step in the GPU job confirms that the instance metadata service is unreachable.
-- [ ] Label-then-push cancels the queued run, and re-labelling runs the new SHA only.
+- [ ] A test fork PR that edits the workflow files and any Cirun file cannot obtain a GPU runner.
+- [ ] A test step in the GPU job confirms that the instance metadata service returns no IAM credentials.
+- [ ] Label-then-push cancels the queued run; a push between approval and checkout is caught by the recheck; re-labelling runs the new SHA only.
+- [ ] Pushes to `main` and nightly runs start GPU jobs without waiting for approval.
+- [ ] The AWS Budgets action is tested in a dry run that confirms Cirun's role loses launch permission.
 - [ ] Nightly `compute-sanitizer` survives a simulated spot interruption through retry.
 - [ ] Multi-process tests pass over UCX TCP loopback on CPU and with 2 processes on one L4.
 
@@ -349,6 +361,7 @@ This section covers only how the level is chosen and compiled. The runtime is RF
 
 - A CMake cache variable, `OSTIA_TELEMETRY=off|metrics|trace|debug`, selects the level. Release presets default to `metrics`, the `dev` preset to `debug`. There is a preset per level.
 - The build generates a `config.h` holding `OSTIA_TELEMETRY_LEVEL` (0–3). Dependent components get it through `ostia::telemetry_config`, an INTERFACE target that exists only in the build tree. It is never installed, and no public header includes it.
+- The metric catalog generator (RFC-0002 §1) emits storage-free `constexpr` handles for every declared metric **in every build, including `off`**. Code outside templates is still name-checked inside a discarded `if constexpr` branch, so without the handles `OSTIA_COUNT(bytes_sent, n)` would not compile in an `off` build. The handles carry no storage and generate no code.
 - The instrumentation macros `OSTIA_COUNT`, `OSTIA_TRACE_EVENT` and `OSTIA_DEBUG_CHECK` expand to `if constexpr (OSTIA_TELEMETRY_LEVEL >= N) { ... }`. Their arguments must be valid expressions and are **never evaluated** when the level is below `N`, so arguments must not have side effects. The macros work at function scope only.
 
 ```cpp
@@ -356,15 +369,16 @@ OSTIA_COUNT(bytes_sent, n);          // fine
 OSTIA_COUNT(bytes_sent, pop_next()); // wrong: pop_next() does not run in an `off` build
 ```
 
-- `tools/ci/check_telemetry_macros.py` fails if any header under `*/include/` uses these macros or includes `config.h`, which keeps public headers level-independent.
-- Every flavour has the same soname, and a flavour applies to the whole installed stack. Each component records its compile-time level and checks it against `ostia_telemetry_build_level()` at initialisation; a mismatch fails immediately with both levels in the message.
+- `tools/ci/check_telemetry_macros.py` fails if any header under `*/include/` uses these macros or includes `config.h`, which keeps public headers level-independent. It also parses every macro call site (with libclang) and fails on function calls, assignments and increment or decrement operators in macro arguments, since those change behaviour between levels. Calls to functions marked `[[gnu::pure]]` or `constexpr` are allowed. Any other exception needs a `// ostia-telemetry: args-pure` comment, which review must accept.
+- Every flavour has the same soname and exports the same C ABI; in `off` builds it is stubs (RFC-0002 §9). A flavour applies to the whole installed stack. Each component records its compile-time level and checks it against `ostia_telemetry_build_level()` at initialisation. A mismatch makes initialisation return an error status naming both levels (Python raises `ImportError`); an embedded library never ends the host process.
 - No telemetry level changes Fabric's wire format: RFC-0002 ([PR #10](https://github.com/OstiaHQ/ostia/pull/10)) sends trace context once per exchange and derives chunk span IDs, so peers built at different levels interoperate.
 
 **Done when**
 
-- [ ] All four levels build; an `off` build contains no telemetry symbols (checked with `nm`).
+- [ ] All four levels build. In an `off` build, `nm` finds no OpenTelemetry, counter, ring or exporter symbols, and `libostia-telemetry` exports exactly the stub C ABI; the exported symbol list is identical across the four flavours.
 - [ ] A compile test shows that a type error inside a disabled macro still fails to compile.
-- [ ] Loading components built at different levels fails with a clear message.
+- [ ] Loading components built at different levels returns an error status (and `ImportError` in Python) naming both levels, without ending the process.
+- [ ] The macro-argument lint fails on a planted `OSTIA_COUNT(x, pop_next())`.
 - [ ] `check_telemetry_macros.py` fails on a planted macro in a public header.
 
 ### 6. Benchmark harness and the M0 gate
@@ -385,7 +399,8 @@ Results are JSON Lines, one record per measurement:
             "topology": "sha256:5d1e...", "build_level": "off", "compiler": "gcc-14 -O3", "deps": "pixi.lock:9ab3..."},
  "bench": "p2p_copy", "params": {"bytes": 1073741824, "direction": "0->1", "concurrency": 1},
  "unit": "GB/s", "higher_is_better": true,
- "samples": [44.1, 44.3, 44.2], "median": 44.2, "p5": 44.1, "p95": 44.3}
+ "samples": [44.1, 44.3, 44.2, 44.2, 44.0, 44.3, 44.1, 44.2, 44.4, 44.2],
+ "median": 44.2, "p5": 44.05, "p95": 44.35}
 ```
 
 - **Provenance** fields (git SHA, date, run ID) never affect comparability.
@@ -397,7 +412,11 @@ Results are JSON Lines, one record per measurement:
 - **Outcomes:** `pass`, `regression`, `inconclusive` and `invalid`. A required gate never passes on `inconclusive`.
 - **Validity:** each run has a manifest of expected cases. Missing or duplicate cases, malformed records and non-finite samples make the run `invalid`, and so do missing or empty result files.
 - **Compatibility rules** are defined per comparison. A baseline check requires equal compatibility fields. The overhead gate deliberately compares different build levels on the same box.
-- **Regression rule:** a median worse by more than max(5%, 3 × MAD) in the metric's direction, with at least 10 samples per side. With fewer samples, or when the spread cannot resolve the threshold, the result is `inconclusive`.
+- **Regression rule.** Changes are measured relative to the baseline, in the metric's "worse" direction: `d = (candidate median − baseline median) / baseline median`, signed so that positive means worse. `compare.py` computes a 95% bootstrap confidence interval [lo, hi] for `d` from at least 10 samples per side (10,000 resamples, fixed seed):
+  - `pass` if hi < 5%;
+  - `regression` if lo > 5%;
+  - `inconclusive` otherwise, or with fewer than 10 samples per side.
+- Baselines pool samples from at least two separate machines of the same setup when they exist, so the interval includes machine-to-machine variation on rented hardware, not only run-to-run noise.
 - The job summary lists every skipped or inconclusive comparison.
 - Baselines live in `bench/baselines/<setup>.json`. Updating one is its own pull request with a reason; `compare.py --write-baseline` produces its content.
 
@@ -405,28 +424,32 @@ Results are JSON Lines, one record per measurement:
 
 The gate measures hardware ceilings and the prototype's techniques with **standalone reference programs**, not with Ostia's data path, which does not exist until M1.
 
-| Workload | What it shows | Source | Oracle | Owner PR |
+| Workload | What it shows | Source | Oracle | Bound |
 | --- | --- | --- | --- | --- |
-| Calibration: P2P copy | NVLink/PCIe ceiling | `fabric/bench/p2p_copy.cu` | within 5% of `nvbandwidth` with matched size, direction, concurrency and memory placement | PR 5 |
-| Calibration: RDMA put | GPUDirect RDMA ceiling | `fabric/bench/rdma_put.cpp` (UCX) | within 5% of `ib_write_bw` / `ucx_perftest` with matched parameters | PR 5 |
-| Pipelining | Chunked, overlapped transfers vs synchronous | `fabric/bench/pipelining.cu` | received data checksummed | PR 5 |
-| Batching | Message-size effect | `fabric/bench/batching.cu` | received data checksummed | PR 5 |
-| Dual-link | Two paths at once | `fabric/bench/dual_link.cu` | received data checksummed | PR 5 |
-| GPUDirect RDMA | GPU-to-GPU across nodes | `fabric/bench/gdr_put.cpp` (UCX) | received data checksummed | PR 5 |
+| `p2p_copy` (calibration) | NVLink/PCIe ceiling for one large copy | `fabric/bench/p2p_copy.cu` | within 5% of `nvbandwidth` with matched size, direction, concurrency and memory placement | reference tool |
+| `rdma_put` (calibration) | GPUDirect RDMA ceiling for one large GPU-memory put | `fabric/bench/rdma_put.cpp` (UCX) | within 5% of `ib_write_bw --use_cuda` / `ucx_perftest` with matched parameters | reference tool |
+| `pipelining` | Chunked, overlapped copies vs synchronous | `fabric/bench/pipelining.cu` | received data checksummed | slower of the measured pack and transfer stage rates |
+| `batching` | Throughput across message sizes | `fabric/bench/batching.cu` | received data checksummed | `m / (t0 + m / B)` for message size `m`, from the measured per-message cost `t0` (smallest size) and the ceiling `B`; the gate checks 1 MiB and larger |
+| `dual_link` | Two paths at once (two NVLink paths, or two NICs) | `fabric/bench/dual_link.cu` | received data checksummed | sum of the two paths' ceilings, or the measured limit of a shared resource (PCIe switch, NIC, host memory) if lower |
+| `gdr_stream` | A sustained, pipelined GPU-to-GPU stream across nodes (4 MiB chunks, several in flight) | `fabric/bench/gdr_stream.cpp` (UCX) | received data checksummed | the `rdma_put` ceiling measured on the same pair |
+| `tcp_put` (informational) | TCP ceiling between nodes | `fabric/bench/tcp_put.cpp` (UCX) | within 5% of `iperf3` / `ucx_perftest` over TCP | reference tool |
 
-The programs port the ideas of the prototype's micro-benchmarks; they do not copy its code (D6).
+`rdma_put` measures what one transfer can reach; `gdr_stream` shows that a realistic chunked stream sustains it. All programs are owned by Rollout PR 5, and they port the ideas of the prototype's micro-benchmarks without copying its code (D6).
+
+**Required workloads per setup.** The PRD's gate names NVLink P2P and GPUDirect RDMA, so the TCP/EFA pair is informational:
+
+| Setup (RFC-0004) | Gate workloads | Also run |
+| --- | --- | --- |
+| nvlink-node | `p2p_copy`, `pipelining`, `batching`, `dual_link` (two NVLink paths) | Placement re-run (§9), topology capture |
+| rdma-pair | `rdma_put`, `gdr_stream`, `dual_link` (two NICs, multi-rail) | Topology capture |
+| tcp-efa-pair | none | `tcp_put`, topology capture |
 
 - **Evidence of transport.** Every gate run records evidence of the transport actually used (for example UCX transport names, the memory type of registrations, and which NICs or NVLinks carried traffic). A run that cannot show it used the capability it is testing fails instead of passing.
-- **Capability profiles.** Each reference setup has a capability profile, chosen before the run, for the primary machine and its fallback (RFC-0004). An experiment the setup cannot support is reported as `unsupported`.
-- **Expected bounds come from the box, not from fixed ratios.**
-  - The pipelining bound is derived from the measured stage times: the transfer can hide the pack time only up to the slower stage.
-  - The dual-link bound is the sum of the two links unless a shared resource (a PCIe switch, a NIC, host memory) caps it lower. That resource's measured limit is then the bound.
-  - The GPUDirect RDMA bound is the NIC line rate measured by the reference tool.
+- **Capability profiles.** Each reference setup has a capability profile, chosen before the run, for the primary machine and its fallback (RFC-0004). A gate workload the chosen machine cannot support fails the gate on that machine; `unsupported` is acceptable only for workloads in the "Also run" column.
 
-**The M0 gate passes when:**
-1. Both calibration workloads agree with their reference tools within 5% on the reference setups.
-2. The experimental workloads reach at least 90% of their derived bounds, with transport evidence.
-3. All of this holds on the primary setup, or on a pre-declared fallback that has the needed capabilities.
+**The M0 gate passes when,** on each of the nvlink-node and rdma-pair setups (primary, or a pre-declared fallback with the needed capabilities):
+1. Its calibration workload agrees with its reference tool within 5%.
+2. Its other gate workloads reach at least 90% of their bounds, with transport evidence.
 
 A missed target is triaged: re-run on a fresh box, compare against the reference tool, and inspect the compatibility fields. A target changes only through an ADR.
 
@@ -446,17 +469,21 @@ The prototype's published figures (public repository `fardatalab/MGI`, formerly 
 
 #### 6.6 Telemetry overhead gate
 
-- PR 5 lands the measurement mechanism: interleaved A/B runs of the same benchmark on the same box, at least 10 interleaved pairs per level.
+- PR 5 lands the measurement mechanism: paired, interleaved runs of the same benchmark on the same box, alternating `off` and the level under test, with at least 20 pairs.
 - The acceptance gate activates with RFC-0002's implementation, once real counters and export exist. At that point it states the instrumentation density and exporter state it measures, and it checks that the expected counters actually changed.
-- The gate fails when `metrics`, or `trace` with tracing switched off, is more than 2% slower than `off` (PRD limits). The trace-on limit (10%) belongs to RFC-0002.
-- The L4 runner's noise floor is measured and recorded. If it exceeds 2%, the gate runs on a quiet rented box instead, paid for from the contingency.
+- **Test.** For each pair, the overhead is `r = t_level / t_off − 1`. The gate computes a 95% bootstrap confidence interval for the mean of `r`:
+  - `pass` if its upper bound is below 2% (the PRD limit for `metrics`, and for `trace` with tracing switched off);
+  - `fail` if its lower bound is above 2%;
+  - otherwise more pairs are run, up to 100, and the gate fails if it is still undecided.
+  The trace-on limit (10%) uses the same test and belongs to RFC-0002.
+- **Noise floor.** Before the gate counts, an A/A run (`off` against `off`) must give a confidence interval whose half-width is at most 0.5%. If the L4 runner cannot achieve that, the gate runs on a quiet rented box instead, paid from RFC-0004's rented-hardware sub-budget, where it has its own line.
 
 **Done when**
 
 - [ ] `compare.py` has tests for each outcome, including the rejection of missing, duplicate and non-finite cases, and for comparing results from different commits on the same compatible box.
-- [ ] An injected 3% slowdown fails the overhead mechanism's self-test, and 0% passes.
+- [ ] An injected 3% slowdown fails the overhead mechanism's self-test, 0% passes, and an A/A run on the L4 runner reports its noise floor.
 - [ ] Each gate workload in §6.4 exists with its oracle and records transport evidence.
-- [ ] The gate passes on the three reference setups (RFC-0004), or on pre-declared fallbacks.
+- [ ] The gate passes on the nvlink-node and rdma-pair setups (RFC-0004), or on pre-declared fallbacks, and the informational `tcp_put` run is recorded.
 - [ ] `docs/guides/benchmarks.md` shows how to run a benchmark and update a baseline.
 
 ### 7. Topology fixtures (summary)
@@ -489,7 +516,11 @@ The PRD's landscape table is "from memory and not yet checked". It is verified i
 - Each project that overlaps Ostia gets one line saying why Ostia still wins, or what scope change follows.
 - The PR states a build-versus-extend conclusion: an independent fabric, a planner on an existing transport stack, or contributing to an existing exchange implementation.
 
-**On-path placement results.** The PRD asks whether running an operator at a middle hop beats pushing it to the source. The prototype's public repository has code for four-GPU source, middle and destination variants (`micro_benchmarks/onpath/on_path_four_gpu_*`). The recorded results found cover only single-path runs with and without on-path processing, plus aggregation runs, so the source-versus-middle comparison is re-run in PR 7 on the NVLink setup, under equal resource budgets. It is a measurement recorded in the PRD, not a gate.
+**On-path placement results.** The PRD asks whether running an operator at a middle hop beats pushing it to the source. The prototype's public repository has code for four-GPU source, middle and destination variants (`micro_benchmarks/onpath/on_path_four_gpu_*`). The recorded results found cover only single-path runs with and without on-path processing, plus aggregation runs, so the source-versus-middle comparison is re-run in PR 7 on the nvlink-node setup. It is a measurement recorded in the PRD, not a gate.
+
+- **Program:** `fabric/bench/onpath_placement.cu`, a new standalone program that ports the prototype's four-GPU source, middle and destination variants for filter and aggregation.
+- **Equal resource budgets** means each variant gets the same GPUs, the same number of streams and the same memory for operator state, and the source GPU is also tested while busy with a synthetic compute load, since the PRD expects on-path placement to win mainly when the source is busy or at convergence points.
+- **Reported:** time and bytes moved per variant, for at least 10 runs each, compared with `compare.py`'s relative confidence interval (§6.3).
 
 **Done when**
 
@@ -505,7 +536,7 @@ Every tool and configure check in M0 follows one **error-message contract**: the
 | Layering violation | Configure check, link walk, `check_layering.py` | Error naming the file, line, component rank and allowed dependencies | Nothing built |
 | CUDA requested but missing | Configure (`OSTIA_ENABLE_CUDA=ON`) | Detected versus required versions | Nothing built |
 | Dependency fetch fails (removed tag, conda outage) | Build | Error naming the pin; fix is a pin-bump PR | CI red |
-| Telemetry flavour mismatch | Component initialisation | Both levels and library paths | Process exits |
+| Telemetry flavour mismatch | Component initialisation | Error status (or `ImportError` in Python) with both levels and library paths | Component not initialised; host process keeps running |
 | GPU runner unavailable or spot-interrupted | Cirun | `infra-failed`, retried once on demand | VM destroyed |
 | Driver or CUDA mismatch on the GPU image | GPU job preflight | Fingerprint printed, job fails | VM destroyed |
 | Benchmark results missing, empty or malformed | `compare.py` | `invalid`, with the missing cases | Artifacts kept |
@@ -528,18 +559,20 @@ The M0 gate (§6.4) is the performance target: calibrated ceilings within 5% of 
 
 | Test | Runs on |
 | --- | --- |
-| Layering: upward `DEPENDS`, raw link, include, `src/` reach-in fail; transitive dependency passes | CPU CI |
+| Layering: `DEPENDS` outside the table, raw and INTERFACE links, includes outside the table row, `src/` reach-in all fail; a legitimate transitive include passes; `cmake --graphviz` edge check | CPU CI |
 | Placeholder not exported; `find_package` fails with the RFC pointer | CPU CI |
-| `off` build has no telemetry symbols; disabled macros still type-check | CPU CI |
-| Mixed-flavour load fails; macro in a public header fails the lint | CPU CI |
+| `off` build has no instrumentation, counter, ring or exporter symbols and exports exactly the stub ABI; disabled macros still type-check; macro-argument lint | CPU CI |
+| Mixed-flavour load returns an error without ending the process; macro in a public header fails the lint | CPU CI |
 | PEP 420: two components in one interpreter, one telemetry library, no `ostia/__init__.py` | CPU CI (Linux and macOS) |
 | Native change visible from Python after the documented rebuild | CPU CI |
 | `compare.py` outcomes, manifests, non-finite values, cross-commit comparison | CPU CI |
-| Overhead mechanism self-test (3% injected fails, 0% passes) | GPU CI |
+| Overhead mechanism self-test (3% injected fails, 0% passes) and A/A noise floor | GPU CI |
+| Compiler-range and `dev` GPU-detection configure tests | CPU CI |
 | `docs-as-test`: building.md host-only commands on a fresh runner | CPU CI |
 | macOS `default` environment resolves and builds without UCX, rdma-core or CUDA | CPU CI |
 | Multi-process over UCX TCP loopback / 2 processes on one GPU | CPU CI / GPU CI |
-| Fork PR editing workflows cannot reach a GPU runner; label/push race; IMDS unreachable | GPU CI (manual test PR, then kept as a regression check) |
+| Fork PR editing workflows and Cirun files cannot reach a GPU runner; label/push race and the pre-checkout recheck; IMDS returns no credentials; `main` and nightly start without approval | GPU CI (manual test PR, then kept as a regression check) |
+| AWS Budgets action removes Cirun's launch permission (dry run) | GPU CI account |
 | Spot interruption retry in the nightly sanitizer job | GPU CI |
 | Gate workloads with oracles and transport evidence | Rented setups (RFC-0004) |
 
@@ -553,6 +586,8 @@ Fixture tests are listed in RFC-0003 and rented-hardware tests in RFC-0004.
 - **Kind-first layout** (`include/`, `src/` at the top): older convention for single-product repos; makes component boundaries and later splits harder.
 - **GitHub GPU runners:** T4 is below the architecture floor, and they cost money for public repos. **RunsOn:** commercial licence required for open core. **Self-managed SkyPilot runner:** rebuilds what Cirun provides. **No GPU CI until M1:** leaves CUDA code untested in M0.
 - **Label-gated `pull_request` GPU workflows:** a fork can edit the workflow and skip the gate.
+- **`workflow_run` as the GPU trigger:** a label event cannot start it, and for fork PRs the PR number would have to come from an artifact the fork's workflow can forge.
+- **"max(5%, 3 × MAD)" regression rule:** mixes a relative and an absolute quantity and cannot detect the 2% overhead limit; replaced by the relative confidence-interval rule in §6.3.
 - **All telemetry in RFC-0001:** doubles the size of this RFC; the runtime deserves its own review.
 - **Custom-only harness or Google Benchmark:** re-implements nvbench's statistics or lacks GPU timing. **Wrapping nvbandwidth / ucx_perftest / nccl-tests as the harness:** they calibrate, but cannot run the pipelining and dual-link experiments or produce our schema; they remain the calibration references.
 - **Gate on the prototype's absolute numbers:** needs hardware matched to 2020-era V100 machines.
@@ -565,9 +600,9 @@ Fixture tests are listed in RFC-0003 and rented-hardware tests in RFC-0004.
 | --- | --- | --- |
 | 0 | Competitive-landscape PRD update; quota requests for the three reference setups | §9, RFC-0004 |
 | 1 | Skeleton, CMake helper, presets, pixi, lint, `docs/guides/building.md`, README "Build from source" link, CONTRIBUTING setup link, `docs/guides/README.md` task index | §1–§3 |
-| 2 | CPU CI, `docs-as-test`, `gen_index.py --check` in CI; update CONTRIBUTING.md's "docs checks are run by hand" and the `dependabot.yml` comment | §4.1 |
-| 3 | Telemetry build levels | §5 |
-| 4 | GPU CI | §4.2 |
+| 2 | CPU CI (at telemetry level `metrics` until PR 3), `docs-as-test`, `gen_index.py --check` in CI, self-hosted Renovate; update CONTRIBUTING.md's "docs checks are run by hand" and the `dependabot.yml` comment | §2.4, §4.1 |
+| 3 | Telemetry build levels; adds the four-level matrix and `check_telemetry_macros.py` to CI | §5 |
+| 4 | GPU CI, central Cirun configuration, AWS Budgets action, GPU security tests | §4.2, §4.3 |
 | 5 | Benchmark harness, gate workloads, overhead mechanism | §6 |
 | 6 | Topology fixtures | RFC-0003 |
 | 7 | Rented-hardware tooling, gate runs, placement re-run | RFC-0004, §6.4, §9 |
@@ -575,11 +610,11 @@ Fixture tests are listed in RFC-0003 and rented-hardware tests in RFC-0004.
 
 - **RFC-0002 is reserved for ostia-telemetry.**
 - Each PR ships its how-to guide as a "Done when" item: adding a component (PR 1), running a benchmark and updating a baseline (PR 5), capturing a fixture (PR 6), running a rented setup (PR 7).
-- Each RFC must be Accepted before its implementation PR starts.
+- Each RFC must be Accepted before its implementation PR starts. PR 0 implements no RFC: it is a PRD update and quota requests, so it can run while the RFCs are in review.
 - **Pre-release compatibility.** Result and fixture schemas carry a version, and tools reject versions they do not know. `docs/guides/building.md` has "update your checkout" steps: when to re-run `pixi install`, when to reconfigure, and how to remove generated state. Renamed pixi tasks or presets are listed in `CHANGELOG.md` with their replacement.
 
 ## Open questions
 
 - What triggers C++23 beyond the stated floors (CUDA 13.3 and GCC 13): a specific library feature, or a date?
 - When does aarch64 become tier 1: after the first Grace Hopper gate run, or after M1?
-- Wording in the PRD: align "each layer uses only the contract of the layer directly below" with the dependency table in §3.3.
+- Does Cirun guarantee that runner configuration comes only from the organisation's `.cirun` repository for fork PRs? PR 4 verifies it; if not, GPU runs fail closed until a launcher that does is chosen.
