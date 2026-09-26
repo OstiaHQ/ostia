@@ -8,7 +8,7 @@ created: 2026-09-26
 updated: 2026-09-26
 supersedes: []
 superseded_by: []
-discussion:
+discussion: https://github.com/OstiaHQ/ostia/pull/10
 ---
 
 # RFC-0002: ostia-telemetry runtime
