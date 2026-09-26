@@ -1,7 +1,7 @@
 ---
 number: 1
 title: M0 foundations
-status: Draft
+status: In review
 authors: [ShAlireza]
 components: [build, telemetry, fabric, docs]
 created: 2026-09-25

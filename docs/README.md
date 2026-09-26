@@ -82,5 +82,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 <!-- index:start -->
 | Document | Title | Status | Components | Created |
 | --- | --- | --- | --- | --- |
-| [RFC-0001](rfcs/0001-m0-foundations.md) | M0 foundations | Draft | build, telemetry, fabric, docs | 2026-09-25 |
+| [RFC-0001](rfcs/0001-m0-foundations.md) | M0 foundations | In review | build, telemetry, fabric, docs | 2026-09-25 |
 <!-- index:end -->
