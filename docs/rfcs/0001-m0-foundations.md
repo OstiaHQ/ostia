@@ -120,8 +120,8 @@ There are two paths. **System dependencies** (UCX, hwloc, opentelemetry-cpp, CUD
 
 | Source | Provides | Who uses it |
 | --- | --- | --- |
-| pixi (conda-forge) | CUDA toolkit, UCX + rdma-core (Linux), libhwloc, libopentelemetry-cpp (+ protobuf, curl), CMake, Ninja, ccache, clang tools, ruff, gersemi, pytest, scikit-build-core | Contributors and CI |
-| CPM.cmake, pinned by tag and commit SHA | nanobind, GoogleTest, nvbench, nanoarrow, CCCL | The source build; `CPM_USE_LOCAL_PACKAGES`, `CPM_LOCAL_PACKAGES_ONLY` and `CPM_<pkg>_SOURCE` let packagers substitute their own |
+| pixi (conda-forge) | CUDA toolkit, UCX + rdma-core (Linux), libhwloc, libcurl, CMake, Ninja, ccache, clang tools, ruff, gersemi, pytest, scikit-build-core | Contributors and CI |
+| CPM.cmake, pinned by tag and commit SHA | nanobind, GoogleTest, nvbench, nanoarrow, CCCL; opentelemetry-cpp, protobuf and abseil as static, position-independent archives linked into `libostia-telemetry` with hidden symbols (RFC-0002 §4) | The source build; `CPM_USE_LOCAL_PACKAGES`, `CPM_LOCAL_PACKAGES_ONLY` and `CPM_<pkg>_SOURCE` let packagers substitute their own |
 | Loaded at runtime with `dlopen` | NVML, nvCOMP | Never linked or bundled by Ostia's libraries |
 | The consumer | Everything above that `find_package()` looks for | People embedding Ostia |
 
@@ -142,7 +142,8 @@ This RFC is the approval that docs/README.md requires for new dependencies.
 | --- | --- | --- | --- | --- | --- |
 | hwloc | BSD-3-Clause | Topology discovery | pixi | M0 (fixture replay), M1 (live) | fabric |
 | UCX + rdma-core | BSD-3-Clause, BSD/GPL-2.0 dual | Transports, multi-process tests | pixi, Linux | M0 (tests), M1 | fabric tests |
-| opentelemetry-cpp | Apache-2.0 | Metrics and span export | pixi | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
+| opentelemetry-cpp, protobuf, abseil | Apache-2.0, BSD-3-Clause, Apache-2.0 | Metrics and span export | CPM, static PIC, symbols hidden (RFC-0002 §4) | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
+| libcurl | curl (MIT-style) | OTLP over HTTP | pixi or system, shared | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
 | CCCL | Apache-2.0 with LLVM exception | CUB, Thrust, libcu++ | CPM, from GitHub | M0 | CUDA targets |
 | nanobind | BSD-3-Clause | Python bindings | CPM, one version for all extensions | M0 | every `python/` |
 | GoogleTest | BSD-3-Clause | C++ tests | CPM | M0 | tests |
@@ -152,6 +153,7 @@ This RFC is the approval that docs/README.md requires for new dependencies.
 | nvCOMP | NVIDIA proprietary, optional | Compression pushdown | `dlopen`, never bundled | M2 | exchange; out of default M0 resolution |
 
 - CCCL is taken from GitHub rather than the toolkit, which CCCL supports ("a newer CCCL with an older CUDA Toolkit"), so the CCCL version does not change with the CUDA version. CCCL 3.x supports CUDA 12.x and 13.x at their latest patch releases, which includes CUDA 12.8 (its latest patch is what CI pins).
+- RFC-0002 approves xxHash and RFC-0003 approves nlohmann/json, each for its own use.
 - nvCOMP is approved now and integrated with compression pushdown in M2. When integrated, it reports its capability explicitly, and any benchmark or test that requires it fails, rather than silently falling back, when it is missing or incompatible. Its redistribution terms are checked before any binary release (PRD, Third-party code).
 
 #### 2.4 Pinning and updates
@@ -404,7 +406,7 @@ Results are JSON Lines, one record per measurement:
 ```
 
 - **Provenance** fields (git SHA, date, run ID) never affect comparability.
-- **Compatibility** fields decide whether two results may be compared. The topology hash is structural: it covers devices and links, not measured bandwidth.
+- **Compatibility** fields decide whether two results may be compared. `topology` is RFC-0003's structural `topo1` identity, which covers devices and links but not measured bandwidth or device numbering. Records made before RFC-0003 lands (Rollout PR 6) carry `"topology": null`, which is compatible only with `null`, and baselines from that period are re-recorded once it lands.
 - Tools reject unknown schema versions with an explanation.
 
 #### 6.3 Comparison (`tools/bench/compare.py`)
@@ -470,7 +472,7 @@ The prototype's published figures (public repository `fardatalab/MGI`, formerly 
 #### 6.6 Telemetry overhead gate
 
 - PR 5 lands the measurement mechanism: paired, interleaved runs of the same benchmark on the same box, alternating `off` and the level under test, with at least 20 pairs.
-- The acceptance gate activates with RFC-0002's implementation, once real counters and export exist. At that point it states the instrumentation density and exporter state it measures, and it checks that the expected counters actually changed.
+- The acceptance gate activates with RFC-0002's implementation, once real counters and export exist. Its workload, instrumentation density and exporter state are defined in RFC-0002 (Performance), and it checks that the expected counters actually changed. It runs again at M1 and M2 on real instrumentation.
 - **Test.** For each pair, the overhead is `r = t_level / t_off − 1`. The gate computes a 95% bootstrap confidence interval for the mean of `r`:
   - `pass` if its upper bound is below 2% (the PRD limit for `metrics`, and for `trace` with tracing switched off);
   - `fail` if its lower bound is above 2%;
@@ -488,7 +490,7 @@ The prototype's published figures (public repository `fardatalab/MGI`, formerly 
 
 ### 7. Topology fixtures (summary)
 
-Topology fixtures are captured descriptions of real machines, scrubbed of identifiers, that let discovery and the planner be tested offline on any laptop. The planner is Ostia's edge, its bugs depend on hardware shape, and CI never has those shapes (D9). **RFC-0003** ([PR #8](https://github.com/OstiaHQ/ostia/pull/8)) designs the capture tool, the scrubbing rules, the fixture format and replay. It also owns the **capture artifact manifest**, the contract RFC-0004 relies on before fetching fixtures and destroying a rented machine.
+Topology fixtures are captured descriptions of real machines, scrubbed of identifiers, that let discovery and the planner be tested offline on any laptop. The planner is Ostia's edge, its bugs depend on hardware shape, and CI never has those shapes (D9). **RFC-0003** ([PR #8](https://github.com/OstiaHQ/ostia/pull/8)) designs the capture tool, the scrubbing rules, the fixture format and replay. It also owns the **capture artifact manifest**, the contract RFC-0004 relies on before fetching fixtures and destroying a rented machine, and the structural topology identity (`topo1`) used by §6.2. Pairs are captured as two independent node captures plus a `pair.json`; nothing identifying a machine crosses between nodes.
 
 **Done when**
 
@@ -497,7 +499,7 @@ Topology fixtures are captured descriptions of real machines, scrubbed of identi
 
 ### 8. Rented hardware (summary)
 
-Gate benchmarks run on rented machines for the three D9 reference setups: a node with NVLink GPUs, a pair of nodes with GPUDirect RDMA NICs, and a TCP or EFA pair. **RFC-0004** ([PR #9](https://github.com/OstiaHQ/ostia/pull/9)) designs the one-command up/run/down tool, the enforced spend limits, the providers and fallbacks, credentials and quotas. It consumes RFC-0003's manifest contract. Its spend is the $1,000 rented-hardware sub-budget of the M0 budget.
+Gate benchmarks run on rented machines for the three D9 reference setups: a node with NVLink GPUs, a pair of nodes with GPUDirect RDMA NICs, and a TCP or EFA pair. **RFC-0004** ([PR #9](https://github.com/OstiaHQ/ostia/pull/9)) designs the one-command up/run/down tool, the enforced spend limits, the providers and fallbacks, credentials and quotas. It consumes RFC-0003's manifest contract. Its spend is the $1,000 rented-hardware sub-budget of the M0 budget, enforced through provider APIs rather than in-guest timers, with an hourly sweep over a ledger inventory.
 
 **Done when**
 
@@ -606,7 +608,7 @@ Fixture tests are listed in RFC-0003 and rented-hardware tests in RFC-0004.
 | 5 | Benchmark harness, gate workloads, overhead mechanism | §6 |
 | 6 | Topology fixtures | RFC-0003 |
 | 7 | Rented-hardware tooling, gate runs, placement re-run | RFC-0004, §6.4, §9 |
-| 8 | Telemetry runtime; activates the overhead acceptance gate | RFC-0002, §6.6 |
+| 8 | Telemetry runtime, M0 scope (counters, host trace rings, OpenTelemetry export, C ABI); activates the overhead acceptance gate | RFC-0002, §6.6 |
 
 - **RFC-0002 is reserved for ostia-telemetry.**
 - Each PR ships its how-to guide as a "Done when" item: adding a component (PR 1), running a benchmark and updating a baseline (PR 5), capturing a fixture (PR 6), running a rented setup (PR 7).
