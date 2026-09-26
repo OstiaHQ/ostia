@@ -80,5 +80,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 ## Index
 
 <!-- index:start -->
-No RFCs or ADRs yet.
+| Document | Title | Status | Components | Created |
+| --- | --- | --- | --- | --- |
+| [RFC-0002](rfcs/0002-telemetry.md) | ostia-telemetry runtime | In review | telemetry | 2026-09-26 |
 <!-- index:end -->
