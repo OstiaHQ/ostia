@@ -82,5 +82,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 <!-- index:start -->
 | Document | Title | Status | Components | Created |
 | --- | --- | --- | --- | --- |
-| [RFC-0003](rfcs/0003-topology-fixtures.md) | Topology fixtures | Draft | fabric, build | 2026-09-25 |
+| [RFC-0003](rfcs/0003-topology-fixtures.md) | Topology fixtures | In review | fabric, build | 2026-09-25 |
 <!-- index:end -->

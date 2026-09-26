@@ -1,7 +1,7 @@
 ---
 number: 3
 title: Topology fixtures
-status: Draft
+status: In review
 authors: [ShAlireza]
 components: [fabric, build]
 created: 2026-09-25
