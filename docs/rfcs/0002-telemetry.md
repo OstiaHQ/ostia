@@ -1,7 +1,7 @@
 ---
 number: 2
 title: ostia-telemetry runtime
-status: Draft
+status: In review
 authors: [ShAlireza]
 components: [telemetry]
 created: 2026-09-26
