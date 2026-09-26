@@ -80,5 +80,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 ## Index
 
 <!-- index:start -->
-No RFCs or ADRs yet.
+| Document | Title | Status | Components | Created |
+| --- | --- | --- | --- | --- |
+| [RFC-0004](rfcs/0004-rented-hardware.md) | Rented hardware automation | In review | build | 2026-09-25 |
 <!-- index:end -->
