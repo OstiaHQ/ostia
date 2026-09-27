@@ -22,7 +22,7 @@ Ostia owns no cluster (D9). Gate benchmarks run on rented machines that are brou
 - credentials;
 - quotas.
 
-It is part of M0 and is summarised in [RFC-0001 §8 (Rented hardware)](https://github.com/OstiaHQ/ostia/pull/7). It runs [RFC-0003's capture tool](https://github.com/OstiaHQ/ostia/pull/8) on every node and fetches captures only through RFC-0003's manifest contract (§4 there).
+It is part of M0 and is summarised in [RFC-0001 §8 (Rented hardware)](0001-m0-foundations.md#8-rented-hardware-summary). It runs [RFC-0003's capture tool](https://github.com/OstiaHQ/ostia/pull/8) on every node and fetches captures only through RFC-0003's manifest contract (§4 there).
 
 ## Motivation
 
@@ -294,7 +294,7 @@ Not performance-critical. `rent` should add under a minute before setup begins; 
 
 - Implemented by RFC-0001's Rollout **PR 7**, together with the gate runs and the placement re-run, including the hourly sweep, alerts and the live acceptance tests. Quota requests go out in **PR 0**, and the RDMA preflight happens before PR 7's gate runs.
 - The CI `workflow_dispatch` launch path follows after M0.
-- **Merge order:** RFC-0001 ([PR #7](https://github.com/OstiaHQ/ostia/pull/7)) merges first; this RFC then takes current main and regenerates the index. Links to RFC-0001 and RFC-0003 ([PR #8](https://github.com/OstiaHQ/ostia/pull/8)) use their draft PRs until they are on main.
+- **Merge order:** RFC-0001 is merged ([`0001-m0-foundations.md`](0001-m0-foundations.md)); before this RFC merges, its branch takes current main and regenerates the index. Links to RFC-0003 ([PR #8](https://github.com/OstiaHQ/ostia/pull/8)) use its PR until it is on main.
 - Must be Accepted before PR 7 starts.
 
 ## Open questions
