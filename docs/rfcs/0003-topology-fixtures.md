@@ -24,7 +24,7 @@ A topology fixture is a captured description of a real machine: its GPUs, NVLink
 - a minimal internal topology model;
 - replay, so discovery and the planner can be tested on any laptop.
 
-It is part of M0 and is summarised in [RFC-0001 §7 (Topology fixtures)](https://github.com/OstiaHQ/ostia/pull/7). [RFC-0004 (Rented hardware automation)](https://github.com/OstiaHQ/ostia/pull/9) runs the capture tool on every rented machine and relies on the manifest contract in §4.
+It is part of M0 and is summarised in [RFC-0001 §7 (Topology fixtures)](0001-m0-foundations.md#7-topology-fixtures-summary). [RFC-0004 (Rented hardware automation)](https://github.com/OstiaHQ/ostia/pull/9) runs the capture tool on every rented machine and relies on the manifest contract in §4.
 
 ## Motivation
 
@@ -362,7 +362,7 @@ The capture tool prints each source it read, what it skipped and why, and the ma
 
 - Implemented by RFC-0001's Rollout **PR 6**, after the benchmark harness (PR 5), which produces the measurements for `links.json`.
 - The first fixtures come from the gate runs (RFC-0004), added by maintainer pull requests.
-- **Merge order:** RFC-0001 ([PR #7](https://github.com/OstiaHQ/ostia/pull/7)) merges first; this RFC then takes current main and regenerates the index. Links to RFC-0001 and RFC-0004 use their draft PRs until they are on main.
+- **Merge order:** RFC-0001 is merged ([`0001-m0-foundations.md`](0001-m0-foundations.md)); before this RFC merges, its branch takes current main and regenerates the index. Links to RFC-0004 use its PR until it is on main.
 - Must be Accepted before PR 6 starts.
 
 ## Open questions
