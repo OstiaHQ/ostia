@@ -1,6 +1,6 @@
 # Ostia PRD: GPU-Centric Data Infrastructure
 
-Last updated 2026-09-26 · Owner: @ShAlireza
+Last updated 2026-09-27 · Owner: @ShAlireza
 
 > This file is the source of truth for the PRD. Change it through a pull request (see [docs/README.md](../README.md)).
 
@@ -121,7 +121,7 @@ Layer 1b only ever sees the top edge of this picture: a measured graph and a byt
 | --- | --- | --- |
 | Topology discovery | Graph of GPUs, NUMA nodes, PCIe switches, NVSwitch, NICs, NVMe, from hwloc + NVML + sysfs + ibverbs | New implementation of GPU, PCIe, NUMA and NIC discovery |
 | Link probing | Short microbenchmarks per link class at startup, cached per host fingerprint; replaces the hardcoded bandwidth tables | Bandwidth and latency per direction |
-| Transport backends | One interface: capabilities, memory registration, connect, send/recv/put, progress | CUDA P2P/IPC in a node; UCX (GPUDirect RDMA, RoCE, TCP) across nodes. Later: libfabric for EFA, NVSHMEM/IBGDA, GDS |
+| Transport backends | One interface: capabilities, memory registration, connect, send/recv/put, progress | CUDA P2P/IPC in a node; UCX (GPUDirect RDMA, RoCE, TCP) across nodes. Later: NIXL (libfabric for EFA, Mooncake), NCCL GIN for device-initiated transfers, GDS |
 | Memory manager | Registration cache, pools of pre-registered GPU and pinned host buffers, pluggable allocator (RMM-compatible) | GPU pool + host staging pool |
 | Multi-rail | Stripe one large transfer across several NICs or NVLink paths | Static striping by measured bandwidth |
 | Health | Peer liveness, timeouts, typed error events | Detect and report only; no recovery |
@@ -215,7 +215,7 @@ The optimizer's cost model gets exchange costs from the 1b planner, which works 
 | Operators | GPU scan, filter, project, hash join, hash aggregate, sort; kernels from libcudf or our own, behind an operator interface |
 | Exchange pushdown | Filters, projections, partial aggregates and compression pushed into 1b exchanges; the planner picks source, middle hop or destination |
 | Storage | Parquet on local NVMe or object storage; GPUDirect Storage later |
-| First benchmark | TPC-H at scale factors 100 to 1000 against Spark RAPIDS and a single-node GPU engine |
+| First benchmark | TPC-H at scale factors 100 to 1000 against cuDF for Apache Spark (formerly Spark RAPIDS) and a single-node GPU engine |
 
 **Open questions:** build on an existing engine (DataFusion, DuckDB/Sirius) as the front end vs our own; which data formats and catalogs v1 supports.
 
@@ -251,19 +251,38 @@ Every layer is instrumented from M0. The developer's build choice sets how much 
 
 ## Competitive landscape
 
-No existing stack combines planning from measured topology, multipath routing and operator placement for relational data; that combination is Ostia's space. The rows below are from memory and not yet checked against current project pages. Verifying them is an M0 task.
+No existing stack combines planning from measured topology, multipath routing and operator placement for relational data; that combination is Ostia's space. Each part on its own now exists somewhere:
+- multi-rail striping in UCX and Mooncake;
+- topology-aware NIC choice in Mooncake, NIXL and rapidsmpf's launcher;
+- elastic membership in NCCL;
+- a columnar shuffle with spilling in rapidsmpf.
 
-| System | What it is | Overlap with Ostia | Gap Ostia fills |
-| --- | --- | --- | --- |
-| NCCL | NVIDIA collectives for ML (all-reduce, all-to-all), topology-aware rings and trees | Topology detection, GPUDirect transports | Bytes and collectives only; no columnar data, spilling, flexible membership or operator pushdown |
-| UCX / UCXX | General transport framework (RDMA, TCP, shared memory, CUDA) | Ostia's main 1a backend | Point-to-point only; no planner, no multipath planning across the topology |
-| NVIDIA NIXL | Transfer library for moving inference data (KV cache) with UCX and GDS backends | Pluggable transports, memory registration | Aimed at inference; bytes only; no relational exchange |
-| RAPIDS rapidsmpf | Multi-GPU shuffle with UCXX and spilling, used by cuDF and Dask | Closest to 1b | No topology-driven multipath planning or on-path placement (to verify) |
-| Spark RAPIDS + UCX shuffle | GPU plugin for Spark, with a UCX shuffle manager | Layers 2 and 3 | Built on the JVM and Spark's CPU-first runtime; the GPU is an accelerator, not the centre |
-| NVSHMEM / IBGDA | GPU-initiated one-sided communication | Possible later device-initiated backend | Low-level; no data model |
-| Theseus, Sirius (GPU DuckDB) | GPU SQL engines | Layer 3 | Closed source (Theseus) or single-node focus (Sirius, to verify) |
+So Ostia's edge is the planner that joins them: measured bandwidth across NVLink relays and NICs as one graph, shared by concurrent exchanges, plus choosing where operators run. Every row below was checked against its primary sources on 2026-09-27 ([RFC-0001 §9](../rfcs/0001-m0-foundations.md#9-competitive-landscape-verification)).
 
-The strategy is to **interoperate, not compete**. UCX, and later NIXL or NVSHMEM, are backends under 1a, and Arrow and libcudf are interop targets for 1b. The value is in the planner and the exchange semantics.
+| System | What it is | Overlap with Ostia | Gap Ostia fills | Sources (checked 2026-09-27) |
+| --- | --- | --- | --- | --- |
+| NCCL | NVIDIA collectives and point-to-point library (v2.32). It has a device-side API since 2.28, experimental GPU-initiated networking (GIN), and elastic membership (shrink, grow, revoke) | 1a: topology detection, GPUDirect, device-initiated transfers | Topology is read from static sources (sysfs, NVML, an optional topology file) into a fixed cost model, not measured. Bytes and collectives only: no columnar data, spilling or operator placement | [releases](https://github.com/NVIDIA/nccl/releases), [device API](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/deviceapi.html) |
+| UCX / UCXX | General transport framework (RDMA, TCP, shared memory, CUDA IPC); UCXX is RAPIDS' C++ and Python binding (UCX 1.22, UCXX 0.51) | Ostia's main 1a backend | UCX already stripes large messages across rails and fails over between them, choosing lanes by static distance. It has no planner across NVLink relays and NICs, no measured bandwidth, and no data model | [UCX releases](https://github.com/openucx/ucx/releases), [UCXX releases](https://github.com/rapidsai/ucxx/releases) |
+| NVIDIA NIXL | Point-to-point transfer library for inference data (KV cache), stable API since 1.0 (v1.4), with UCX, libfabric/EFA, Mooncake, GDS and storage plugins | 1a: pluggable backends, memory registration | NUMA-aware rail choice in its libfabric plugin, but bytes only: no relational exchange, no multipath planning | [repository](https://github.com/ai-dynamo/nixl), [releases](https://github.com/ai-dynamo/nixl/releases) |
+| RAPIDS rapidsmpf | Multi-GPU shuffle and streaming engine with spilling (v26.08); communicators over UCXX or MPI; the backend of cudf-polars' multi-GPU executor | Closest to 1b, and part of Layer 2 | Topology is used to bind processes to CPUs, NUMA nodes and the nearest NIC. Its documentation shows no multipath planning, measured topology or on-path operator placement (absence not confirmed in the source code) | [repository](https://github.com/rapidsai/rapidsmpf), [shuffle architecture](https://docs.nvidia.com/rapidsmpf/latest/background/shuffle-architecture/) |
+| cuDF for Apache Spark (formerly Spark RAPIDS) with UCX shuffle | GPU plugin for Spark (26.06); the UCX shuffle mode is still maintained but not the default | Layers 2 and 3 | Built on the JVM and Spark's CPU-first runtime; UCX is used as a transport without planning | [shuffle docs](https://docs.nvidia.com/spark-rapids/user-guide/26.06/additional-functionality/rapids-shuffle.html), [repository](https://github.com/NVIDIA/cudf-spark) |
+| NVSHMEM / IBGDA | GPU-initiated one-sided communication (3.6) | Possible later device-initiated backend | Low-level, no data model; several NICs only round-robin | [release notes](https://docs.nvidia.com/nvshmem/release-notes-install-guide/release-notes/release-3605.html) |
+| Mooncake Transfer Engine | Transfer engine for KV-cache serving over RDMA, EFA, NVLink, TCP and NVMe-oF (0.3.13), also a NIXL plugin | 1a | Topology-aware NIC choice, splitting of large transfers across NICs and NIC failover, from a static NIC-preference matrix rather than measurement; not relational | [design](https://kvcache-ai.github.io/Mooncake/design/transfer-engine/), [releases](https://github.com/kvcache-ai/Mooncake/releases) |
+| Theseus (Voltron Data) | Proprietary distributed GPU SQL engine | Layers 2 and 3 | Closed source. Its company website did not resolve on 2026-09-27, so its status is unverified. Its paper's thesis, that the hard problems are when, where and how to move data, supports Ostia's | [paper](https://arxiv.org/abs/2508.05029) |
+| Sirius | Open GPU SQL engine plugged in through Substrait (DuckDB); distributed only through Apache Doris, with NCCL and one GPU per node | Layer 3 | A flat NCCL exchange with no topology planning and no multi-GPU nodes yet; a possible Layer 3 consumer of ostia-exchange | [repository](https://github.com/sirius-db/sirius), [paper](https://arxiv.org/html/2508.04701v3) |
+
+**Assessed and left out of the table:**
+- **UCCL:** sprays packets across many network paths, within the fabric rather than across a machine's topology, and has no relational awareness ([repository](https://github.com/uccl-project/uccl)).
+- **DeepEP:** expert-parallel MoE dispatch; its second version runs on NCCL GIN, which is evidence that GIN, not NVSHMEM, is becoming the device-initiated path for D5's later device-side backend ([repository](https://github.com/deepseek-ai/DeepEP)).
+- **cudf-polars multi-GPU** runs on rapidsmpf, so it is covered by that row.
+- **Apache DataFusion Comet and Ballista** are CPU-only.
+
+**Build versus extend.** Ostia's edge is entirely in planning, and every transport above lets its caller pin devices and lanes, so Ostia **builds a planner over existing transports** rather than its own transports:
+- **ostia-fabric** probes and plans, and moves bytes over UCX first. NIXL (which also brings Mooncake and libfabric) and NCCL GIN come next behind the same command queue. The only transport Ostia writes itself is CUDA P2P/IPC.
+- **ostia-exchange** is designed so a planner-only integration with rapidsmpf stays possible, for example a rapidsmpf communicator taking an Ostia path plan.
+- **The test.** M2's gate compares directly against rapidsmpf on the same UCX version, and M3's gate compares Ostia's planned multi-rail against UCX's own. If M3 shows no measured gain from multipath and placement over UCX's built-in multi-rail plus rapidsmpf, Ostia switches to contributing its planner to rapidsmpf instead.
+
+The strategy stays **interoperate, not compete**. Arrow and libcudf are interop targets for 1b. The value is in the planner and the exchange semantics.
 
 ## Roadmap and milestones
 
@@ -276,9 +295,9 @@ The roadmap runs in six phases, each ending in a measurable gate, and Layer 1 (M
 | M0 Foundations | New repo, CMake + CI, benchmark harness, telemetry framework (build levels, counters, trace rings, OpenTelemetry export), decision log, verified competitive landscape. Cheap testing without clusters: topology fixtures captured from real and rented machines so the planner can be tested offline; multi-process tests on one GPU over UCX loopback and TCP; scripted rent-run-teardown for gate benchmarks | Harness reproduces the prototype's baselines: P2P NVLink bandwidth, GPUDirect RDMA near line rate |
 | M1 Fabric v1 | Topology discovery + probing, CUDA P2P/IPC and UCX backends, memory pools, stream-ordered byte API, health events | ≥ 90% of measured link bandwidth on NVLink and GPUDirect RDMA; killing a peer produces a typed error, not a hang |
 | M2 Exchange v1 | Columnar shuffle, broadcast, gather; fused partition+pack; credits; GPU → host spill; projection, filter and compression pushdown; fixed multipath plan per exchange | MGjoin ported to Ostia and faster than the hand-written version; no data loss in slow-consumer and skew tests; compared against rapidsmpf |
-| M3 Planner v2 | Link-reservation ledger for concurrent exchanges, adaptive re-planning, multi-rail striping, on-path partial aggregation placement | Measured gain from multipath and placement on multi-NIC or NVSwitch nodes |
+| M3 Planner v2 | Link-reservation ledger for concurrent exchanges, adaptive re-planning, planned multi-rail striping, on-path partial aggregation placement | Measured gain from multipath and placement on multi-NIC or NVSwitch nodes, over UCX's built-in multi-rail and over rapidsmpf |
 | M4 Runtime v1 | Layer 2: driver, workers, stage graphs, lineage recovery, job submission | A multi-stage job finishes correctly after a worker is killed mid-shuffle |
-| M5 Query engine v1 | Layer 3: SQL front end, GPU operators, exchange-aware optimizer | TPC-H at scale factor 100 or more end to end, compared against Spark RAPIDS |
+| M5 Query engine v1 | Layer 3: SQL front end, GPU operators, exchange-aware optimizer | TPC-H at scale factor 100 or more end to end, compared against cuDF for Apache Spark |
 
 ## Decision log and open questions
 
