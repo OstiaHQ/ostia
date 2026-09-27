@@ -1,11 +1,11 @@
 ---
 number: 3
 title: Topology fixtures
-status: In review
+status: Accepted
 authors: [ShAlireza]
 components: [fabric, build]
 created: 2026-09-25
-updated: 2026-09-26
+updated: 2026-09-27
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/8
