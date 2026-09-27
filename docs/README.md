@@ -11,7 +11,7 @@ Start with the [product requirements (PRD)](product/prd.md): what Ostia is, its 
 | ADR | `docs/adr/NNNN-short-title.md` | One architectural decision: context, decision, consequences | Never edited, except its status (`Superseded by ADR-NNNN`) |
 | Guide | `docs/guides/` | How-tos for contributors: build, test, benchmark, rent hardware | Living |
 
-Numbers are four digits and never reused. RFCs start at 0001. ADRs start at 0013, continuing the PRD's founding decisions D1–D12, so every decision has one number in one sequence.
+Numbers are four digits and never reused. RFCs start at 0001; RFC-0002 is reserved for ostia-telemetry. ADRs start at 0013, continuing the PRD's founding decisions D1–D12, so every decision has one number in one sequence.
 
 ## When you need an RFC
 
@@ -38,9 +38,9 @@ stateDiagram-v2
     Implemented --> Superseded: a newer RFC replaces it
 ```
 
-1. **Draft.** Copy [`rfcs/0000-template.md`](rfcs/0000-template.md) to `rfcs/NNNN-short-title.md`, where `NNNN` is the next free number. Open a draft pull request; its title starts with `RFC-NNNN:`.
+1. **Draft.** Copy [`rfcs/0000-template.md`](rfcs/0000-template.md) to `rfcs/NNNN-short-title.md`, where `NNNN` is the next free number. Open a draft pull request whose title follows the [commit convention](../CONTRIBUTING.md#commit-messages), for example `📝 docs(rfc): add RFC-NNNN short title`.
 2. **In review.** Mark the pull request ready. Discussion happens in its review comments. While there is one maintainer, a design review by a second reviewer (human or Claude) is required. Once there are more maintainers, an RFC stays open for at least 3 working days.
-3. **Accepted.** The RFC merges with `status: Accepted`. Implementation pull requests cite it, for example `Implements RFC-0002 §4`.
+3. **Accepted.** The RFC merges with `status: Accepted`. Implementation pull requests cite it, for example `Implements RFC-0005 §4`.
 4. **Implemented.** A follow-up change sets `status: Implemented` when the design has landed.
 5. **Rejected** RFCs merge too, with the reason recorded, so the reasoning is not lost. **Superseded** RFCs point to their replacement.
 
@@ -52,7 +52,7 @@ Every RFC and ADR starts with YAML front matter. The index below is generated fr
 
 ```yaml
 ---
-number: 2
+number: 5
 title: ostia-fabric
 status: Draft          # Draft | In review | Accepted | Implemented | Rejected | Superseded
 authors: [ShAlireza]
@@ -69,8 +69,8 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 
 - **The index below** lists every RFC and ADR with its status and components. Regenerate it with `python3 tools/docs/gen_index.py`; `--check` fails if it is out of date.
 - **Component READMEs** (for example `fabric/README.md`) link to the RFCs that describe them.
-- **Code comments cite sections**, for example `// See RFC-0002 §5.3 (credit accounting)`, so a reader can jump from code to design.
-- **Search by number:** `rg "RFC-0002"` finds the design and every place that implements it.
+- **Code comments cite sections**, for example `// See RFC-0005 §5.3 (credit accounting)`, so a reader can jump from code to design.
+- **Search by number:** `rg "RFC-0005"` finds the design and every place that implements it.
 
 ## Figures
 
@@ -80,5 +80,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 ## Index
 
 <!-- index:start -->
-No RFCs or ADRs yet.
+| Document | Title | Status | Components | Created |
+| --- | --- | --- | --- | --- |
+| [RFC-0001](rfcs/0001-m0-foundations.md) | M0 foundations | In review | build, telemetry, fabric, docs | 2026-09-25 |
 <!-- index:end -->
