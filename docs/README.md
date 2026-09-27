@@ -83,4 +83,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 | Document | Title | Status | Components | Created |
 | --- | --- | --- | --- | --- |
 | [RFC-0001](rfcs/0001-m0-foundations.md) | M0 foundations | Accepted | build, telemetry, fabric, docs | 2026-09-25 |
+| [RFC-0004](rfcs/0004-rented-hardware.md) | Rented hardware automation | Accepted | build | 2026-09-25 |
 <!-- index:end -->

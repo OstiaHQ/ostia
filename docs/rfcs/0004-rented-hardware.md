@@ -1,11 +1,11 @@
 ---
 number: 4
 title: Rented hardware automation
-status: In review
+status: Accepted
 authors: [ShAlireza]
 components: [build]
 created: 2026-09-25
-updated: 2026-09-26
+updated: 2026-09-27
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/9
