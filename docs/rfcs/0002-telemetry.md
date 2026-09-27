@@ -1,11 +1,11 @@
 ---
 number: 2
 title: ostia-telemetry runtime
-status: In review
+status: Accepted
 authors: [ShAlireza]
 components: [telemetry]
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-27
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/10
