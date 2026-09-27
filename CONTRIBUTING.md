@@ -35,7 +35,7 @@ Commits and pull request titles use [Conventional Commits](https://www.conventio
 
 <optional body: what and why, wrapped at 72 characters>
 
-<optional footers: Implements RFC-0002 §4, Fixes #12, BREAKING CHANGE: ...>
+<optional footers: Implements RFC-0005 §4, Fixes #12, BREAKING CHANGE: ...>
 ```
 
 For example: `✨ feat(fabric): add UCX backend for GPUDirect RDMA`
@@ -56,7 +56,7 @@ For example: `✨ feat(fabric): add UCX backend for GPUDirect RDMA`
 | ⏪️ | `revert` | Reverting an earlier commit |
 | 💥 | any type with `!` | A breaking change, e.g. `💥 feat(exchange)!: rename shuffle options`; also add a `BREAKING CHANGE:` footer |
 
-**Scopes** are the component names: `fabric`, `exchange`, `runtime`, `query`, `telemetry`, plus `build`, `ci`, `docs`, `rfc` and `adr`. For example: `📝 docs(rfc): add RFC-0002 ostia-fabric`.
+**Scopes** are the component names: `fabric`, `exchange`, `runtime`, `query`, `telemetry`, plus `build`, `ci`, `docs`, `rfc` and `adr`. For example: `📝 docs(rfc): add RFC-0005 ostia-fabric`.
 
 ## Contributor License Agreement
 
