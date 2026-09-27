@@ -1,11 +1,11 @@
 ---
 number: 1
 title: M0 foundations
-status: In review
+status: Accepted
 authors: [ShAlireza]
 components: [build, telemetry, fabric, docs]
 created: 2026-09-25
-updated: 2026-09-26
+updated: 2026-09-27
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/7
