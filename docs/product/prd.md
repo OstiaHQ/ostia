@@ -1,6 +1,6 @@
 # Ostia PRD: GPU-Centric Data Infrastructure
 
-Last updated 2026-09-25 · Owner: @ShAlireza
+Last updated 2026-09-26 · Owner: @ShAlireza
 
 > This file is the source of truth for the PRD. Change it through a pull request (see [docs/README.md](../README.md)).
 
@@ -63,7 +63,7 @@ Ostia is product-grade infrastructure that others depend on. API stability, fail
 
 ## Layered architecture
 
-Ostia is four layers with one-way dependencies. Each layer uses only the public, versioned contract of the layer directly below it. Layer 1 splits into Fabric (1a: bytes and hardware) and Exchange (1b: typed columnar data), so transport code never knows about schemas and exchange code never knows about NIC queues.
+Ostia is four layers with one-way dependencies: a layer never depends on a layer above it, and it uses only the public, versioned contracts of the layers below it. Most dependencies go to the layer directly below; the few that skip a layer (Layer 2 uses Fabric's topology for placement, and Layer 3 uses Exchange's cost estimates) are listed in [RFC-0001 §3.3](../rfcs/0001-m0-foundations.md#33-dependency-table-and-enforcement). Layer 1 splits into Fabric (1a: bytes and hardware) and Exchange (1b: typed columnar data), so transport code never knows about schemas and exchange code never knows about NIC queues.
 
 ![Ostia layer stack · 4 layers on the hardware](figures/01-layer-stack.svg)
 
