@@ -25,7 +25,7 @@ This RFC designs what `ostia-telemetry` does at runtime:
 - the C ABI;
 - the line between telemetry and the functional statistics the system needs to run.
 
-How the telemetry level is chosen and compiled (`OSTIA_TELEMETRY`, the `if constexpr` macros, storage-free handles, the flavour check) is set by [RFC-0001 §5 (Telemetry build levels)](https://github.com/OstiaHQ/ostia/pull/7). This RFC builds on it and is implemented by RFC-0001's Rollout PR 8, which also activates the telemetry overhead gate (RFC-0001 §6.6, workload in [Performance](#performance)).
+How the telemetry level is chosen and compiled (`OSTIA_TELEMETRY`, the `if constexpr` macros, storage-free handles, the flavour check) is set by [RFC-0001 §5 (Telemetry build levels)](0001-m0-foundations.md#5-telemetry-build-levels). This RFC builds on it and is implemented by RFC-0001's Rollout PR 8, which also activates the telemetry overhead gate (RFC-0001 §6.6, workload in [Performance](#performance)).
 
 **M0 scope** matches the PRD's M0 row: build levels, counters, trace rings and OpenTelemetry export. The flight recorder, tail capture, the device-side trace ring, fine-grained NVTX and fatal-error dumps are deferred to M2, when the pack kernel gives them real events to be designed against (§11).
 
@@ -423,7 +423,7 @@ Micro-benchmarks, each run on the L4 and on a CPU runner:
 - `docs/guides/telemetry.md` shows how to add a metric, turn on tracing, and open a trace in Perfetto.
 - A PRD update replaces "IDs travel in 1a message headers" with §7's design when this RFC is accepted.
 - Must be Accepted before PR 8 starts.
-- **Merge order:** RFC-0001 ([PR #7](https://github.com/OstiaHQ/ostia/pull/7)) merges first; this RFC then takes current main and regenerates the index.
+- **Merge order:** RFC-0001 is merged ([`0001-m0-foundations.md`](0001-m0-foundations.md)); before this RFC merges, its branch takes current main and regenerates the index.
 
 ## Open questions
 
