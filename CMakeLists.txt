@@ -44,6 +44,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Ostia uses no C++20 modules; scanning would add GCC-only flags that clang-tidy rejects.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # ccache when found; a launcher the user set always wins.
 option(OSTIA_USE_CCACHE "Use ccache when it is found" ON)

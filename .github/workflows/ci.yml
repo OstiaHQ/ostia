@@ -66,8 +66,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { cuda: "12.8", env: cuda-12 }
-          - { cuda: "13", env: cuda-13 }
+          - { cuda: "12.8", env: cuda-12, override: "12.8" }
+          - { cuda: "13", env: cuda-13, override: "13.4" }
+    env:
+      # No GPU on this runner: let pixi select the CUDA platform for compile-only builds.
+      CONDA_OVERRIDE_CUDA: ${{ matrix.override }}
     steps:
       - name: Checkout
         # actions/checkout v7.0.1
@@ -126,7 +129,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Install the pinned CMake 4.1 and Ninja
-        run: tools/ci/install_cmake.sh /opt/ostia-tools && echo /opt/ostia-tools/bin >> "$GITHUB_PATH"
+        # Some images (Rocky) define no PATH, so extend the effective one explicitly.
+        run: |
+          tools/ci/install_cmake.sh /opt/ostia-tools
+          echo "PATH=/opt/ostia-tools/bin:$PATH" >> "$GITHUB_ENV"
       - name: Build and test without pixi (host-only)
         run: |
           cmake --preset release -DOSTIA_ENABLE_CUDA=OFF -DPython3_EXECUTABLE=${{ matrix.python }}
@@ -166,8 +172,10 @@ jobs:
         run: |
           files=$(git diff --name-only --diff-filter=AM "$BASE"...HEAD -- '*.cpp' '*.c' | grep -v '^tests/' || true)
           if [ -z "$files" ]; then echo "no changed C/C++ sources"; exit 0; fi
+          # The clang environment's compile database uses Clang, which clang-tidy understands.
+          pixi run -e clang _configure
           # shellcheck disable=SC2086 # one argument per file
-          pixi run run-clang-tidy -quiet -p build/default/dev $files
+          pixi run -e clang run-clang-tidy -quiet -p build/clang/dev $files
 
   docs-as-test:
     name: docs-as-test (${{ matrix.runner }})
