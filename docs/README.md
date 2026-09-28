@@ -86,4 +86,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 | [RFC-0002](rfcs/0002-telemetry.md) | ostia-telemetry runtime | Accepted | telemetry | 2026-09-26 |
 | [RFC-0003](rfcs/0003-topology-fixtures.md) | Topology fixtures | Accepted | fabric, build | 2026-09-25 |
 | [RFC-0004](rfcs/0004-rented-hardware.md) | Rented hardware automation | Accepted | build | 2026-09-25 |
+| [ADR-0013](adr/0013-code-style.md) | C++ and Python code style | Accepted | build | 2026-09-27 |
 <!-- index:end -->
