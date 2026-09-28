@@ -31,7 +31,7 @@ git ls-files -co --exclude-standard -z | tar --null -T - -cf - | tar -x -C /w
 cd /w
 for env in {envs}; do
   echo "== $env: configure and build (release preset, compile-only)"
-  pixi run -e "$env" cmake --preset release
+  pixi run -e "$env" cmake --preset release -DOSTIA_BUILD_BENCH=ON
   pixi run -e "$env" cmake --build --preset release
   grep -E '^(cuda|cuda_toolkit|architectures|compiler):' "build/$env/release/ostia-summary.txt"
 done

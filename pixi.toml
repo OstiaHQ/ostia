@@ -92,6 +92,7 @@ cuda-version = "12.8.*"
 cuda-nvcc = "12.8.*"
 cuda-cudart-dev = "12.8.*"
 cuda-sanitizer-api = "12.8.*" # compute-sanitizer for remote runs' sanitizer suite (RFC-0005 §3.3)
+cuda-profiler-api = "12.8.*" # nvbench (RFC-0001 §6.1)
 ucx = "*"
 rdma-core = "*"
 
@@ -104,6 +105,7 @@ cuda-version = "13.4.*"
 cuda-nvcc = "13.4.*"
 cuda-cudart-dev = "13.4.*"
 cuda-sanitizer-api = "13.4.*"
+cuda-profiler-api = "13.4.*"
 ucx = "*"
 rdma-core = "*"
 
@@ -187,3 +189,5 @@ test-levels = { depends-on = [
     "level-debug",
   ] },
 ], description = "Build and test all four telemetry levels (RFC-0001 §5)" }
+bench = { cmd = "python tools/bench/ostia_bench.py", description = "Run a benchmark and record schema-1 results (docs/guides/benchmarks.md)" }
+compare = { cmd = "python tools/bench/compare.py", description = "Compare benchmark results with a baseline (RFC-0001 §6.3)" }

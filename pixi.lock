@@ -280,6 +280,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-nvcc_linux-64-12.8.93-he0b4e1d_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-nvvm-impl-12.8.93-he02047a_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-nvvm-tools-12.8.93-he02047a_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-profiler-api-12.8.90-h7938cbb_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-sanitizer-api-12.8.93-hbd13f7d_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc_impl_linux-64-11.4.0-h00c12a0_13.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc_linux-64-11.4.0-ha077dfb_4.conda
@@ -404,6 +405,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-nvcc_linux-aarch64-12.8.93-h44c6fc4_102.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-nvvm-impl-12.8.93-h614329b_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-nvvm-tools-12.8.93-h614329b_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-profiler-api-12.8.90-h16bee8c_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-sanitizer-api-12.8.93-h4177691_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/gcc_impl_linux-aarch64-11.4.0-h4c5f72d_13.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/gcc_linux-aarch64-11.4.0-h7e71246_4.conda
@@ -533,6 +535,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-nvcc_linux-64-13.4.92-h94ca30b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-nvvm-impl-13.4.92-hb03c661_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-nvvm-tools-13.4.92-hb03c661_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-profiler-api-13.4.92-h7938cbb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-sanitizer-api-13.4.92-h0cf1943_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc_impl_linux-64-14.4.0-h4b2a866_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc_linux-64-14.4.0-hc469d41_2.conda
@@ -657,6 +660,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-nvcc_linux-aarch64-13.4.92-hce25ccd_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-nvvm-impl-13.4.92-hbe86820_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-nvvm-tools-13.4.92-hbe86820_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-profiler-api-13.4.92-h16bee8c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-sanitizer-api-13.4.92-he41a712_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/gcc_impl_linux-aarch64-14.4.0-hcd8d054_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/gcc_linux-aarch64-14.4.0-hab84b30_2.conda
@@ -2600,6 +2604,26 @@ packages:
   run_exports: {}
   size: 31438390
   timestamp: 1789621846059
+- conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-profiler-api-12.8.90-h7938cbb_1.conda
+  sha256: b0c53d54a1c072b7fde87fdf6913477122b87d25a5b45da5d707c1dcbf742d64
+  md5: d89511b2a329ce16fb8401d2109b0e61
+  depends:
+  - cuda-cudart-dev
+  - cuda-version >=12.8,<12.9.0a0
+  license: LicenseRef-NVIDIA-End-User-License-Agreement
+  run_exports: {}
+  size: 23418
+  timestamp: 1742422697955
+- conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-profiler-api-13.4.92-h7938cbb_0.conda
+  sha256: ffb3e9d6f01775f986e87eff96901ae6753d07b65612795149d6fe1bf9a6b918
+  md5: 72d954dcb059383c207b3f33412ed27e
+  depends:
+  - cuda-cudart-dev
+  - cuda-version >=13.4,<13.5.0a0
+  license: LicenseRef-NVIDIA-End-User-License-Agreement
+  run_exports: {}
+  size: 24906
+  timestamp: 1789618194881
 - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-sanitizer-api-12.8.93-hbd13f7d_1.conda
   sha256: 5051d7514f0b708705bf77925fb43b042bcf3ce08b1da0b8a782c02b1c398025
   md5: 7ce68619ca40897948cb85a2eb4b804e
@@ -4204,6 +4228,31 @@ packages:
   run_exports: {}
   size: 29595859
   timestamp: 1789621862164
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-profiler-api-12.8.90-h16bee8c_1.conda
+  sha256: 6be8a982ee8dd5627fdba6ff171cf46ae932f5593072733e27940e35f1af7074
+  md5: dd2e10b9637cfa5acbd9669e893f86c2
+  depends:
+  - cuda-cudart-dev
+  - cuda-version >=12.8,<12.9.0a0
+  constrains:
+  - arm-variant * sbsa
+  license: LicenseRef-NVIDIA-End-User-License-Agreement
+  run_exports: {}
+  size: 23542
+  timestamp: 1742422709172
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-profiler-api-13.4.92-h16bee8c_0.conda
+  sha256: 54d56df54a2b86a58fe012c6246a0dc3446e6c31badeb08786edfb3dca65a536
+  md5: e1bc0b155d82fbe81806e84f91ea3409
+  depends:
+  - arm-variant * sbsa
+  - cuda-cudart-dev
+  - cuda-version >=13.4,<13.5.0a0
+  constrains:
+  - arm-variant * sbsa
+  license: LicenseRef-NVIDIA-End-User-License-Agreement
+  run_exports: {}
+  size: 24888
+  timestamp: 1789618201879
 - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-sanitizer-api-12.8.93-h4177691_1.conda
   sha256: 87640c5caab41f5536705b910726fd0e26c01a5970d11c802aa16f38543c3c76
   md5: d43ff5e2d7a7d3224f4a225fed7a5443
