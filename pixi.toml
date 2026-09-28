@@ -28,6 +28,7 @@ ruff = "*"
 gersemi = "*"
 clang-format = "19.*"
 clang-tools = "19.*"
+python-clang = "19.*" # libclang bindings for tools/ci/check_telemetry_macros.py
 pre-commit = "*"
 
 [activation.env]
@@ -144,9 +145,13 @@ fmt = { cmd = "python tools/ci/lint.py fmt", description = "Apply clang-format, 
 check-graph = { cmd = "cmake --preset dev --graphviz=$OSTIA_BUILD_ROOT/dev/ostia.dot && python tools/ci/check_graph.py --dot $OSTIA_BUILD_ROOT/dev/ostia.dot", depends-on = [
   "_configure",
 ], description = "Check resolved link edges against the layering table (reconfigures)" }
+check-macros = { cmd = "python tools/ci/check_telemetry_macros.py --build $OSTIA_BUILD_ROOT/dev", depends-on = [
+  "_configure",
+], description = "Telemetry macro arguments must not change state (RFC-0001 §5; parses with libclang)" }
 check = { depends-on = [
   "lint",
   "check-graph",
+  "check-macros",
   "test",
 ], description = "Everything CI requires (RFC-0001 §4.1)" }
 tidy = { cmd = "run-clang-tidy -quiet -p $OSTIA_BUILD_ROOT/dev", depends-on = [

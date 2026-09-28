@@ -62,6 +62,12 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
         ("layering", [py, str(ROOT / "tools/ci/check_layering.py"), "--root", str(root)], None, ""),
         ("cpm-pins", [py, str(ROOT / "tools/ci/check_cpm_pins.py"), "--root", str(root)], None, ""),
         (
+            "telemetry-headers",
+            [py, str(ROOT / "tools/ci/check_telemetry_macros.py"), "--public", "--root", str(root)],
+            None,
+            "",
+        ),
+        (
             "docs-index",
             [py, str(ROOT / "tools/docs/gen_index.py"), "--check"],
             None,
@@ -88,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         failed += 1
         output = (r.stdout + r.stderr).strip()
-        if name in ("layering", "cpm-pins"):
+        if name in ("layering", "cpm-pins", "telemetry-headers"):
             print(output)  # already in contract form
             continue
         lines = output.splitlines()

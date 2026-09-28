@@ -26,9 +26,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-x64-gcc14, runner: ubuntu-24.04, env: default, task: test }
-          - { name: linux-x64-gcc11, runner: ubuntu-24.04, env: gcc11, task: test }
-          - { name: linux-x64-clang, runner: ubuntu-24.04, env: clang, task: test }
+          # `test` runs the dev preset (telemetry level debug); `levels` adds release presets
+          # at other telemetry levels (RFC-0001 §4.1, §5).
+          - { name: linux-x64-gcc14, runner: ubuntu-24.04, env: default, task: test, levels: "level-off level-metrics level-trace" }
+          - { name: linux-x64-gcc11, runner: ubuntu-24.04, env: gcc11, task: test, levels: level-metrics }
+          - { name: linux-x64-clang, runner: ubuntu-24.04, env: clang, task: test, levels: level-metrics }
           - { name: linux-arm64-clang, runner: ubuntu-24.04-arm, env: clang, task: test }
           - { name: linux-arm64-gcc14, runner: ubuntu-24.04-arm, env: default, task: test }
           - { name: macos-arm64-host, runner: macos-15, env: default, task: test }
@@ -47,6 +49,14 @@ jobs:
           ccache-key: ${{ matrix.name }}
       - name: pixi run -e ${{ matrix.env }} ${{ matrix.task }}
         run: pixi run -e ${{ matrix.env }} ${{ matrix.task }}
+      - name: Other telemetry levels
+        if: matrix.levels != ''
+        env:
+          LEVELS: ${{ matrix.levels }}
+        run: |
+          for preset in $LEVELS; do
+            pixi run -e ${{ matrix.env }} test-preset "$preset"
+          done
       - name: Summary
         if: always()
         run: |
@@ -114,8 +124,8 @@ jobs:
         include:
           - name: ubuntu2204
             image: ubuntu:22.04
-            deps: apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential git curl python3 >/dev/null
-            python: /usr/bin/python3
+            deps: apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential git curl python3.11 >/dev/null
+            python: /usr/bin/python3.11
           - name: rocky9
             image: rockylinux/rockylinux:9
             deps: dnf install -y -q gcc-c++ git python3.11 tar gzip
@@ -135,7 +145,9 @@ jobs:
           echo "PATH=/opt/ostia-tools/bin:$PATH" >> "$GITHUB_ENV"
       - name: Build and test without pixi (host-only)
         run: |
-          cmake --preset release -DOSTIA_ENABLE_CUDA=OFF -DPython3_EXECUTABLE=${{ matrix.python }}
+          # Host-only at telemetry level off (RFC-0001 §1.4).
+          cmake --preset release -DOSTIA_ENABLE_CUDA=OFF -DOSTIA_TELEMETRY=off \
+            -DPython3_EXECUTABLE=${{ matrix.python }}
           cmake --build --preset release
           ctest --preset release
       - name: Summary
@@ -165,6 +177,8 @@ jobs:
         run: pixi run lint
       - name: pixi run check-graph
         run: pixi run check-graph
+      - name: pixi run check-macros
+        run: pixi run check-macros
       - name: clang-tidy on changed files
         if: github.event_name == 'pull_request'
         env:

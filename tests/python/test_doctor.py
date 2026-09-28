@@ -45,3 +45,9 @@ def test_foreign_cmake_on_path_fails(tmp_path):
     assert r.returncode == 1
     assert "error: the cmake on PATH is not the pixi environment's" in r.stdout
     assert "fix:" in r.stdout
+
+
+def test_reports_the_installed_flavour():
+    r = run()
+    line = next(l for l in r.stdout.splitlines() if l.startswith("installed_flavour:"))
+    assert any(level in line for level in ("off", "metrics", "trace", "debug")), line
