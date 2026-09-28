@@ -18,6 +18,7 @@ import argparse
 import json
 import re
 import shlex
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -179,6 +180,32 @@ def scan_args(path: Path, compile_args: list[str]) -> list[Violation]:
     return found
 
 
+_IMPLICIT: dict[str, list[str]] = {}
+
+
+def _implicit_includes(compiler: str) -> list[str]:
+    """The compiler's built-in include directories (GCC's libstdc++ paths are not in the
+    compile database, and libclang would not find them)."""
+    if compiler not in _IMPLICIT:
+        dirs: list[str] = []
+        try:
+            r = subprocess.run(
+                [compiler, "-xc++", "-E", "-v", "-"], input="", capture_output=True, text=True
+            )
+            inside = False
+            for line in r.stderr.splitlines():
+                if line.startswith("#include <...> search starts here"):
+                    inside = True
+                elif line.startswith("End of search list"):
+                    break
+                elif inside and not line.strip().endswith("(framework directory)"):
+                    dirs += ["-isystem", line.strip()]
+        except OSError:
+            pass
+        _IMPLICIT[compiler] = dirs
+    return _IMPLICIT[compiler]
+
+
 def _compile_args(entry: dict) -> list[str]:
     args = entry.get("arguments") or shlex.split(entry["command"])
     keep: list[str] = []
@@ -193,6 +220,8 @@ def _compile_args(entry: dict) -> list[str]:
         if a.startswith(("-o", "-MD", "-MF", "-fmodules", "-fdeps", "-fmodule-mapper")):
             continue
         keep.append(a)
+    if "clang" not in Path(args[0]).name:
+        keep += _implicit_includes(args[0])
     return keep
 
 
