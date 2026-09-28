@@ -163,3 +163,20 @@ test-multiprocess = { cmd = "ctest --preset dev -L multiprocess", depends-on = [
   "build",
 ], description = "Multi-process tests over UCX TCP loopback (Linux: pixi run -e ucx test-multiprocess)" }
 docs-as-test = { cmd = "python tools/ci/docs_as_test.py", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
+test-preset = { cmd = "cmake --preset {{ preset }} && cmake --build --preset {{ preset }} && ctest --preset {{ preset }}", args = [
+  "preset",
+], description = "Configure, build and test one preset, e.g. pixi run test-preset level-off" }
+test-levels = { depends-on = [
+  { task = "test-preset", args = [
+    "level-off",
+  ] },
+  { task = "test-preset", args = [
+    "level-metrics",
+  ] },
+  { task = "test-preset", args = [
+    "level-trace",
+  ] },
+  { task = "test-preset", args = [
+    "level-debug",
+  ] },
+], description = "Build and test all four telemetry levels (RFC-0001 §5)" }

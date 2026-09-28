@@ -10,6 +10,7 @@ target_include_directories(
 
 ostia_add_component(NAME telemetry RANK 0)
 target_sources(ostia_telemetry PRIVATE src/telemetry.cpp)
+ostia_telemetry_catalog(telemetry telemetry.toml)
 if(OSTIA_BUILD_TESTS)
   add_subdirectory(tests)
 endif()

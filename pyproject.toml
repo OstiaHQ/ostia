@@ -1,6 +1,6 @@
 # Tool configuration only. Packages live in <component>/python/pyproject.toml.
 [tool.pytest.ini_options]
-testpaths = ["tests/python", "tools"]
+testpaths = ["tests/python", "tools", "telemetry/tools"]
 pythonpath = ["."]
 addopts = "-m 'not slow and not gpu'"
 markers = [

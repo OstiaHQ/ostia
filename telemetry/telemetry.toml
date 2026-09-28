@@ -1,0 +1,13 @@
+# ostia-telemetry's own telemetry catalog (RFC-0002 §1). gen_catalog.py turns it into
+# storage-free handles in every build level (RFC-0001 §5). The runtime's self-metrics
+# (attribute_overflow, export_failures, ...) arrive with RFC-0002's implementation.
+
+[[metric]]
+name = "ostia.telemetry.selftest_count"
+kind = "counter"
+unit = "1"
+description = "Exercised by the instrumentation macro tests."
+
+[[event]]
+name = "telemetry.selftest"
+args = { arg0 = "value", arg1 = "index" }
