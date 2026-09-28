@@ -57,7 +57,8 @@ def test_golden_header(tmp_path):
         ),
         ('[[metric]]\nname = "ostia.fabric.x"\nkind = "counter"\n', "needs a unit"),
         (
-            '[[metric]]\nname = "ostia.fabric.x"\nkind = "counter"\nunit = "1"\ndimensions = ["peer"]\n',
+            '[[metric]]\nname = "ostia.fabric.x"\nkind = "counter"\nunit = "1"\n'
+            'dimensions = ["peer"]\n',
             "undeclared attribute 'peer'",
         ),
         (

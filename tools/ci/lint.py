@@ -27,7 +27,11 @@ def file_lists(root: Path) -> dict[str, list[str]]:
     out = subprocess.run(
         ["git", "-C", str(root), "ls-files", "-z"], capture_output=True, check=True
     ).stdout.decode()
-    files = sorted(f for f in out.split("\0") if f and (root / f).is_file())
+    files = sorted(
+        f
+        for f in out.split("\0")
+        if f and (root / f).is_file() and "/tests/golden/" not in f  # golden = expected output
+    )
     return {
         "cpp": [f for f in files if f.endswith(CPP)],
         "cmake": [

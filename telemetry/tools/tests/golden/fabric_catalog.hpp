@@ -6,13 +6,10 @@
 
 namespace ostia::fabric::catalog {
 
-// ostia.fabric.bytes_sent (counter, unit By, dimensions: transport): Bytes handed to a transport
-// for sending.
-inline constexpr ::ostia::telemetry::MetricHandle bytes_sent{
-    0, ::ostia::telemetry::MetricKind::counter};
+// ostia.fabric.bytes_sent (counter, unit By, dimensions: transport): Bytes handed to a transport for sending.
+inline constexpr ::ostia::telemetry::MetricHandle bytes_sent{0, ::ostia::telemetry::MetricKind::counter};
 // ostia.fabric.progress_loop_latency (histogram, unit ns)
-inline constexpr ::ostia::telemetry::MetricHandle progress_loop_latency{
-    1, ::ostia::telemetry::MetricKind::histogram};
+inline constexpr ::ostia::telemetry::MetricHandle progress_loop_latency{1, ::ostia::telemetry::MetricKind::histogram};
 // fabric.chunk_send (arg0=bytes, arg1=chunk)
 inline constexpr ::ostia::telemetry::EventHandle chunk_send{0};
 
