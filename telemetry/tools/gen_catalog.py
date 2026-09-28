@@ -87,7 +87,7 @@ def load(path: Path, component: str) -> Catalog:
             )
         )
     events: list[Event] = []
-    for i, e in enumerate(data.get("event", [])):
+    for e in data.get("event", []):
         name = e.get("name", "")
         handle = _handle(name, f"{component}.", "event")
         if name in seen:
@@ -110,9 +110,8 @@ def render(component: str, catalog: Catalog, source: str) -> str:
     ]
     for i, m in enumerate(catalog.metrics):
         dims = f", dimensions: {', '.join(m.dimensions)}" if m.dimensions else ""
-        lines.append(
-            f"// {m.name} ({m.kind}, unit {m.unit}{dims}){': ' if m.description else ''}{m.description}"
-        )
+        about = f": {m.description}" if m.description else ""
+        lines.append(f"// {m.name} ({m.kind}, unit {m.unit}{dims}){about}")
         lines.append(
             f"inline constexpr ::ostia::telemetry::MetricHandle {m.handle}{{{i}, "
             f"::ostia::telemetry::MetricKind::{m.kind}}};"

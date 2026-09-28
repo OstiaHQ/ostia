@@ -49,5 +49,5 @@ def test_foreign_cmake_on_path_fails(tmp_path):
 
 def test_reports_the_installed_flavour():
     r = run()
-    line = next(l for l in r.stdout.splitlines() if l.startswith("installed_flavour:"))
+    line = next(s for s in r.stdout.splitlines() if s.startswith("installed_flavour:"))
     assert any(level in line for level in ("off", "metrics", "trace", "debug")), line
