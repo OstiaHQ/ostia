@@ -32,8 +32,13 @@ if(APPLE)
 else()
   set(_origin "$ORIGIN")
 endif()
+# Linked directly with the install RPATH: a build-tree RPATH would add the prefix's lib/
+# (the imported library's directory), which survives install on Linux.
 set_target_properties(
   _native
-  PROPERTIES INSTALL_RPATH "${_origin}/${_rel}" INSTALL_REMOVE_ENVIRONMENT_RPATH ON
+  PROPERTIES
+    INSTALL_RPATH "${_origin}/${_rel}"
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_REMOVE_ENVIRONMENT_RPATH ON
 )
 install(TARGETS _native LIBRARY DESTINATION ostia/fabric)
