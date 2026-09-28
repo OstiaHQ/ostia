@@ -1,0 +1,73 @@
+# The component dependency table (RFC-0001 §3.3). cmake/layering.json is the single
+# source; tools/ci/check_layering.py and check_graph.py read the same file.
+include_guard(GLOBAL)
+include(${CMAKE_CURRENT_LIST_DIR}/OstiaMessages.cmake)
+
+file(READ "${CMAKE_CURRENT_LIST_DIR}/layering.json" _ostia_json)
+set_property(GLOBAL PROPERTY OSTIA_LAYERING_JSON "${_ostia_json}")
+
+# _ostia_json_list(<out> <json path...>): a JSON array as a CMake list.
+function(_ostia_json_list out)
+  get_property(json GLOBAL PROPERTY OSTIA_LAYERING_JSON)
+  set(result "")
+  string(JSON arr ERROR_VARIABLE err GET "${json}" ${ARGN})
+  if(NOT err)
+    string(JSON n LENGTH "${arr}")
+    if(n GREATER 0)
+      math(EXPR last "${n} - 1")
+      foreach(i RANGE ${last})
+        string(JSON item GET "${arr}" ${i})
+        list(APPEND result ${item})
+      endforeach()
+    endif()
+  endif()
+  set(${out} "${result}" PARENT_SCOPE)
+endfunction()
+
+function(ostia_layering_rank name out)
+  get_property(json GLOBAL PROPERTY OSTIA_LAYERING_JSON)
+  string(JSON r ERROR_VARIABLE err GET "${json}" components ${name} rank)
+  if(err)
+    set(r NOTFOUND)
+  endif()
+  set(${out} "${r}" PARENT_SCOPE)
+endfunction()
+
+function(ostia_layering_rfc name out)
+  get_property(json GLOBAL PROPERTY OSTIA_LAYERING_JSON)
+  string(JSON r ERROR_VARIABLE err GET "${json}" components ${name} rfc)
+  if(err)
+    set(r NOTFOUND)
+  endif()
+  set(${out} "${r}" PARENT_SCOPE)
+endfunction()
+
+function(ostia_layering_allowed name out)
+  _ostia_json_list(result components ${name} depends)
+  set(${out} "${result}" PARENT_SCOPE)
+endfunction()
+
+function(ostia_layering_internal_targets out)
+  _ostia_json_list(result internal_targets)
+  set(${out} "${result}" PARENT_SCOPE)
+endfunction()
+
+# ostia_layering_components(<out>): every component, in rank order.
+function(ostia_layering_components out)
+  get_property(json GLOBAL PROPERTY OSTIA_LAYERING_JSON)
+  string(JSON n LENGTH "${json}" components)
+  math(EXPR last "${n} - 1")
+  set(by_rank "")
+  foreach(i RANGE ${last})
+    string(JSON name MEMBER "${json}" components ${i})
+    string(JSON r GET "${json}" components ${name} rank)
+    list(APPEND by_rank "${r}:${name}")
+  endforeach()
+  list(SORT by_rank COMPARE NATURAL)
+  list(TRANSFORM by_rank REPLACE "^[0-9]+:" "")
+  set(${out} "${by_rank}" PARENT_SCOPE)
+endfunction()
+
+# Part 2 of RFC-0001 §3.3: the link walk. A no-op until components exist.
+function(ostia_check_layering)
+endfunction()
