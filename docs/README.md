@@ -83,4 +83,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 | Document | Title | Status | Components | Created |
 | --- | --- | --- | --- | --- |
 | [RFC-0001](rfcs/0001-m0-foundations.md) | M0 foundations | Accepted | build, telemetry, fabric, docs | 2026-09-25 |
+| [RFC-0002](rfcs/0002-telemetry.md) | ostia-telemetry runtime | Accepted | telemetry | 2026-09-26 |
 <!-- index:end -->
