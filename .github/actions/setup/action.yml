@@ -1,0 +1,37 @@
+# Shared setup for the CPU jobs (RFC-0001 §4.1): pixi from the lock file, and ccache
+# for pull-request runs only (no cache crosses from PR runs to trusted runs, §4.2).
+name: Set up pixi
+description: Install pixi and the named environment from pixi.lock, and restore ccache on PRs
+inputs:
+  environment:
+    description: pixi environment to install
+    default: default
+  ccache-key:
+    description: ccache key prefix for this job ("" disables ccache)
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Install pixi and the environment
+      # prefix-dev/setup-pixi v0.10.2
+      uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e
+      with:
+        pixi-version: v0.81.0
+        environments: ${{ inputs.environment }}
+        locked: true
+        cache: true
+        cache-write: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+    - name: Point ccache at the workspace
+      if: inputs.ccache-key != ''
+      shell: bash
+      run: echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+
+    - name: Restore ccache (pull requests only)
+      if: inputs.ccache-key != '' && github.event_name == 'pull_request'
+      # actions/cache v6.1.0
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: .ccache
+        key: ccache-${{ inputs.ccache-key }}-${{ github.sha }}
+        restore-keys: ccache-${{ inputs.ccache-key }}-

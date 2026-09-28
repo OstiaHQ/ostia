@@ -164,3 +164,17 @@ ostia_configure_test(configure.cuda_too_old SOURCE ${PROJECT_SOURCE_DIR} EXPECT 
   REGEX "CUDA 12\\.4\\.131 at .* is too old.*required: CUDA >= 12\\.8"
   ARGS -DOSTIA_ENABLE_CUDA=AUTO -DOSTIA_BUILD_TESTS=OFF -DOSTIA_NVCC=${_fake_nvcc}/nvcc-12.4
 )
+
+# The host-compiler range check in the real top-level configure (RFC-0001 §1 Done when):
+# registered where the compiler is outside CUDA 12.8's range (the gcc15 pixi environment).
+string(REGEX MATCH "^[0-9]+" _cxx_major "${CMAKE_CXX_COMPILER_VERSION}")
+if(
+  (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND _cxx_major GREATER 14)
+  OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND _cxx_major GREATER 19)
+)
+  ostia_configure_test(configure.cuda_host_compiler_out_of_range SOURCE ${PROJECT_SOURCE_DIR}
+    EXPECT fail
+    REGEX "is not supported by CUDA 12\\.8\\.93.*supported: ${CMAKE_CXX_COMPILER_ID} [0-9]+–[0-9]+"
+    ARGS -DOSTIA_ENABLE_CUDA=ON -DOSTIA_BUILD_TESTS=OFF -DOSTIA_NVCC=${_fake_nvcc}/nvcc-12.8
+  )
+endif()

@@ -1,4 +1,5 @@
-# Keeps pinned GitHub Actions up to date. Build dependencies are added with M0.
+# Keeps pinned GitHub Actions up to date. pixi packages and CPM pins are updated by
+# self-hosted Renovate (.github/workflows/renovate.yml, RFC-0001 §2.4); Dependabot supports neither.
 version: 2
 updates:
   - package-ecosystem: github-actions
