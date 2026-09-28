@@ -2,6 +2,8 @@
 # problem, the offending item, the rule that was broken, the exact fix and the RFC
 # section. Each line starts with a space so CMake prints it as written, unwrapped.
 include_guard(GLOBAL)
+# Modules also run under `cmake -P`, where no project sets policies.
+cmake_policy(VERSION 4.1)
 
 get_filename_component(_ostia_root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set_property(GLOBAL PROPERTY OSTIA_SOURCE_ROOT "${_ostia_root}")

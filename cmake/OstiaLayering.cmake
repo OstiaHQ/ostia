@@ -1,6 +1,8 @@
 # The component dependency table (RFC-0001 §3.3). cmake/layering.json is the single
 # source; tools/ci/check_layering.py and check_graph.py read the same file.
 include_guard(GLOBAL)
+# Modules also run under `cmake -P`, where no project sets policies.
+cmake_policy(VERSION 4.1)
 include(${CMAKE_CURRENT_LIST_DIR}/OstiaMessages.cmake)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/layering.json" _ostia_json)
