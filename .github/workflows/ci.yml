@@ -124,7 +124,7 @@ jobs:
         include:
           - name: ubuntu2204
             image: ubuntu:22.04
-            deps: apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential git curl python3.11 >/dev/null
+            deps: apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential git curl python3 python3.11 >/dev/null
             python: /usr/bin/python3.11
           - name: rocky9
             image: rockylinux/rockylinux:9
