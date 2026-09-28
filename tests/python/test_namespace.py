@@ -1,7 +1,9 @@
 """PEP 420 namespace packages over one native prefix (RFC-0001 §3.5, Done when)."""
 
 import json
+import os
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -62,7 +64,9 @@ def test_extension_rpath_is_relative(run_py, conda_lib):
         ]
         want = "@loader_path/"
     else:
-        out = subprocess.run(["readelf", "-d", ext], capture_output=True, text=True).stdout
+        # conda's toolchain activation exports READELF; fall back to binutils on PATH.
+        readelf = os.environ.get("READELF") or shutil.which("readelf") or "readelf"
+        out = subprocess.run([readelf, "-d", ext], capture_output=True, text=True).stdout
         rpaths = [
             p
             for line in out.splitlines()
