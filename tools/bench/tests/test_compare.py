@@ -122,3 +122,25 @@ def test_write_baseline_pools_machines(tmp_path):
 def test_pooling_refuses_incompatible_machines():
     with pytest.raises(ValueError, match="incompatible"):
         pool_baseline([[rec(noisy(44))], [rec(noisy(44), driver="570.1")]], "x")
+
+
+def test_gate_runs_without_transport_evidence_are_invalid(tmp_path):
+    base = [rec(noisy(20, seed=1), bench="tcp_put")]
+    cand = [rec(noisy(20, seed=2), bench="tcp_put", run="r2")]
+    [r] = compare_runs(base, cand, evidence_dir=tmp_path)
+    assert (r.outcome, r.detail) == ("invalid", "no transport evidence (tcp_put.json)")
+    bad = {
+        "schema": 1,
+        "workload": "tcp_put",
+        "lanes": [{"tl": "rc_mlx5", "device": "mlx5_0:1"}],
+        "program": {},
+        "nic_bytes": {},
+        "nvlink_bytes": {},
+    }
+    (tmp_path / "tcp_put.json").write_text(json.dumps(bad))
+    [r] = compare_runs(base, cand, evidence_dir=tmp_path)
+    assert r.outcome == "invalid" and "no tcp lane" in r.detail
+    bad["lanes"] = [{"tl": "tcp", "device": "eth0"}]
+    (tmp_path / "tcp_put.json").write_text(json.dumps(bad))
+    [r] = compare_runs(base, cand, evidence_dir=tmp_path)
+    assert r.outcome == "pass"

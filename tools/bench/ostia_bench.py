@@ -2,6 +2,7 @@
 """The Ostia benchmark driver (RFC-0001 §6.1).
 
     ostia_bench.py run --bench <binary> [--format nvbench|ostia] [--runs 10] [--ranks N]
+                       [--args "..."] [--tls UCX_TLS] [--evidence]
                        [--needs-gpu] [--build-dir build/cuda-12/release] [--run-id ID]
     ostia_bench.py convert --run-id ID <nvbench.json>...
     ostia_bench.py median-seconds --bench <nvbench binary>
@@ -11,8 +12,10 @@ multi-process ones through fabric/tests/multiprocess/launcher.py (--ranks), and 
 schema-1 records (tools/bench/schema.py) to bench/results/<run id>/results.jsonl. One
 nvbench invocation gives one sample per state: its cold mean GPU time, or its global
 memory bandwidth when nvbench reports one. `ostia` format binaries print schema-1
-records without provenance and compat, which the driver fills in. `median-seconds`
-prints one duration for tools/bench/overhead.py.
+records without provenance and compat, which the driver fills in. `--evidence` records
+the transport the run used (tools/bench/evidence.py) in
+bench/results/<run id>/evidence/<workload>.json, which gate comparisons require (§6.4).
+`median-seconds` prints one duration for tools/bench/overhead.py.
 """
 
 import argparse
@@ -20,6 +23,7 @@ import datetime
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import statistics
 import subprocess
@@ -31,6 +35,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from tools.bench import evidence
 from tools.bench.schema import validate
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -134,6 +139,15 @@ def _write(records: list[dict], out: Path, run_id: str) -> Path:
     return path
 
 
+def _write_evidence(output: str, before: dict, after: dict, run_dir: Path) -> None:
+    benches = {json.loads(line)["bench"] for line in output.splitlines() if line.startswith("{")}
+    for bench in sorted(benches):
+        path = run_dir / "evidence" / f"{bench}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(evidence.build(bench, before, after, output), indent=2) + "\n")
+        print(f"wrote transport evidence to {path}")
+
+
 def _nvbench_once(binary: str) -> dict:
     with tempfile.TemporaryDirectory() as d:
         out = Path(d) / "nvbench.json"
@@ -164,6 +178,9 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--needs-gpu", action="store_true")
     run.add_argument("--build-dir", type=Path)
     run.add_argument("--nic", default="none")
+    run.add_argument("--args", default="", help="arguments for the benchmark binary")
+    run.add_argument("--tls", help="UCX_TLS for multi-process runs (default: the launcher's)")
+    run.add_argument("--evidence", action="store_true", help="record transport evidence")
     conv = sub.add_parser("convert")
     conv.add_argument("files", nargs="+", type=Path)
     for p in (run, conv):
@@ -193,12 +210,16 @@ def main(argv: list[str] | None = None) -> int:
         docs = [_nvbench_once(args.bench) for _ in range(args.runs)]
         records = _records(_collect(docs), prov, compat)
     else:
-        cmd = [args.bench]
+        cmd = [args.bench, *shlex.split(args.args)]
         if args.ranks:
             launcher = ROOT / "fabric" / "tests" / "multiprocess" / "launcher.py"
-            cmd = [sys.executable, str(launcher), "--ranks", str(args.ranks), "--", args.bench]
+            tls = ["--tls", args.tls, "--expect", ""] if args.tls else []
+            cmd = [sys.executable, str(launcher), "--ranks", str(args.ranks), *tls, "--", *cmd]
         env = dict(os.environ, OSTIA_BENCH_RUNS=str(args.runs))
+        before = evidence.snapshot() if args.evidence else None
         out = subprocess.run(cmd, check=True, capture_output=True, text=True, env=env).stdout
+        if before is not None:
+            _write_evidence(out, before, evidence.snapshot(), args.out / run_id)
         records = []
         for line in out.splitlines():
             if line.startswith("{"):

@@ -1,0 +1,25 @@
+# Reference setup rdma-pair (RFC-0004 §2): two nodes with GPUDirect RDMA, two rails.
+# The preflight before Rollout PR 7 decides whether Nebius stays primary (RFC-0004 §2).
+schema: 1
+name: rdma-pair
+gate: [rdma_put, gdr_stream, dual_link] # dual_link across nodes: two rails
+also_run: [topo_capture]
+max_duration_hours: 3
+max_usd_per_hour: 64 # aggregate for the whole setup, all nodes
+machines:
+  primary:
+    backend: skypilot
+    cloud: nebius
+    network_tier: best
+    purchase: on-demand
+    nodes: 2
+    accelerators: H100:8
+    capabilities: [nvlink-p2p, cuda-ipc, gpudirect-rdma, multi-rail]
+  fallback:
+    backend: azure # tools/rent/azure/: one VM Scale Set, on demand only
+    instance_type: Standard_ND96asr_v4
+    purchase: on-demand
+    nodes: 2
+    accelerators: A100-40GB-SXM:8
+    capabilities: [nvlink-p2p, cuda-ipc, gpudirect-rdma, multi-rail]
+    max_usd_per_hour: 56

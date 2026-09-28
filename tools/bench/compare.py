@@ -2,14 +2,15 @@
 """Compare benchmark results with a baseline (RFC-0001 §6.3).
 
     compare.py --baseline bench/baselines/<setup>.json --candidate results.jsonl \\
-        [--manifest cases.json] [--require-pass]
+        [--manifest cases.json] [--require-pass] [--evidence-dir <run>/evidence]
     compare.py --write-baseline bench/baselines/<setup>.json --setup <setup> run1.jsonl run2.jsonl
 
 Outcomes per case:
 - `pass`: the change is below the threshold with 95% confidence;
 - `regression`: it is above the threshold with 95% confidence;
 - `inconclusive`: neither, or fewer than 10 samples on a side;
-- `invalid`: missing, duplicate, malformed or non-finite results, or missing files;
+- `invalid`: missing, duplicate, malformed or non-finite results, or missing files; with
+  --evidence-dir, also a gate case without evidence of the transport it tests (§6.4);
 - `skipped`: the compatibility fields differ, so the results are not comparable.
 
 The change is d = (candidate median - baseline median) / baseline median, signed so that
@@ -30,6 +31,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from tools.bench import evidence
 from tools.bench.schema import COMPAT, SchemaError, case_key, compat_key, load, validate
 
 THRESHOLD = 0.05
@@ -90,8 +92,20 @@ def compare_case(
     return Outcome(outcome, d, lo, hi)
 
 
+def _evidence_problem(bench: str, evidence_dir: Path) -> str:
+    path = evidence_dir / f"{bench}.json"
+    try:
+        ev = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return f"no transport evidence ({path.name})"
+    return "; ".join(evidence.check(ev))
+
+
 def compare_runs(
-    baseline: list[dict], candidate: list[dict], manifest: list[dict] | None = None
+    baseline: list[dict],
+    candidate: list[dict],
+    manifest: list[dict] | None = None,
+    evidence_dir: Path | None = None,
 ) -> list[CaseResult]:
     results: list[CaseResult] = []
     by_case: dict[tuple, list[dict]] = {}
@@ -107,6 +121,9 @@ def compare_runs(
             results.append(CaseResult(*key, "invalid", f"duplicate case ({len(records)} records)"))
             continue
         cand = records[0]
+        if evidence_dir is not None and (problem := _evidence_problem(key[0], evidence_dir)):
+            results.append(CaseResult(*key, "invalid", problem))
+            continue
         base = base_by_case.get(key)
         if base is None:
             results.append(CaseResult(*key, "skipped", "no baseline for this case"))
@@ -165,6 +182,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--manifest", type=Path, help="JSON list of expected {bench, params}")
     parser.add_argument("--require-pass", action="store_true", help="inconclusive fails (gates)")
+    parser.add_argument(
+        "--evidence-dir", type=Path, help="require transport evidence for every case (gates)"
+    )
     parser.add_argument("--write-baseline", type=Path)
     parser.add_argument("--setup")
     parser.add_argument("runs", nargs="*", type=Path, help="result files to pool into a baseline")
@@ -189,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"invalid: {e}")
         return 1
     manifest = json.loads(args.manifest.read_text()) if args.manifest else None
-    results = compare_runs(baseline, candidate, manifest)
+    results = compare_runs(baseline, candidate, manifest, args.evidence_dir)
     print(_summary(results))
     bad = {"regression", "invalid"} | ({"inconclusive"} if args.require_pass else set())
     failed = [r for r in results if r.outcome in bad]
