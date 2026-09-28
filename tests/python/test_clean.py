@@ -17,8 +17,15 @@ def test_clean_uses_the_native_install_manifest(tmp_path):
     # ctest's staging install rewrote the preset's manifest with other paths.
     (build / "dev" / "install_manifest.txt").write_text(f"{tmp_path}/stage/lib/x.so\n")
     r = subprocess.run(
-        [sys.executable, str(ROOT / "tools/dev/clean.py"), "--build-root", str(build), "--skip-pip"],
-        capture_output=True, text=True,
+        [
+            sys.executable,
+            str(ROOT / "tools/dev/clean.py"),
+            "--build-root",
+            str(build),
+            "--skip-pip",
+        ],
+        capture_output=True,
+        text=True,
     )
     assert r.returncode == 0, r.stdout + r.stderr
     assert not installed.exists()
