@@ -205,6 +205,38 @@ if(OSTIA_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
+# Package config (RFC-0001 §3.1–§3.2). A component is real unless it declared itself a
+# placeholder; a real component that was disabled simply has no targets file.
+include(CMakePackageConfigHelpers)
+get_property(OSTIA_PLACEHOLDER_COMPONENTS GLOBAL PROPERTY OSTIA_PLACEHOLDERS)
+ostia_layering_components(OSTIA_REAL_COMPONENTS)
+if(OSTIA_PLACEHOLDER_COMPONENTS)
+  list(REMOVE_ITEM OSTIA_REAL_COMPONENTS ${OSTIA_PLACEHOLDER_COMPONENTS})
+endif()
+set(OSTIA_CONFIG_DEPS "")
+foreach(c IN LISTS OSTIA_REAL_COMPONENTS)
+  get_property(_d GLOBAL PROPERTY OSTIA_DEPENDS_${c})
+  string(APPEND OSTIA_CONFIG_DEPS "set(_ostia_deps_${c} \"${_d}\")\n")
+endforeach()
+set(OSTIA_CONFIG_RFCS "")
+foreach(c IN LISTS OSTIA_PLACEHOLDER_COMPONENTS)
+  ostia_layering_rfc(${c} _rfc)
+  string(APPEND OSTIA_CONFIG_RFCS "set(_ostia_rfc_${c} \"${_rfc}\")\n")
+endforeach()
+configure_package_config_file(
+  cmake/ostiaConfig.cmake.in
+  ${PROJECT_BINARY_DIR}/ostiaConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ostia
+)
+write_basic_package_version_file(
+  ${PROJECT_BINARY_DIR}/ostiaConfigVersion.cmake
+  COMPATIBILITY SameMinorVersion
+)
+install(
+  FILES ${PROJECT_BINARY_DIR}/ostiaConfig.cmake ${PROJECT_BINARY_DIR}/ostiaConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ostia
+)
+
 get_property(_components GLOBAL PROPERTY OSTIA_COMPONENTS)
 get_property(_placeholders GLOBAL PROPERTY OSTIA_PLACEHOLDERS)
 set(_component_text "")

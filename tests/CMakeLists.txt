@@ -22,7 +22,7 @@ set_tests_properties(cmake.presets_match_default PROPERTIES LABELS cpu)
 
 # ostia_configure_test(<name> SOURCE <dir> EXPECT pass|fail [REGEX <re>] [ARGS <a>...])
 function(ostia_configure_test name)
-  cmake_parse_arguments(PARSE_ARGV 1 A "" "SOURCE;EXPECT;REGEX" "ARGS")
+  cmake_parse_arguments(PARSE_ARGV 1 A "" "SOURCE;EXPECT;REGEX;RUN;FIXTURE" "ARGS")
   list(
     APPEND A_ARGS
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
@@ -34,10 +34,13 @@ function(ostia_configure_test name)
     NAME ${name}
     COMMAND
       ${CMAKE_COMMAND} -DSRC=${A_SOURCE} -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/${name}
-      -DEXPECT=${A_EXPECT} "-DREGEX=${A_REGEX}" "-DARGS=${args}" -P
+      -DEXPECT=${A_EXPECT} "-DREGEX=${A_REGEX}" "-DARGS=${args}" "-DRUN=${A_RUN}" -P
       ${CMAKE_CURRENT_SOURCE_DIR}/cmake/expect_configure.cmake
   )
   set_tests_properties(${name} PROPERTIES LABELS cpu)
+  if(A_FIXTURE)
+    set_tests_properties(${name} PROPERTIES FIXTURES_REQUIRED ${A_FIXTURE})
+  endif()
 endfunction()
 
 if(NOT CMAKE_CUDA_COMPILER_LOADED)
@@ -83,3 +86,39 @@ add_test(
     -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
 )
 set_tests_properties(layering.graph_genex PROPERTIES LABELS cpu)
+
+# Install and package config (RFC-0001 §3.1–§3.2): consumers of an installed tree.
+set(_stage ${CMAKE_CURRENT_BINARY_DIR}/stage)
+add_test(NAME install.stage COMMAND ${CMAKE_COMMAND} -E rm -rf ${_stage})
+add_test(NAME install.stage_install COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR} --prefix ${_stage})
+set_tests_properties(install.stage PROPERTIES FIXTURES_SETUP ostia_stage_clean LABELS cpu)
+set_tests_properties(
+  install.stage_install
+  PROPERTIES FIXTURES_SETUP ostia_stage FIXTURES_REQUIRED ostia_stage_clean LABELS cpu
+)
+set(_consumer ${CMAKE_CURRENT_SOURCE_DIR}/cmake/find_package)
+ostia_configure_test(find_package.fabric SOURCE ${_consumer} EXPECT pass RUN consumer
+  FIXTURE ostia_stage ARGS -DWANT=fabric -DCMAKE_PREFIX_PATH=${_stage})
+ostia_configure_test(find_package.exchange SOURCE ${_consumer} EXPECT fail FIXTURE ostia_stage
+  REGEX "ostia component 'exchange' is a placeholder.*the ostia-exchange RFC.*RFC-0001 §3\\.1"
+  ARGS -DWANT=exchange -DCMAKE_PREFIX_PATH=${_stage})
+ostia_configure_test(find_package.unknown SOURCE ${_consumer} EXPECT fail FIXTURE ostia_stage
+  REGEX "unknown ostia component 'storage'" ARGS -DWANT=storage -DCMAKE_PREFIX_PATH=${_stage})
+ostia_configure_test(find_package.none SOURCE ${_consumer} EXPECT pass FIXTURE ostia_stage
+  ARGS -DWANT= -DCMAKE_PREFIX_PATH=${_stage})
+add_test(
+  NAME install.no_placeholders
+  COMMAND ${CMAKE_COMMAND} -DSTAGE=${_stage} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_check.cmake
+)
+set_tests_properties(install.no_placeholders PROPERTIES FIXTURES_REQUIRED ostia_stage LABELS cpu)
+add_test(
+  NAME install.fabric_disabled
+  COMMAND
+    ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/cfg/fabric_disabled
+    -DCONSUMER=${_consumer} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fabric_disabled.cmake
+)
+set_tests_properties(install.fabric_disabled PROPERTIES LABELS cpu)
+
+# Every public header compiles on its own, as C++ (and as C for .h, CUDA when enabled).
+add_subdirectory(headers)

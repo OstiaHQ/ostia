@@ -1,0 +1,18 @@
+# cmake -DSTAGE=<prefix> -P install_check.cmake: placeholders are never installed or
+# exported (RFC-0001 §3.1).
+cmake_policy(VERSION 4.1)
+foreach(c exchange runtime query)
+  if(EXISTS "${STAGE}/include/ostia/${c}")
+    message(FATAL_ERROR "placeholder ${c} installed headers: ${STAGE}/include/ostia/${c}")
+  endif()
+  file(GLOB targets "${STAGE}/lib/cmake/ostia/ostia-*-targets*.cmake")
+  foreach(f IN LISTS targets)
+    file(READ "${f}" text)
+    if(text MATCHES "ostia::${c}")
+      message(FATAL_ERROR "placeholder ${c} exported in ${f}")
+    endif()
+  endforeach()
+endforeach()
+if(NOT EXISTS "${STAGE}/lib/cmake/ostia/ostiaConfig.cmake")
+  message(FATAL_ERROR "ostiaConfig.cmake not installed in ${STAGE}")
+endif()
