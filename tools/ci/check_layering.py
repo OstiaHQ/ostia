@@ -49,9 +49,13 @@ def _files(root: Path, component: str):
                 yield p
 
 
-def _check(inc: str, file: Path, comp: str, root: Path, layering: dict) -> str | None:
+def _check(inc: str, angle: bool, file: Path, comp: str, root: Path, layering: dict) -> str | None:
     components = layering["components"]
     if ".." in Path(inc).parts:
+        # Angle includes and <ostia/...> paths resolve against each -I directory, so a
+        # ".." there can reach anything; only a quoted, file-relative path is checkable.
+        if angle or PUBLIC.match(inc):
+            return "relative"
         target = Path(os.path.normpath(file.parent / inc))
         if not target.is_relative_to(root / comp):
             return "relative"
@@ -76,7 +80,7 @@ def scan(root: Path) -> list[Violation]:
                 if not m:
                     continue
                 open_, inc = m.groups()
-                reason = _check(inc, file, comp, root, layering)
+                reason = _check(inc, open_ == "<", file, comp, root, layering)
                 if reason:
                     spelled = f"<{inc}>" if open_ == "<" else f'"{inc}"'
                     rel = file.relative_to(root).as_posix()
@@ -92,7 +96,7 @@ FIXES = {
 RULES = {
     "upward": "a component includes only its own headers and those of its table row",
     "src": "a component's src/ is private to it",
-    "relative": "relative includes stay inside the component's folder",
+    "relative": "relative includes stay inside the component's folder; no '..' after ostia/",
 }
 
 

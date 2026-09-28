@@ -44,3 +44,35 @@ user_value("75" "${release}" "" "75") # reconfigure_user_changed
 user_value("" "" "90" "90") # env_cudaarchs
 user_value("" "" "" "") # nothing set
 user_value("native" "native" "" "") # Ostia chose native last time
+
+# Two configures in a row (review focus 3): a user value must survive the second one,
+# and Ostia's own choice must be recomputed, not mistaken for a user value.
+macro(configure_twice cache env want1 want2)
+  set(c "${cache}")
+  set(prev "")
+  foreach(run 1 2)
+    ostia_cuda_arch_resolve(
+      CACHE "${c}"
+      PREVIOUS "${prev}"
+      ENV "${env}"
+      MODE dev
+      GPU_CAPS
+      RELEASE_LIST ${release}
+      OUT_ARCH arch
+      OUT_REASON reason
+      OUT_PREVIOUS next
+    )
+    if(run EQUAL 1 AND NOT "${arch}" STREQUAL "${want1}")
+      message(FATAL_ERROR "cache=${cache} env=${env} run 1: '${arch}'")
+    endif()
+    if(run EQUAL 2 AND NOT "${arch}" STREQUAL "${want2}")
+      message(FATAL_ERROR "cache=${cache} env=${env} run 2: '${arch}'")
+    endif()
+    set(c "${arch}") # the top level writes the result back to the cache (FORCE)
+    set(prev "${next}")
+  endforeach()
+endmacro()
+configure_twice("75" "" "75" "75") # -DCMAKE_CUDA_ARCHITECTURES=75
+configure_twice("" "89" "89" "89") # CUDAARCHS=89
+configure_twice("89" "" "89" "89") # the gpu-ci preset passes 89 on every configure
+configure_twice("" "" "${release}" "${release}") # Ostia's own choice, recomputed

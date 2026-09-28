@@ -42,3 +42,11 @@ set_target_properties(
     INSTALL_REMOVE_ENVIRONMENT_RPATH ON
 )
 install(TARGETS _native LIBRARY DESTINATION ostia/fabric)
+if(NOT APPLE)
+  # conda-forge GCC's specs append -rpath $CONDA_PREFIX/lib to every link. Rewrite the
+  # installed extension's RPATH to the one relative entry (RFC-0001 §3.5).
+  install(
+    CODE
+      "file(RPATH_SET FILE \"\${CMAKE_INSTALL_PREFIX}/ostia/fabric/$<TARGET_FILE_NAME:_native>\" NEW_RPATH \"${_origin}/${_rel}\")"
+  )
+endif()

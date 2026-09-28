@@ -137,6 +137,38 @@ function(ostia_choose_cuda_architectures)
   endif()
 endfunction()
 
+# ostia_cuda_arch_resolve(CACHE <v> PREVIOUS <v> ENV <v> MODE <m> GPU_CAPS <list>
+#                         RELEASE_LIST <list> OUT_ARCH <var> OUT_REASON <var> OUT_PREVIOUS <var>)
+# One configure's decision. OUT_PREVIOUS is what to remember for the next configure: the
+# chosen value when Ostia chose it, "" when the user did, so a user value is never
+# mistaken for Ostia's own on the next run (RFC-0001 §1.1).
+function(ostia_cuda_arch_resolve)
+  cmake_parse_arguments(
+    PARSE_ARGV
+    0
+    A
+    ""
+    "CACHE;PREVIOUS;ENV;MODE;OUT_ARCH;OUT_REASON;OUT_PREVIOUS"
+    "GPU_CAPS;RELEASE_LIST"
+  )
+  ostia_cuda_arch_user_value(CACHE "${A_CACHE}" PREVIOUS "${A_PREVIOUS}" ENV "${A_ENV}" OUT user)
+  ostia_choose_cuda_architectures(
+    USER_VALUE "${user}"
+    MODE ${A_MODE}
+    GPU_CAPS ${A_GPU_CAPS}
+    RELEASE_LIST ${A_RELEASE_LIST}
+    OUT arch
+    OUT_REASON reason
+  )
+  set(${A_OUT_ARCH} "${arch}" PARENT_SCOPE)
+  set(${A_OUT_REASON} "${reason}" PARENT_SCOPE)
+  if("${user}" STREQUAL "")
+    set(${A_OUT_PREVIOUS} "${arch}" PARENT_SCOPE)
+  else()
+    set(${A_OUT_PREVIOUS} "" PARENT_SCOPE)
+  endif()
+endfunction()
+
 # ostia_detect_gpus(<out_caps>): compute capabilities of the visible GPUs, or an empty
 # list. OSTIA_GPU_DETECT_COMMAND can be overridden (tests, unusual drivers).
 function(ostia_detect_gpus out)

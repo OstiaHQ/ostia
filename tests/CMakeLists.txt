@@ -144,3 +144,15 @@ set_tests_properties(install.fabric_disabled PROPERTIES LABELS cpu)
 
 # Every public header compiles on its own, as C++ (and as C for .h, CUDA when enabled).
 add_subdirectory(headers)
+
+# CUDA version checks with a stand-in nvcc: they run before enable_language(CUDA), so
+# they need no toolkit (RFC-0001 §1.1–§1.2).
+set(_fake_nvcc ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fake_nvcc)
+ostia_configure_test(configure.cuda_unlisted_minor SOURCE ${PROJECT_SOURCE_DIR} EXPECT fail
+  REGEX "CUDA 12\\.9\\.41 has no row in the host-compiler table.*supported: CUDA 12\\.8, 13\\.0 or 13\\.4"
+  ARGS -DOSTIA_ENABLE_CUDA=AUTO -DOSTIA_BUILD_TESTS=OFF -DOSTIA_NVCC=${_fake_nvcc}/nvcc-12.9
+)
+ostia_configure_test(configure.cuda_too_old SOURCE ${PROJECT_SOURCE_DIR} EXPECT fail
+  REGEX "CUDA 12\\.4\\.131 at .* is too old.*required: CUDA >= 12\\.8"
+  ARGS -DOSTIA_ENABLE_CUDA=AUTO -DOSTIA_BUILD_TESTS=OFF -DOSTIA_NVCC=${_fake_nvcc}/nvcc-12.4
+)

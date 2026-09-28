@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,12 +31,19 @@ def fail(problem: str, fix: str) -> int:
 
 
 def stamp(source: Path, component: str) -> str:
+    """Everything the component's extension compiles against: its python/ folder, the
+    public headers of the component and of its table dependencies, and the build modules."""
+    layering = json.loads((source / "cmake" / "layering.json").read_text())
+    deps = layering["components"][component]["depends"]
+    trees = [source / component / "python", source / "cmake"]
+    trees += [source / c / "include" for c in (component, *deps)]
     h = hashlib.sha256()
     h.update(f"{source.resolve()}|{env_name()}|{sys.version}".encode())
-    for f in sorted((source / component / "python").rglob("*")):
-        if f.is_file() and "__pycache__" not in f.parts:
-            h.update(str(f.relative_to(source)).encode())
-            h.update(f.read_bytes())
+    for tree in trees:
+        for f in sorted(tree.rglob("*")):
+            if f.is_file() and "__pycache__" not in f.parts:
+                h.update(str(f.relative_to(source)).encode())
+                h.update(f.read_bytes())
     return h.hexdigest()
 
 
@@ -75,6 +83,8 @@ def main(argv: list[str] | None = None) -> int:
         run(["cmake", "--preset", args.preset, "-B", str(native)], cwd=source)
         run(["cmake", "--build", str(native)], cwd=source)
         run(["cmake", "--install", str(native), "--prefix", str(prefix)], cwd=source)
+        # The record `pixi run clean` reads (ctest's staging install rewrites the other one).
+        shutil.copyfile(native / "install_manifest.txt", build / "native-install-manifest.txt")
 
     if not (prefix / "lib" / "cmake" / "ostia" / "ostiaConfig.cmake").exists():
         return fail(f"native ostia is not installed in {prefix}", "pixi run install-native")

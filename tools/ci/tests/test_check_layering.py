@@ -27,6 +27,14 @@ CASES = [
     ("fabric/src/a.cpp", '#include "../../telemetry/src/detail.hpp"\n', "relative"),
     ("fabric/src/a.cpp", '#include "../../telemetry/include/ostia/telemetry/t.h"\n', "relative"),
     ("fabric/src/sub/a.cpp", '#include "x/../../../../telemetry/x.h"\n', "relative"),
+    # ".." resolves against each -I directory, not the file: never allowed after ostia/.
+    (
+        "query/src/sub/deep.cpp",
+        '#include "ostia/runtime/../../../../fabric/src/impl.hpp"\n',
+        "relative",
+    ),
+    ("query/src/plan.cpp", "#include <ostia/runtime/../fabric/x.hpp>\n", "relative"),
+    ("query/src/plan.cpp", "#include <ostia/exchange/../../../../fabric/src/x.hpp>\n", "relative"),
     ("query/src/plan.cpp", "#include <ostia/runtime/api.hpp>\n", None),
     ("fabric/src/a.cpp", '#include "local.hpp"\n', None),
     ("fabric/src/a/b.cpp", '#include "../local.hpp"\n', None),

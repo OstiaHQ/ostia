@@ -149,7 +149,16 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
       OUT_OK _cuda_host_ok
       OUT_RANGE _cuda_host_range
     )
-    if(NOT _cuda_host_ok STREQUAL "TRUE")
+    if(_cuda_host_ok STREQUAL "UNKNOWN_CUDA")
+      ostia_fail(
+        PROBLEM "CUDA ${_cuda_version} has no row in the host-compiler table"
+        DETAILS "nvcc: ${OSTIA_NVCC}" "supported: ${_cuda_host_range}"
+        RULE "each CUDA minor's host-compiler range comes from its installation guide"
+        FIX
+          "use the cuda-12 or cuda-13 pixi environment, -DOSTIA_ENABLE_CUDA=OFF, or add a row to cmake/OstiaToolchain.cmake in a PR that cites the guide"
+        SEE "RFC-0001 §1.2"
+      )
+    elseif(NOT _cuda_host_ok STREQUAL "TRUE")
       ostia_fail(
         PROBLEM
           "host compiler ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} is not supported by CUDA ${_cuda_version}"
@@ -165,20 +174,17 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
     endif()
     set(CMAKE_CUDA_COMPILER "${OSTIA_NVCC}")
     set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
-    ostia_cuda_arch_user_value(
+    ostia_detect_gpus(_gpu_caps)
+    ostia_cuda_arch_resolve(
       CACHE "${CMAKE_CUDA_ARCHITECTURES}"
       PREVIOUS "${_OSTIA_CUDA_ARCH_CHOSEN}"
       ENV "$ENV{CUDAARCHS}"
-      OUT _arch_user
-    )
-    ostia_detect_gpus(_gpu_caps)
-    ostia_choose_cuda_architectures(
-      USER_VALUE "${_arch_user}"
       MODE ${OSTIA_CUDA_ARCH_MODE}
       GPU_CAPS ${_gpu_caps}
       RELEASE_LIST ${OSTIA_CUDA_ARCHITECTURES_RELEASE}
-      OUT _arch
+      OUT_ARCH _arch
       OUT_REASON _arch_reason
+      OUT_PREVIOUS _arch_previous
     )
     if(_arch STREQUAL "INVALID")
       ostia_fail(
@@ -189,7 +195,7 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
       )
     endif()
     set(CMAKE_CUDA_ARCHITECTURES "${_arch}" CACHE STRING "CUDA architectures" FORCE)
-    set(_OSTIA_CUDA_ARCH_CHOSEN "${_arch}" CACHE INTERNAL "")
+    set(_OSTIA_CUDA_ARCH_CHOSEN "${_arch_previous}" CACHE INTERNAL "")
     enable_language(CUDA)
     set(_cuda_state "on (OSTIA_ENABLE_CUDA=${OSTIA_ENABLE_CUDA})")
     set(_cuda_toolkit "${_cuda_version} (${OSTIA_NVCC})")

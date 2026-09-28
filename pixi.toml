@@ -90,7 +90,7 @@ _configure = { cmd = "cmake --preset dev", inputs = [
   "CMakePresets.json",
   "pixi.lock",
 ], outputs = [
-  "build/$PIXI_ENVIRONMENT_NAME/dev/CMakeCache.txt",
+  "build/{{ pixi.environment.name }}/dev/CMakeCache.txt",
 ], description = "Configure the dev preset (re-runs only when presets or the lock change)" }
 build = { cmd = "cmake --build --preset dev", depends-on = [
   "_configure",
@@ -98,7 +98,7 @@ build = { cmd = "cmake --build --preset dev", depends-on = [
 test-cpp = { cmd = "ctest --preset dev", depends-on = [
   "build",
 ], description = "Run C++ and CMake tests; extra args go to ctest, e.g. -R Result" }
-install-native = { cmd = "cmake --install $OSTIA_BUILD_ROOT/dev --prefix $CONDA_PREFIX", depends-on = [
+install-native = { cmd = "cmake --install $OSTIA_BUILD_ROOT/dev --prefix $CONDA_PREFIX && cmake -E copy $OSTIA_BUILD_ROOT/dev/install_manifest.txt $OSTIA_BUILD_ROOT/native-install-manifest.txt", depends-on = [
   "build",
 ], description = "Install libostia-* into the pixi environment (RFC-0001 §3.5)" }
 py-dev = { cmd = "python tools/dev/py_dev.py --preset dev", depends-on = [
