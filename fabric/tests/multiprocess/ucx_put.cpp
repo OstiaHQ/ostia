@@ -240,16 +240,15 @@ int source(const Args& a, ucp_worker_h worker) {
         ucp_ep_print_info(ep, stdout); // transport evidence for the launcher
         std::fflush(stdout);
     }
-    write_file(a.dir / ("done." + std::to_string(a.rank)), "");
-    if (!wait_for(a.dir / "finish", worker)) {
-        return 1;
-    }
+    // Close gracefully while rank 0 still progresses its worker (it waits for the done
+    // files). A forced close needs UCP_ERR_HANDLING_MODE_PEER on both sides.
     ucp_rkey_destroy(rkey);
     ucp_request_param_t cp{};
-    cp.op_attr_mask = UCP_OP_ATTR_FIELD_FLAGS;
-    cp.flags = UCP_EP_CLOSE_FLAG_FORCE;
-    wait_request(worker, ucp_ep_close_nbx(ep, &cp), "ucp_ep_close_nbx");
-    return 0;
+    if (!wait_request(worker, ucp_ep_close_nbx(ep, &cp), "ucp_ep_close_nbx")) {
+        return 1;
+    }
+    write_file(a.dir / ("done." + std::to_string(a.rank)), "");
+    return wait_for(a.dir / "finish", nullptr) ? 0 : 1;
 }
 
 } // namespace
