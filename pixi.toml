@@ -1,0 +1,86 @@
+# Development environments for Ostia (RFC-0001 §2.2). See docs/guides/building.md.
+[workspace]
+name = "ostia"
+channels = ["conda-forge"]
+platforms = [
+  "linux-64",
+  "linux-aarch64",
+  "osx-arm64",
+  # CUDA environments solve against a __cuda virtual package, so the CUDA-enabled
+  # UCX builds are chosen even when locking on a machine without a GPU (RFC-0001 §2.2).
+  { name = "linux-64-cuda-12", platform = "linux-64", cuda = "12" },
+  { name = "linux-aarch64-cuda-12", platform = "linux-aarch64", cuda = "12" },
+  { name = "linux-64-cuda-13", platform = "linux-64", cuda = "13" },
+  { name = "linux-aarch64-cuda-13", platform = "linux-aarch64", cuda = "13" },
+]
+requires-pixi = ">=0.81"
+
+# Tools shared by every environment (RFC-0001 §2.1, pixi row).
+[dependencies]
+cmake = ">=4.1,<5"
+ninja = "*"
+ccache = "*"
+python = "3.12.*"
+pip = "*"
+pytest = "*"
+scikit-build-core = ">=1.0.1"
+ruff = "*"
+gersemi = "*"
+clang-format = "19.*"
+clang-tools = "19.*"
+pre-commit = "*"
+
+[activation.env]
+OSTIA_BUILD_ROOT = "$PIXI_PROJECT_ROOT/build/$PIXI_ENVIRONMENT_NAME"
+# Keep a contributor's own CPM cache if they set one.
+CPM_SOURCE_CACHE = "${CPM_SOURCE_CACHE:-$PIXI_PROJECT_ROOT/.cache/cpm}"
+
+# Host toolchain of the default environment: GCC 14 on Linux, conda-forge Clang 19 + libc++ on macOS.
+[feature.host-toolchain.activation.env]
+OSTIA_ENABLE_CUDA = "OFF" # default is host-only (RFC-0001 §2.2); plain CMake keeps AUTO
+[feature.host-toolchain.target.linux-64.dependencies]
+gxx_linux-64 = "14.*"
+[feature.host-toolchain.target.linux-aarch64.dependencies]
+gxx_linux-aarch64 = "14.*"
+[feature.host-toolchain.target.osx-arm64.dependencies]
+clangxx_osx-arm64 = "19.*"
+libcxx = ">=19"
+[feature.host-toolchain.target.osx-arm64.activation.env]
+MACOSX_DEPLOYMENT_TARGET = "14.0"
+
+# CUDA 12.8 with GCC 11: the floor (RFC-0001 §1.1, §1.2).
+[feature.cuda-12]
+platforms = ["linux-64-cuda-12", "linux-aarch64-cuda-12"]
+[feature.cuda-12.activation.env]
+OSTIA_ENABLE_CUDA = "ON"
+[feature.cuda-12.dependencies]
+cuda-version = "12.8.*"
+cuda-nvcc = "12.8.*"
+cuda-cudart-dev = "12.8.*"
+ucx = "*"
+rdma-core = "*"
+[feature.cuda-12.target.linux-64.dependencies]
+gxx_linux-64 = "11.*"
+[feature.cuda-12.target.linux-aarch64.dependencies]
+gxx_linux-aarch64 = "11.*"
+
+# CUDA 13.4 with GCC 14: the latest 13.x that CI pins (RFC-0001 §1.1, §1.2).
+[feature.cuda-13]
+platforms = ["linux-64-cuda-13", "linux-aarch64-cuda-13"]
+[feature.cuda-13.activation.env]
+OSTIA_ENABLE_CUDA = "ON"
+[feature.cuda-13.dependencies]
+cuda-version = "13.4.*"
+cuda-nvcc = "13.4.*"
+cuda-cudart-dev = "13.4.*"
+ucx = "*"
+rdma-core = "*"
+[feature.cuda-13.target.linux-64.dependencies]
+gxx_linux-64 = "14.*"
+[feature.cuda-13.target.linux-aarch64.dependencies]
+gxx_linux-aarch64 = "14.*"
+
+[environments]
+default = { features = ["host-toolchain"] }
+cuda-12 = { features = ["cuda-12"] }
+cuda-13 = { features = ["cuda-13"] }
