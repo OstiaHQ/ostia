@@ -178,3 +178,9 @@ if(
     ARGS -DOSTIA_ENABLE_CUDA=ON -DOSTIA_BUILD_TESTS=OFF -DOSTIA_NVCC=${_fake_nvcc}/nvcc-12.8
   )
 endif()
+
+# Telemetry build levels (RFC-0001 §5).
+ostia_configure_test(configure.telemetry_bad_level SOURCE ${PROJECT_SOURCE_DIR} EXPECT fail
+  REGEX "OSTIA_TELEMETRY=verbose is not a telemetry level.*off, metrics, trace or debug.*RFC-0001 §5"
+  ARGS -DOSTIA_TELEMETRY=verbose -DOSTIA_BUILD_TESTS=OFF
+)

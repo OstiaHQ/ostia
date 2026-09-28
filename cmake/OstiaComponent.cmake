@@ -103,6 +103,10 @@ function(ostia_add_component)
   foreach(dep IN LISTS A_DEPENDS)
     target_link_libraries(ostia_${name} PUBLIC ostia::${dep})
   endforeach()
+  # The level configuration and instrumentation headers, build tree only (RFC-0001 §5).
+  if(TARGET ostia_telemetry_config)
+    target_link_libraries(ostia_${name} PRIVATE $<BUILD_INTERFACE:ostia::telemetry_config>)
+  endif()
   install(
     TARGETS ostia_${name}
     EXPORT ostia-${name}-targets

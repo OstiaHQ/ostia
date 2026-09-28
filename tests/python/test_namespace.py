@@ -40,7 +40,8 @@ def test_two_components_one_telemetry(run_py, conda_lib):
     assert data["inits"] == []  # no ostia/__init__.py anywhere
     assert len(data["tele"]) == 1  # exactly one libostia-telemetry loaded
     assert pathlib.Path(data["tele"][0]).parent == conda_lib
-    assert data["levels"] == [1, 1]
+    levels = data["levels"]
+    assert levels[0] == levels[1] and 0 <= levels[0] <= 3, levels  # one flavour (RFC-0001 §5)
 
 
 def test_nothing_bundled(site_arch, conda_lib):

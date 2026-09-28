@@ -25,6 +25,7 @@ include(OstiaMessages)
 include(OstiaToolchain)
 include(OstiaComponent)
 include(OstiaSummary)
+include(OstiaTelemetry)
 
 # conda's activation puts an rpath to $CONDA_PREFIX/lib ahead of the build tree, so
 # tests would load libraries that `pixi run py-dev` installed there, not the fresh build.
@@ -226,7 +227,28 @@ endif()
 ostia_summary_set(cuda "${_cuda_state}")
 ostia_summary_set(cuda_toolkit "${_cuda_toolkit}")
 ostia_summary_set(architectures "${_cuda_arch}")
-ostia_summary_set(telemetry_level "metrics (fixed until RFC-0001 §5 lands)")
+# Telemetry build level (RFC-0001 §5). Release presets use metrics, the dev preset debug.
+set(
+  OSTIA_TELEMETRY
+  metrics
+  CACHE STRING
+  "Telemetry build level: off, metrics, trace or debug (RFC-0001 §5)"
+)
+set_property(
+  CACHE OSTIA_TELEMETRY
+  PROPERTY STRINGS off metrics trace debug
+)
+ostia_telemetry_level("${OSTIA_TELEMETRY}" OSTIA_TELEMETRY_LEVEL)
+if(OSTIA_TELEMETRY_LEVEL STREQUAL "NOTFOUND")
+  ostia_fail(
+    PROBLEM "OSTIA_TELEMETRY=${OSTIA_TELEMETRY} is not a telemetry level"
+    DETAILS "levels: off, metrics, trace or debug"
+    RULE "the telemetry level is one of the four build levels"
+    FIX "configure with -DOSTIA_TELEMETRY=metrics, or use a level-* preset"
+    SEE "RFC-0001 §5"
+  )
+endif()
+ostia_summary_set(telemetry_level "${OSTIA_TELEMETRY} (${OSTIA_TELEMETRY_LEVEL})")
 
 option(OSTIA_BUILD_TESTS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
 set(_deps "")

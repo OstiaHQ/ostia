@@ -3,6 +3,10 @@
 # Placeholders are never installed; asking for one fails with a pointer to its RFC (§3.1).
 @PACKAGE_INIT@
 
+# The telemetry flavour this installed stack was built with (RFC-0001 §5).
+set(ostia_TELEMETRY "@OSTIA_TELEMETRY@")
+set(ostia_TELEMETRY_LEVEL @OSTIA_TELEMETRY_LEVEL@)
+
 set(_ostia_real @OSTIA_REAL_COMPONENTS@)
 set(_ostia_placeholders @OSTIA_PLACEHOLDER_COMPONENTS@)
 @OSTIA_CONFIG_DEPS@

@@ -1,3 +1,4 @@
 #include <ostia/fabric/fabric.h>
 
-int main() { return ostia_fabric_telemetry_build_level() == 1 ? 0 : 1; }
+// The installed stack reports the flavour its package config records (RFC-0001 §5).
+int main() { return ostia_fabric_telemetry_build_level() == OSTIA_EXPECT_LEVEL ? 0 : 1; }

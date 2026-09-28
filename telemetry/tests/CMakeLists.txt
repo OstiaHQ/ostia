@@ -1,9 +1,9 @@
 include(GoogleTest)
 
-add_executable(ostia_telemetry_tests build_level_test.cpp result_test.cpp)
+add_executable(ostia_telemetry_tests build_level_test.cpp level_check_test.cpp result_test.cpp)
 target_link_libraries(
   ostia_telemetry_tests
-  PRIVATE ostia::telemetry GTest::gtest_main ${CMAKE_DL_LIBS}
+  PRIVATE ostia::telemetry ostia::telemetry_config GTest::gtest_main ${CMAKE_DL_LIBS}
 )
 target_compile_definitions(
   ostia_telemetry_tests
@@ -12,7 +12,7 @@ target_compile_definitions(
 gtest_discover_tests(ostia_telemetry_tests PROPERTIES LABELS cpu)
 
 add_executable(ostia_telemetry_c_abi c_abi_test.c)
-target_link_libraries(ostia_telemetry_c_abi PRIVATE ostia::telemetry)
+target_link_libraries(ostia_telemetry_c_abi PRIVATE ostia::telemetry ostia::telemetry_config)
 add_test(NAME telemetry.c_abi COMMAND ostia_telemetry_c_abi)
 set_tests_properties(telemetry.c_abi PROPERTIES LABELS cpu)
 

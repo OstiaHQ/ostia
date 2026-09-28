@@ -20,7 +20,11 @@ endif()
 ostia_dep_nanobind()
 
 nanobind_add_module(_native NB_STATIC src/_native.cpp)
-target_link_libraries(_native PRIVATE ostia::fabric)
+target_link_libraries(_native PRIVATE ostia::fabric ${CMAKE_DL_LIBS})
+# The flavour check at import (RFC-0001 §5): the level this installed stack was built with,
+# and the build-tree-only check helper from telemetry/instrument/.
+target_compile_definitions(_native PRIVATE OSTIA_COMPILED_TELEMETRY_LEVEL=${ostia_TELEMETRY_LEVEL})
+target_include_directories(_native PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../telemetry/instrument)
 
 # Relative RPATH from site-packages/ostia/fabric/ to the prefix's lib/, where the one
 # libostia-* lives (RFC-0001 §3.5).

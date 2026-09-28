@@ -12,7 +12,8 @@ from .conftest import ROOT
 
 pytestmark = pytest.mark.slow
 
-LEVEL = "constexpr int kBuildLevel = 1;"
+# A change inside libostia-fabric: it reports the telemetry level plus 40.
+FABRIC = "return ostia_telemetry_build_level();"
 CODE = (
     "import ostia.telemetry, ostia.fabric; "
     "print(ostia.telemetry.build_level(), ostia.fabric.telemetry_build_level())"
@@ -26,9 +27,9 @@ def test_native_change_visible_after_rebuild(tmp_path, run_py):
         ["git", "-C", str(ROOT), "archive", "HEAD"], capture_output=True, check=True
     )
     subprocess.run(["tar", "-x", "-C", str(src)], input=archive.stdout, check=True)
-    cpp = src / "telemetry" / "src" / "telemetry.cpp"
-    assert LEVEL in cpp.read_text()
-    cpp.write_text(cpp.read_text().replace(LEVEL, "constexpr int kBuildLevel = 2;"))
+    cpp = src / "fabric" / "src" / "fabric.cpp"
+    assert FABRIC in cpp.read_text()
+    cpp.write_text(cpp.read_text().replace(FABRIC, "return ostia_telemetry_build_level() + 40;"))
     py_dev = [sys.executable, str(src / "tools" / "dev" / "py_dev.py")]
     try:
         r = subprocess.run(
@@ -47,7 +48,8 @@ def test_native_change_visible_after_rebuild(tmp_path, run_py):
         assert r.returncode == 0, r.stdout + r.stderr
         seen = run_py(CODE)
         assert seen.returncode == 0, seen.stderr
-        assert seen.stdout.split() == ["2", "2"]
+        telemetry, fabric = map(int, seen.stdout.split())
+        assert fabric == telemetry + 40
     finally:
         # Restore the environment from the real checkout.
         subprocess.run(
