@@ -58,26 +58,14 @@ def test_evidence_is_recorded_next_to_the_results(tmp_path):
     prog.chmod(0o755)
     out = tmp_path / "results"
     rc = main(
-        [
-            "run",
-            "--format",
-            "ostia",
-            "--bench",
-            str(prog),
-            "--args",
-            "--bytes 1048576",
-            "--evidence",
-            "--run-id",
-            "e1",
-            "--out",
-            str(out),
-        ]
+        ["run", "--format", "ostia", "--bench", str(prog), "--evidence", "--run-id", "e1"]
+        + ["--out", str(out), "--", "--smoke", "--bytes", "1048576"]
     )
     assert rc == 0
     ev = json.loads((out / "e1" / "evidence" / "tcp_put.json").read_text())
     assert ev["workload"] == "tcp_put"
     assert ev["lanes"] == [{"tl": "tcp", "device": "lo"}]
-    assert ev["program"]["args"] == "--bytes,1048576"
+    assert ev["program"]["args"] == "--smoke,--bytes,1048576"
     [record] = [
         json.loads(line) for line in (out / "e1" / "results.jsonl").read_text().splitlines()
     ]

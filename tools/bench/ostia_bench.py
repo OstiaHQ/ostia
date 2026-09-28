@@ -2,8 +2,8 @@
 """The Ostia benchmark driver (RFC-0001 §6.1).
 
     ostia_bench.py run --bench <binary> [--format nvbench|ostia] [--runs 10] [--ranks N]
-                       [--args "..."] [--tls UCX_TLS] [--evidence]
-                       [--needs-gpu] [--build-dir build/cuda-12/release] [--run-id ID]
+                       [--tls UCX_TLS] [--evidence] [--needs-gpu]
+                       [--build-dir build/cuda-12/release] [--run-id ID] [-- <program args>]
     ostia_bench.py convert --run-id ID <nvbench.json>...
     ostia_bench.py median-seconds --bench <nvbench binary>
 
@@ -23,7 +23,6 @@ import datetime
 import hashlib
 import json
 import os
-import shlex
 import shutil
 import statistics
 import subprocess
@@ -178,7 +177,6 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--needs-gpu", action="store_true")
     run.add_argument("--build-dir", type=Path)
     run.add_argument("--nic", default="none")
-    run.add_argument("--args", default="", help="arguments for the benchmark binary")
     run.add_argument("--tls", help="UCX_TLS for multi-process runs (default: the launcher's)")
     run.add_argument("--evidence", action="store_true", help="record transport evidence")
     conv = sub.add_parser("convert")
@@ -188,7 +186,9 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--out", type=Path, default=ROOT / "bench" / "results")
     med = sub.add_parser("median-seconds")
     med.add_argument("--bench", required=True)
-    args = parser.parse_args(argv)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    program_args = argv[argv.index("--") + 1 :] if "--" in argv else []
+    args = parser.parse_args(argv[: argv.index("--")] if "--" in argv else argv)
 
     if args.command == "median-seconds":
         values = [v for _, _, v in from_nvbench(_nvbench_once(args.bench)).values()]
@@ -210,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         docs = [_nvbench_once(args.bench) for _ in range(args.runs)]
         records = _records(_collect(docs), prov, compat)
     else:
-        cmd = [args.bench, *shlex.split(args.args)]
+        cmd = [args.bench, *program_args]
         if args.ranks:
             launcher = ROOT / "fabric" / "tests" / "multiprocess" / "launcher.py"
             tls = ["--tls", args.tls, "--expect", ""] if args.tls else []
