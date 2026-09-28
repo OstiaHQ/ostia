@@ -1,0 +1,5 @@
+ostia_add_component(NAME telemetry RANK 0)
+target_sources(ostia_telemetry PRIVATE src/telemetry.cpp)
+if(OSTIA_BUILD_TESTS)
+  add_subdirectory(tests)
+endif()

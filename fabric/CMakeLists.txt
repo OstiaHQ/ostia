@@ -1,0 +1,5 @@
+ostia_add_component(NAME fabric RANK 1 DEPENDS telemetry)
+target_sources(ostia_fabric PRIVATE src/fabric.cpp)
+if(OSTIA_BUILD_TESTS)
+  add_subdirectory(tests)
+endif()

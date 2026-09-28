@@ -1,0 +1,67 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 4, "minor": 1, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/$env{PIXI_ENVIRONMENT_NAME}/${presetName}",
+      "cacheVariables": {
+        "OSTIA_CUDA_ARCHITECTURES_RELEASE": "80-real;90-real;100",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0"
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "base",
+      "displayName": "Development (Debug; native CUDA arch when a GPU is present)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OSTIA_CUDA_ARCH_MODE": "dev",
+        "CMAKE_C_FLAGS_DEBUG": "-g -O0",
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O0"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release (RelWithDebInfo; release CUDA arch list)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "OSTIA_CUDA_ARCH_MODE": "release"
+      }
+    },
+    {
+      "name": "gpu-ci",
+      "inherits": "release",
+      "displayName": "GPU CI (sm_89 only, RFC-0001 §1.1)",
+      "cacheVariables": { "CMAKE_CUDA_ARCHITECTURES": "89" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "gpu-ci", "configurePreset": "gpu-ci" }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 0 }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 0 }
+    },
+    {
+      "name": "gpu-ci",
+      "configurePreset": "gpu-ci",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 0 }
+    }
+  ]
+}

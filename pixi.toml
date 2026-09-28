@@ -84,3 +84,17 @@ gxx_linux-aarch64 = "14.*"
 default = { features = ["host-toolchain"] }
 cuda-12 = { features = ["cuda-12"] }
 cuda-13 = { features = ["cuda-13"] }
+
+[tasks]
+configure = { cmd = "cmake --preset dev", inputs = [
+  "CMakePresets.json",
+  "pixi.lock",
+], outputs = [
+  "build/$PIXI_ENVIRONMENT_NAME/dev/CMakeCache.txt",
+], description = "Configure the dev preset (re-runs only when presets or the lock change)" }
+build = { cmd = "cmake --build --preset dev", depends-on = [
+  "configure",
+], description = "Build the dev preset" }
+test-cpp = { cmd = "ctest --preset dev", depends-on = [
+  "build",
+], description = "Run C++ and CMake tests; extra args go to ctest, e.g. -R Result" }
