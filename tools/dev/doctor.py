@@ -24,8 +24,14 @@ if __package__ in (None, ""):
 from tools.dev._paths import build_root, conda_prefix, env_name, repo_root
 
 SUMMARY_KEYS = [
-    "compiler", "cuda", "cuda_toolkit", "architectures", "telemetry_level",
-    "components", "dependencies", "ccache",
+    "compiler",
+    "cuda",
+    "cuda_toolkit",
+    "architectures",
+    "telemetry_level",
+    "components",
+    "dependencies",
+    "ccache",
 ]
 
 
@@ -81,7 +87,8 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
 
     lock = subprocess.run(
         ["git", "-C", str(root), "status", "--porcelain", "pixi.lock"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if lock.stdout.strip():
         c.fail(
@@ -132,8 +139,12 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
         if sdk.returncode != 0 or not sdk.stdout.strip():
             c.fail("macOS SDK", "xcrun found no macOS SDK", "xcode-select --install")
         elif major < 14:
-            c.fail("macOS version", f"macOS {platform.mac_ver()[0]} is older than 14.0",
-                   "use macOS 14 or newer", "RFC-0001 §1.2")
+            c.fail(
+                "macOS version",
+                f"macOS {platform.mac_ver()[0]} is older than 14.0",
+                "use macOS 14 or newer",
+                "RFC-0001 §1.2",
+            )
         else:
             c.ok("macOS SDK")
 

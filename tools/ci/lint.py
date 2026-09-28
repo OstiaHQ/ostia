@@ -51,12 +51,22 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
         ]
     return [
         ("clang-format", ["clang-format", "--dry-run", "-Werror"], lists["cpp"], "pixi run fmt"),
-        ("ruff-check", ["ruff", "check"], lists["python"], "pixi run fmt, then fix the rest by hand"),
+        (
+            "ruff-check",
+            ["ruff", "check"],
+            lists["python"],
+            "pixi run fmt, then fix the rest by hand",
+        ),
         ("ruff-format", ["ruff", "format", "--check"], lists["python"], "pixi run fmt"),
         ("gersemi", ["gersemi", "--check"], lists["cmake"], "pixi run fmt"),
         ("layering", [py, str(ROOT / "tools/ci/check_layering.py"), "--root", str(root)], None, ""),
         ("cpm-pins", [py, str(ROOT / "tools/ci/check_cpm_pins.py"), "--root", str(root)], None, ""),
-        ("docs-index", [py, str(ROOT / "tools/docs/gen_index.py"), "--check"], None, "pixi run docs-index"),
+        (
+            "docs-index",
+            [py, str(ROOT / "tools/docs/gen_index.py"), "--check"],
+            None,
+            "pixi run docs-index",
+        ),
     ]
 
 

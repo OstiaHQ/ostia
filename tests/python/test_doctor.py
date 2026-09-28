@@ -9,8 +9,17 @@ from .conftest import ROOT
 
 DOCTOR = ROOT / "tools" / "dev" / "doctor.py"
 KEYS = [
-    "compiler", "cuda", "cuda_toolkit", "architectures", "telemetry_level",
-    "components", "dependencies", "ccache", "pixi_env", "cmake", "ninja",
+    "compiler",
+    "cuda",
+    "cuda_toolkit",
+    "architectures",
+    "telemetry_level",
+    "components",
+    "dependencies",
+    "ccache",
+    "pixi_env",
+    "cmake",
+    "ninja",
 ]
 
 

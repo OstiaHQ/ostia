@@ -24,12 +24,17 @@ CPMAddPackage(
 )
 """
 
+
+def call(version: str, tag: str) -> str:
+    return f"CPMAddPackage(\n  NAME bar\n  VERSION {version}\n  GIT_TAG {tag}\n)\n"
+
+
 BAD = {
-    "tag_without_sha": "CPMAddPackage(\n  NAME bar\n  VERSION 1.2.3\n  GIT_TAG v1.2.3\n)\n",
-    "sha_without_tag_comment": f"CPMAddPackage(\n  NAME bar\n  VERSION 1.2.3\n  GIT_TAG {SHA}\n)\n",
+    "tag_without_sha": call("1.2.3", "v1.2.3"),
+    "sha_without_tag_comment": call("1.2.3", SHA),
     "short_form": 'CPMAddPackage("gh:foo/bar@1.0")\n',
-    "short_sha": "CPMAddPackage(\n  NAME bar\n  VERSION 1.2.3\n  GIT_TAG 063de7e # v1.2.3\n)\n",
-    "version_mismatch": f"CPMAddPackage(\n  NAME bar\n  VERSION 1.2.4\n  GIT_TAG {SHA} # v1.2.3\n)\n",
+    "short_sha": call("1.2.3", "063de7e # v1.2.3"),
+    "version_mismatch": call("1.2.4", f"{SHA} # v1.2.3"),
 }
 
 
@@ -51,7 +56,7 @@ def test_vendored_cpm_and_build_dirs_are_skipped(tmp_path):
 
 
 def test_commented_calls_are_ignored(tmp_path):
-    write(tmp_path, "#   CPMAddPackage(NAME foo ... OPTIONS \"X 1\")\n")
+    write(tmp_path, '#   CPMAddPackage(NAME foo ... OPTIONS "X 1")\n')
     assert scan(tmp_path) == []
 
 

@@ -33,7 +33,8 @@ def main() -> int:
     print(f"removed {removed} installed files")
     layering = json.loads((root / "cmake" / "layering.json").read_text())
     dists = [
-        f"ostia-{c}" for c in layering["components"]
+        f"ostia-{c}"
+        for c in layering["components"]
         if (root / c / "python" / "pyproject.toml").exists()
     ]
     subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "--quiet", *dists], check=False)

@@ -114,7 +114,8 @@ def main(argv: list[str] | None = None) -> int:
             violation(
                 f"{u.path}:{u.line} CPMAddPackage(NAME {u.name}) is not pinned",
                 [u.reason],
-                "every CPMAddPackage pins VERSION, a full GIT_TAG commit SHA and a '# <tag>' comment",
+                "every CPMAddPackage pins VERSION, a full GIT_TAG commit SHA "
+                "and a '# <tag>' comment",
                 "resolve the SHA with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` "
                 "and write the pinned form shown in tools/ci/check_cpm_pins.py",
                 "RFC-0001 §2.4",
