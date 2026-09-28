@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "pixi",
+    "custom.regex"
+  ],
+  "labels": [
+    "component: build"
+  ],
+  "commitMessagePrefix": "📦️ build(deps):",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "semanticCommits": "disabled",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "CPM pins in the ostia_cpm_add form (RFC-0001 §2.4); tools/ci/check_cpm_pins.py enforces it",
+      "managerFilePatterns": [
+        "/(^|/)cmake/[^/]+\\.cmake$/",
+        "/(^|/)CMakeLists\\.txt$/"
+      ],
+      "matchStrings": [
+        "GITHUB_REPOSITORY\\s+(?<depName>\\S+)\\s+VERSION\\s+(?<currentValue>\\S+)\\s+GIT_TAG\\s+(?<currentDigest>[0-9a-f]{40})"
+      ],
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    }
+  ]
+}

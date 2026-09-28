@@ -20,7 +20,7 @@ CPMAddPackage(
   NAME bar
   GITHUB_REPOSITORY foo/bar
   VERSION 1.2.3
-  GIT_TAG {SHA} # v1.2.3
+  GIT_TAG {SHA}
 )
 """
 
@@ -31,7 +31,7 @@ def call(version: str, tag: str) -> str:
 
 BAD = {
     "tag_without_sha": call("1.2.3", "v1.2.3"),
-    "sha_without_tag_comment": call("1.2.3", SHA),
+    "sha_without_version": f"CPMAddPackage(\n  NAME bar\n  GIT_TAG {SHA}\n)\n",
     "short_form": 'CPMAddPackage("gh:foo/bar@1.0")\n',
     "short_sha": call("1.2.3", "063de7e # v1.2.3"),
     "version_mismatch": call("1.2.4", f"{SHA} # v1.2.3"),
@@ -52,6 +52,16 @@ def test_unpinned_calls_fail(tmp_path, case):
 def test_vendored_cpm_and_build_dirs_are_skipped(tmp_path):
     write(tmp_path, BAD["short_form"], "cmake/CPM.cmake")
     write(tmp_path, BAD["short_form"], "build/default/_deps/x/CMakeLists.txt")
+    assert scan(tmp_path) == []
+
+
+def test_wrapper_calls_are_checked(tmp_path):
+    write(tmp_path, "ostia_cpm_add(\n  NAME bar\n  VERSION 1.2.3\n  GIT_TAG v1.2.3\n)\n")
+    assert len(scan(tmp_path)) == 1
+
+
+def test_forwarding_call_inside_the_wrapper_is_skipped(tmp_path):
+    write(tmp_path, "macro(ostia_cpm_add)\n  CPMAddPackage(${ARGN})\nendmacro()\n")
     assert scan(tmp_path) == []
 
 

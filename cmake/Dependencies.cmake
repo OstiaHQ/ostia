@@ -4,24 +4,29 @@ include_guard(GLOBAL)
 cmake_policy(VERSION 4.1)
 include(${CMAKE_CURRENT_LIST_DIR}/CPM.cmake)
 
-# Each call announces its pin first, so a failed fetch names it (RFC-0001, Failure handling).
-macro(_ostia_announce name tag sha)
+# ostia_cpm_add(<CPMAddPackage arguments>): announces the pin, then fetches it, so a
+# failed fetch names what it wanted (RFC-0001, Failure handling). Each pin appears once,
+# in the form Renovate's regex manager updates (renovate.json).
+macro(ostia_cpm_add)
+  cmake_parse_arguments(_ostia_pin "" "NAME;VERSION;GIT_TAG" "" ${ARGN})
   message(
     STATUS
-    "ostia: ${name} ${tag} @ ${sha} (RFC-0001 §2.4); offline or failing? "
-    "see docs/guides/building.md#offline, or -DCPM_${name}_SOURCE=<dir>"
+    "ostia: ${_ostia_pin_NAME} v${_ostia_pin_VERSION} @ ${_ostia_pin_GIT_TAG} (RFC-0001 §2.4); "
+    "offline or failing? see docs/guides/building.md#offline, or -DCPM_${_ostia_pin_NAME}_SOURCE=<dir>"
   )
+  CPMAddPackage(${ARGN})
 endmacro()
 
 function(ostia_dep_googletest)
-  _ostia_announce(googletest v1.18.0 063de7e9578f82b369302001269680b4b1553359)
-  CPMAddPackage(
+  ostia_cpm_add(
     NAME googletest
-    GITHUB_REPOSITORY google/googletest
+    GITHUB_REPOSITORY
+    google/googletest
     VERSION 1.18.0
-    GIT_TAG
-      063de7e9578f82b369302001269680b4b1553359 # v1.18.0
-    OPTIONS "INSTALL_GTEST OFF" "gtest_force_shared_crt ON"
+    GIT_TAG 063de7e9578f82b369302001269680b4b1553359
+    OPTIONS
+    "INSTALL_GTEST OFF"
+    "gtest_force_shared_crt ON"
   )
 endfunction()
 
@@ -30,13 +35,12 @@ endfunction()
 # A macro, so the Python_* results stay visible to the caller.
 macro(ostia_dep_nanobind)
   find_package(Python 3.11 REQUIRED COMPONENTS Interpreter Development.Module)
-  _ostia_announce(nanobind v3.1.0 68480a9e6883bb1bf65e1925423321e2a89d07f9)
-  CPMAddPackage(
+  ostia_cpm_add(
     NAME nanobind
-    GITHUB_REPOSITORY wjakob/nanobind
+    GITHUB_REPOSITORY
+    wjakob/nanobind
     VERSION 3.1.0
-    GIT_TAG
-      68480a9e6883bb1bf65e1925423321e2a89d07f9 # v3.1.0
+    GIT_TAG 68480a9e6883bb1bf65e1925423321e2a89d07f9
   )
 endmacro()
 
