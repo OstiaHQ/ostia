@@ -1,0 +1,7 @@
+# Build output, pixi environments and caches (see docs/guides/building.md).
+/build/
+/.pixi/
+/.cache/
+/bench/results/
+__pycache__/
+*.egg-info/

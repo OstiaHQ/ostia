@@ -1,0 +1,17 @@
+# cmake -P test: parsing `nvcc --version` (RFC-0001 §1.1).
+include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/OstiaToolchain.cmake)
+
+file(READ ${CMAKE_CURRENT_LIST_DIR}/nvcc-12.8.txt text)
+ostia_parse_nvcc_version("${text}" v)
+if(NOT v STREQUAL "12.8.93")
+  message(FATAL_ERROR "12.8: got '${v}'")
+endif()
+file(READ ${CMAKE_CURRENT_LIST_DIR}/nvcc-13.4.txt text)
+ostia_parse_nvcc_version("${text}" v)
+if(NOT v STREQUAL "13.4.92")
+  message(FATAL_ERROR "13.4: got '${v}'")
+endif()
+ostia_parse_nvcc_version("bash: nvcc: command not found" v)
+if(NOT v STREQUAL "NOTFOUND")
+  message(FATAL_ERROR "garbage: got '${v}'")
+endif()

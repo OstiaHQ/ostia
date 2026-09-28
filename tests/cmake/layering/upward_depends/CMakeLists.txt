@@ -1,0 +1,13 @@
+# Layering fixture (RFC-0001 §3.3). Configured by tests/CMakeLists.txt.
+cmake_minimum_required(VERSION 4.1)
+project(fixture LANGUAGES CXX)
+include(${OSTIA_SOURCE_DIR}/cmake/OstiaComponent.cmake)
+file(WRITE ${CMAKE_BINARY_DIR}/empty.cpp "")
+macro(real name rank)
+  ostia_add_component(NAME ${name} RANK ${rank} ${ARGN})
+  target_sources(ostia_${name} PRIVATE ${CMAKE_BINARY_DIR}/empty.cpp)
+endmacro()
+real(telemetry 0)
+real(fabric 1 DEPENDS telemetry)
+ostia_add_component(NAME exchange RANK 2 DEPENDS runtime)
+ostia_check_layering()

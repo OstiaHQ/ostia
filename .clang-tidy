@@ -1,0 +1,17 @@
+# ADR-0013: C++ and Python code style. Run with `pixi run tidy`.
+Checks: >
+  bugprone-*,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  readability-identifier-naming
+WarningsAsErrors: ''
+CheckOptions:
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.PrivateMemberSuffix: _
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantPrefix: k
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

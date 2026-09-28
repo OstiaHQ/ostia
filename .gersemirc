@@ -1,0 +1,5 @@
+# ADR-0013: CMake is formatted by gersemi.
+line_length: 100
+indent: 2
+definitions: [cmake]
+warn_about_unknown_commands: false

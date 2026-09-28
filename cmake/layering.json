@@ -1,0 +1,11 @@
+{
+  "see": "RFC-0001 §3.3",
+  "internal_targets": ["telemetry_config"],
+  "components": {
+    "telemetry": {"rank": 0, "depends": [], "rfc": "RFC-0002"},
+    "fabric": {"rank": 1, "depends": ["telemetry"], "rfc": "the ostia-fabric RFC"},
+    "exchange": {"rank": 2, "depends": ["fabric", "telemetry"], "rfc": "the ostia-exchange RFC"},
+    "runtime": {"rank": 3, "depends": ["exchange", "fabric", "telemetry"], "rfc": "the ostia-runtime RFC"},
+    "query": {"rank": 4, "depends": ["runtime", "exchange", "telemetry"], "rfc": "the ostia-query RFC"}
+  }
+}

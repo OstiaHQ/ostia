@@ -1,0 +1,23 @@
+# cmake -P test: the layering table accessors (RFC-0001 §3.3).
+include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/OstiaLayering.cmake)
+
+function(expect actual expected)
+  if(NOT "${actual}" STREQUAL "${expected}")
+    message(FATAL_ERROR "expected '${expected}', got '${actual}'")
+  endif()
+endfunction()
+
+ostia_layering_rank(query r)
+expect("${r}" "4")
+ostia_layering_allowed(query a)
+expect("${a}" "runtime;exchange;telemetry")
+ostia_layering_allowed(telemetry a)
+expect("${a}" "")
+ostia_layering_rank(nosuch r)
+expect("${r}" "NOTFOUND")
+ostia_layering_components(c)
+expect("${c}" "telemetry;fabric;exchange;runtime;query")
+ostia_layering_rfc(exchange f)
+expect("${f}" "the ostia-exchange RFC")
+ostia_layering_internal_targets(i)
+expect("${i}" "telemetry_config")

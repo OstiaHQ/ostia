@@ -1,0 +1,76 @@
+Ostia third-party notices
+=========================
+
+Ostia's own code is licensed under the Apache License 2.0 (see LICENSE and NOTICE).
+This file lists the third-party software Ostia uses, as approved by RFC-0001 §2.3
+(docs/rfcs/0001-m0-foundations.md), with how each is used and when it is integrated.
+
+"Vendored" means the source is copied into this repository. "Fetched" means CPM
+downloads a pinned release at build time (RFC-0001 §2.4). "System" means the build
+finds an existing installation. "dlopen" means it is loaded at runtime and never
+linked or bundled. Full license texts are included here for vendored code; they are
+added for any other component before a binary release that bundles it (PRD, Third-
+party code).
+
+Dependency          License                          Use                                      Integrated
+------------------  -------------------------------  ---------------------------------------  ----------
+CPM.cmake           MIT                              Vendored (cmake/CPM.cmake), build only    M0 (now)
+GoogleTest          BSD-3-Clause                     Fetched, tests only                       M0 (now)
+nanobind            BSD-3-Clause                     Fetched, Python bindings                  M0 (now)
+hwloc               BSD-3-Clause                     System (pixi), topology discovery         M0/M1
+UCX                 BSD-3-Clause                     System (pixi, Linux), transports          M0/M1
+rdma-core           BSD-2-Clause or GPL-2.0          System (pixi, Linux), with UCX            M0/M1
+opentelemetry-cpp   Apache-2.0                       Fetched, static, symbols hidden           RFC-0002
+protobuf            BSD-3-Clause                     Fetched, static, symbols hidden           RFC-0002
+abseil              Apache-2.0                       Fetched, static, symbols hidden           RFC-0002
+libcurl             curl (MIT-style)                 System, shared, OTLP over HTTP            RFC-0002
+NVIDIA CCCL         Apache-2.0 WITH LLVM-exception   Fetched, CUB/Thrust/libcu++               M0
+nvbench             Apache-2.0                       Fetched, benchmarks only (not shipped)    M0
+nanoarrow           Apache-2.0                       Fetched, Arrow C Device Data Interface    M2
+NVML                NVIDIA driver license            dlopen, never linked or bundled           M0/M1
+nvCOMP              NVIDIA proprietary, optional     dlopen, never bundled                     M2
+
+Upstream projects
+-----------------
+
+CPM.cmake          https://github.com/cpm-cmake/CPM.cmake
+GoogleTest         https://github.com/google/googletest
+nanobind           https://github.com/wjakob/nanobind
+hwloc              https://www.open-mpi.org/projects/hwloc/
+UCX                https://github.com/openucx/ucx
+rdma-core          https://github.com/linux-rdma/rdma-core
+opentelemetry-cpp  https://github.com/open-telemetry/opentelemetry-cpp
+protobuf           https://github.com/protocolbuffers/protobuf
+abseil             https://github.com/abseil/abseil-cpp
+libcurl            https://curl.se/
+NVIDIA CCCL        https://github.com/NVIDIA/cccl
+nvbench            https://github.com/NVIDIA/nvbench
+nanoarrow          https://github.com/apache/arrow-nanoarrow
+NVML               https://developer.nvidia.com/management-library-nvml
+nvCOMP             https://developer.nvidia.com/nvcomp
+
+
+CPM.cmake (vendored in cmake/CPM.cmake)
+---------------------------------------
+
+MIT License
+
+Copyright (c) 2019-2023 Lars Melchior and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

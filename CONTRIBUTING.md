@@ -2,7 +2,7 @@
 
 Thanks for your interest in Ostia. This guide explains how to propose changes, what we expect in a pull request, and how review works. By taking part you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Ostia is at the design stage. Most useful contributions right now are feedback on the [PRD](docs/product/prd.md) and on open RFCs.
+Ostia is building its M0 foundations. Useful contributions right now are feedback on the [PRD](docs/product/prd.md) and on open RFCs, and work on the M0 build, CI and tooling.
 
 ## Ways to contribute
 
@@ -67,7 +67,7 @@ Ostia is open core: the open-source edition is Apache-2.0, and the project owner
 
 ## Development setup
 
-The build system, toolchain requirements and test commands arrive with M0 (RFC-0001) and will be documented in [docs/guides/](docs/guides/).
+Install [pixi](https://pixi.sh), then follow [docs/guides/building.md](docs/guides/building.md): `pixi install`, `pixi run build`, `pixi run test`. Before you open a pull request, run `pixi run check`, which runs what CI requires. `pixi run hooks` installs a pre-commit hook that runs `pixi run lint`. To add or grow a component, see [docs/guides/adding-a-component.md](docs/guides/adding-a-component.md).
 
 ## For maintainers
 

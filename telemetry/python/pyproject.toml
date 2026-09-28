@@ -1,0 +1,18 @@
+# ostia-telemetry Python bindings. Development installs go through `pixi run py-dev`
+# (docs/guides/building.md); the native library comes from the environment's prefix.
+[build-system]
+requires = ["scikit-build-core>=1.0.1"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ostia-telemetry"
+version = "0.0.0"
+description = "Ostia telemetry: metrics, traces and debug checks (Python bindings)"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=4.1"
+wheel.packages = ["src/ostia"]
+editable.mode = "redirect"

@@ -1,0 +1,34 @@
+# One translation unit per public header, so each header compiles on its own: as C++,
+# as C for .h (C ABI) headers, and as CUDA when CUDA is enabled (RFC-0001 §1.2).
+set(_sources "")
+get_property(_components GLOBAL PROPERTY OSTIA_COMPONENTS)
+get_property(_placeholders GLOBAL PROPERTY OSTIA_PLACEHOLDERS)
+foreach(c IN LISTS _components)
+  if(c IN_LIST _placeholders)
+    continue()
+  endif()
+  file(
+    GLOB_RECURSE headers
+    RELATIVE ${PROJECT_SOURCE_DIR}/${c}/include
+    ${PROJECT_SOURCE_DIR}/${c}/include/ostia/*.h
+    ${PROJECT_SOURCE_DIR}/${c}/include/ostia/*.hpp
+  )
+  foreach(h IN LISTS headers)
+    string(MAKE_C_IDENTIFIER "${h}" flat)
+    set(exts cpp)
+    if(h MATCHES "\\.h$")
+      list(APPEND exts c)
+    endif()
+    if(CMAKE_CUDA_COMPILER_LOADED)
+      list(APPEND exts cu)
+    endif()
+    foreach(ext IN LISTS exts)
+      set(tu ${CMAKE_CURRENT_BINARY_DIR}/${flat}.${ext})
+      file(CONFIGURE OUTPUT ${tu} CONTENT "#include <${h}>\n")
+      list(APPEND _sources ${tu})
+    endforeach()
+  endforeach()
+  list(APPEND _links ostia::${c})
+endforeach()
+add_library(ostia_header_check OBJECT ${_sources})
+target_link_libraries(ostia_header_check PRIVATE ${_links})

@@ -57,10 +57,19 @@ def collect():
 def render(rows):
     if not rows:
         return "No RFCs or ADRs yet."
-    lines = ["| Document | Title | Status | Components | Created |", "| --- | --- | --- | --- | --- |"]
+    lines = [
+        "| Document | Title | Status | Components | Created |",
+        "| --- | --- | --- | --- | --- |",
+    ]
     for kind, number, meta, rel in rows:
-        components = ", ".join(meta["components"]) if isinstance(meta["components"], list) else meta["components"]
-        lines.append(f"| [{kind}-{number:04d}]({rel.as_posix()}) | {meta['title']} | {meta['status']} | {components} | {meta['created']} |")
+        components = (
+            ", ".join(meta["components"])
+            if isinstance(meta["components"], list)
+            else meta["components"]
+        )
+        link = f"[{kind}-{number:04d}]({rel.as_posix()})"
+        cells = [link, meta["title"], meta["status"], components, str(meta["created"])]
+        lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 

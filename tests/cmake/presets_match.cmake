@@ -1,0 +1,24 @@
+# cmake -DPRESETS=<CMakePresets.json> -DDEFAULT=a|b|c -P presets_match.cmake
+cmake_policy(VERSION 4.1)
+file(READ "${PRESETS}" json)
+string(JSON n LENGTH "${json}" configurePresets)
+math(EXPR last "${n} - 1")
+set(found "")
+foreach(i RANGE ${last})
+  string(
+    JSON v
+    ERROR_VARIABLE err
+    GET "${json}"
+    configurePresets
+    ${i}
+    cacheVariables
+    OSTIA_CUDA_ARCHITECTURES_RELEASE
+  )
+  if(NOT err)
+    set(found "${v}")
+  endif()
+endforeach()
+string(REPLACE "|" ";" want "${DEFAULT}")
+if(NOT found STREQUAL want)
+  message(FATAL_ERROR "CMakePresets.json has '${found}', CMakeLists.txt default is '${want}'")
+endif()
