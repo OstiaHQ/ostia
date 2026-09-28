@@ -8,7 +8,7 @@ Guidance for AI coding agents and human contributors working in this repository.
 - [`docs/README.md`](docs/README.md): how design docs work (RFCs, ADRs, guides), when an RFC is required, and the document index.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): pull request expectations, the commit convention and the CLA.
 
-Ostia is at the design stage: there is no product code yet. The next milestone is **M0 Foundations**, which starts with **RFC-0001**.
+Ostia is in **M0 Foundations** ([RFC-0001](docs/rfcs/0001-m0-foundations.md), Accepted). The build skeleton, layering enforcement and Python namespace packages exist; telemetry and fabric have only placeholder APIs until their RFCs land. Build and test instructions: [`docs/guides/building.md`](docs/guides/building.md).
 
 ## Layers and components
 
@@ -20,7 +20,7 @@ Ostia is at the design stage: there is no product code yet. The next milestone i
 | ostia-query | 3 | `query/` | runtime, exchange, telemetry |
 | ostia-telemetry | all | `telemetry/` | nothing |
 
-Dependencies only point down. A lower layer never includes or links a higher one; the build and CI will enforce this.
+Dependencies only point down. A lower layer never includes or links a higher one; `cmake/layering.json` is the table, and the build and `pixi run lint` enforce it (RFC-0001 §3.3).
 
 Layer 1 is C++20 + CUDA with a stable C ABI and Python bindings (D7). Python packages share the `ostia` import namespace (PEP 420): each component installs into `ostia/<component>/`, and no package ships `ostia/__init__.py`.
 
@@ -41,6 +41,12 @@ Layer 1 is C++20 + CUDA with a stable C ABI and Python bindings (D7). Python pac
 ## Tools
 
 ```bash
+pixi run build                            # configure and build (dev preset)
+pixi run test                             # C++, CMake and Python tests
+pixi run check                            # everything CI requires: lint, graph check, tests
+pixi run py-dev                           # rebuild native code and reinstall the Python editables
+pixi run doctor                           # print the environment and diagnose problems
+pixi run clean                            # remove build output and what py-dev installed
 python3 tools/docs/gen_index.py           # regenerate the RFC/ADR index in docs/README.md
 python3 tools/docs/gen_index.py --check   # fails if the index is stale (run before opening a docs PR)
 bun tools/docs/render-figures.js docs/product/figures/src docs/product/figures   # re-render PRD figures

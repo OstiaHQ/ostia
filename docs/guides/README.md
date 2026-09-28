@@ -2,4 +2,10 @@
 
 How-tos for contributors: building, testing, benchmarking and renting hardware. Guides are living documents; update them in the same pull request as the change they describe.
 
-No guides yet. The first ones arrive with M0 (build and test setup).
+| I want to | Guide |
+| --- | --- |
+| Build Ostia and run the tests | [building.md](building.md) |
+| Add a component, or turn a placeholder into one | [adding-a-component.md](adding-a-component.md) |
+| Run a benchmark and update a baseline | Coming with RFC-0001 Rollout PR 5 |
+| Capture a topology fixture | Coming with RFC-0001 Rollout PR 6 |
+| Run a rented reference setup | Coming with RFC-0001 Rollout PR 7 |
