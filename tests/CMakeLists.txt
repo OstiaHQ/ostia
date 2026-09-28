@@ -49,3 +49,37 @@ if(NOT CMAKE_CUDA_COMPILER_LOADED)
     ARGS -DOSTIA_ENABLE_CUDA=ON -DOSTIA_BUILD_TESTS=OFF -DOSTIA_NVCC=OSTIA_NVCC-NOTFOUND
   )
 endif()
+
+# Layering enforcement, parts 1 and 2 (RFC-0001 §3.3): fixture projects that must fail
+# with the named message, and one legitimate transitive dependency that must pass.
+set(_layering ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering)
+ostia_configure_test(layering.upward_depends SOURCE ${_layering}/upward_depends EXPECT fail
+  REGEX "DEPENDS runtime.*exchange may depend on: fabric, telemetry.*RFC-0001 §3\\.3")
+ostia_configure_test(layering.upward_raw_link SOURCE ${_layering}/upward_raw_link EXPECT fail
+  REGEX "ostia_telemetry LINK_LIBRARIES contains ostia::fabric.*telemetry may depend on: nothing")
+ostia_configure_test(layering.upward_interface_link SOURCE ${_layering}/upward_interface_link
+  EXPECT fail REGEX "ostia_telemetry INTERFACE_LINK_LIBRARIES contains ostia_fabric")
+ostia_configure_test(layering.upward_genex_link SOURCE ${_layering}/upward_genex_link EXPECT fail
+  REGEX "ostia_telemetry LINK_LIBRARIES contains [^\n]*ostia::fabric")
+ostia_configure_test(layering.unknown_ostia_ref SOURCE ${_layering}/unknown_ostia_ref EXPECT fail
+  REGEX "references ostia::fabirc, which is not a component")
+ostia_configure_test(layering.disabled_dependency SOURCE ${_layering}/disabled_dependency
+  EXPECT fail REGEX "needs ostia-telemetry, which is disabled.*RFC-0001 §3\\.3")
+ostia_configure_test(layering.rank_mismatch SOURCE ${_layering}/rank_mismatch EXPECT fail
+  REGEX "declares RANK 3.*write RANK 2")
+ostia_configure_test(layering.unknown_component SOURCE ${_layering}/unknown_component EXPECT fail
+  REGEX "unknown component 'storage'")
+ostia_configure_test(layering.transitive_ok SOURCE ${_layering}/transitive_ok EXPECT pass)
+ostia_configure_test(configure.telemetry_off SOURCE ${PROJECT_SOURCE_DIR} EXPECT fail
+  REGEX "needs ostia-telemetry, which is disabled" ARGS -DOSTIA_BUILD_TELEMETRY=OFF -DOSTIA_BUILD_TESTS=OFF)
+
+# Part 2's resolved-graph check: an upward edge inside a generator expression.
+find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
+add_test(
+  NAME layering.graph_genex
+  COMMAND
+    ${CMAKE_COMMAND} -DSRC=${_layering}/graph_genex -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/graph_genex
+    -DPYTHON=${Python3_EXECUTABLE} -DCHECK=${PROJECT_SOURCE_DIR}/tools/ci/check_graph.py
+    -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
+)
+set_tests_properties(layering.graph_genex PROPERTIES LABELS cpu)

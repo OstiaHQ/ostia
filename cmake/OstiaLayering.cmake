@@ -70,6 +70,58 @@ function(ostia_layering_components out)
   set(${out} "${by_rank}" PARENT_SCOPE)
 endfunction()
 
-# Part 2 of RFC-0001 §3.3: the link walk. A no-op until components exist.
+# Part 2 of RFC-0001 §3.3: walk each component's own direct link edges, after all
+# targets exist. Catches raw target_link_libraries calls that bypass ostia_add_component.
+# Generator expressions are scanned for ostia names but cannot be evaluated here; CI's
+# resolved-graph check (tools/ci/check_graph.py) covers what they expand to.
 function(ostia_check_layering)
+  if(OSTIA_SKIP_LINK_WALK)
+    return() # fixtures only: lets the graph_genex fixture reach generation
+  endif()
+  get_property(components GLOBAL PROPERTY OSTIA_COMPONENTS)
+  ostia_layering_internal_targets(internal)
+  foreach(c IN LISTS components)
+    ostia_layering_allowed(${c} allowed)
+    list(JOIN allowed ", " allowed_text)
+    if(allowed_text STREQUAL "")
+      set(allowed_text "nothing")
+    endif()
+    foreach(prop LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+      get_target_property(libs ostia_${c} ${prop})
+      if(NOT libs)
+        continue()
+      endif()
+      foreach(entry IN LISTS libs)
+        if(entry MATCHES "^::@")
+          continue() # directory-scope markers CMake inserts
+        endif()
+        # ostia::X and ostia_X anywhere, including inside generator expressions.
+        string(REGEX MATCHALL "ostia(::|_)[a-z][a-z_]*" refs "${entry}")
+        foreach(ref IN LISTS refs)
+          string(REGEX REPLACE "^ostia(::|_)" "" dep "${ref}")
+          if(dep STREQUAL c OR dep IN_LIST internal OR dep IN_LIST allowed)
+            continue()
+          endif()
+          if(NOT dep IN_LIST components)
+            list(JOIN components ", " components_text)
+            list(JOIN internal ", " internal_text)
+            ostia_fail(
+              PROBLEM "ostia_${c} ${prop} references ${ref}, which is not a component"
+              DETAILS "components: ${components_text}" "internal targets: ${internal_text}"
+              RULE "components link only table components or listed internal targets"
+              FIX "fix the name, or add an internal target to internal_targets in cmake/layering.json"
+              SEE "RFC-0001 §3.3"
+            )
+          endif()
+          ostia_fail(
+            PROBLEM "ostia_${c} ${prop} contains ${entry}"
+            DETAILS "${c} may depend on: ${allowed_text}"
+            RULE "a component links only the entries in its row of the dependency table"
+            FIX "remove the link, or change the dependency table through an RFC"
+            SEE "RFC-0001 §3.3"
+          )
+        endforeach()
+      endforeach()
+    endforeach()
+  endforeach()
 endfunction()
