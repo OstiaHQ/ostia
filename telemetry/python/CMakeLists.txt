@@ -1,0 +1,39 @@
+# Python extension for ostia-telemetry (RFC-0001 §3.5). It links the one installed native
+# library and never builds or bundles it.
+cmake_minimum_required(VERSION 4.1)
+project(ostia_telemetry_python LANGUAGES C CXX)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/OstiaMessages.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/OstiaToolchain.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Dependencies.cmake)
+ostia_strip_conda_rpath()
+
+find_package(ostia 0.0 QUIET COMPONENTS telemetry)
+if(NOT ostia_FOUND)
+  ostia_fail(
+    PROBLEM "native ostia-telemetry is not installed in $ENV{CONDA_PREFIX}"
+    DETAILS "${ostia_NOT_FOUND_MESSAGE}"
+    RULE "Python editables link the native libraries installed into the pixi environment"
+    FIX "run pixi run py-dev (not pip install -e directly)"
+    SEE "RFC-0001 §3.5"
+  )
+endif()
+ostia_dep_nanobind()
+
+nanobind_add_module(_native NB_STATIC src/_native.cpp)
+target_link_libraries(_native PRIVATE ostia::telemetry)
+
+# Relative RPATH from site-packages/ostia/telemetry/ to the prefix's lib/, where the one
+# libostia-* lives (RFC-0001 §3.5).
+cmake_path(GET ostia_DIR PARENT_PATH _cmake_dir)
+cmake_path(GET _cmake_dir PARENT_PATH _ostia_libdir)
+file(RELATIVE_PATH _rel "${Python_SITEARCH}/ostia/telemetry" "${_ostia_libdir}")
+if(APPLE)
+  set(_origin "@loader_path")
+else()
+  set(_origin "$ORIGIN")
+endif()
+set_target_properties(
+  _native
+  PROPERTIES INSTALL_RPATH "${_origin}/${_rel}" INSTALL_REMOVE_ENVIRONMENT_RPATH ON
+)
+install(TARGETS _native LIBRARY DESTINATION ostia/telemetry)

@@ -24,10 +24,8 @@ include(OstiaSummary)
 # conda's activation puts an rpath to $CONDA_PREFIX/lib ahead of the build tree, so
 # tests would load libraries that `pixi run py-dev` installed there, not the fresh build.
 # Move it behind the build tree: it is still needed for the environment's C++ runtime.
+ostia_strip_conda_rpath()
 if(DEFINED ENV{CONDA_PREFIX})
-  foreach(v CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS)
-    string(REPLACE "-Wl,-rpath,$ENV{CONDA_PREFIX}/lib" "" ${v} "${${v}}")
-  endforeach()
   # CMAKE_BUILD_RPATH entries come before CMake's automatic ones, so list every
   # component's build directory first (they are fixed: <build>/<component>).
   ostia_layering_components(_rpath_components)

@@ -142,3 +142,15 @@ function(ostia_detect_gpus out)
   endif()
   set(${out} "${caps}" PARENT_SCOPE)
 endfunction()
+
+# ostia_strip_conda_rpath(): conda's compiler activation puts -Wl,-rpath,$CONDA_PREFIX/lib
+# in LDFLAGS. As a literal linker flag it precedes the build tree's RPATH and survives
+# install, so tests could load stale installed libraries and installed binaries would
+# carry an absolute path. Remove it; callers add back what they need (RFC-0001 §3.5).
+macro(ostia_strip_conda_rpath)
+  if(DEFINED ENV{CONDA_PREFIX})
+    foreach(_ostia_v CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS)
+      string(REPLACE "-Wl,-rpath,$ENV{CONDA_PREFIX}/lib" "" ${_ostia_v} "${${_ostia_v}}")
+    endforeach()
+  endif()
+endmacro()

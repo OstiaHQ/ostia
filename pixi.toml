@@ -98,3 +98,16 @@ build = { cmd = "cmake --build --preset dev", depends-on = [
 test-cpp = { cmd = "ctest --preset dev", depends-on = [
   "build",
 ], description = "Run C++ and CMake tests; extra args go to ctest, e.g. -R Result" }
+install-native = { cmd = "cmake --install $OSTIA_BUILD_ROOT/dev --prefix $CONDA_PREFIX", depends-on = [
+  "build",
+], description = "Install libostia-* into the pixi environment (RFC-0001 §3.5)" }
+py-dev = { cmd = "python tools/dev/py_dev.py --preset dev", depends-on = [
+  "install-native",
+], description = "Build native code and install the Python editables; the documented rebuild after a native change" }
+test-py = { cmd = "pytest", depends-on = [
+  "py-dev",
+], description = "Run Python tests (extra args go to pytest)" }
+test = { depends-on = ["test-cpp", "test-py"], description = "Run all tests" }
+test-rebuild = { cmd = "pytest -m slow tests/python", depends-on = [
+  "py-dev",
+], description = "Slow tests: native change visible after rebuild, py-dev idempotency" }
