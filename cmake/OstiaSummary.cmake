@@ -9,7 +9,17 @@ function(ostia_summary_set key value)
 endfunction()
 
 function(ostia_print_summary)
-  set(keys compiler cuda cuda_toolkit architectures telemetry_level components dependencies ccache)
+  set(
+    keys
+    compiler
+    cuda
+    cuda_toolkit
+    architectures
+    telemetry_level
+    components
+    dependencies
+    ccache
+  )
   set(text "")
   message(STATUS "Ostia configuration (see docs/guides/building.md):")
   foreach(key IN LISTS keys)

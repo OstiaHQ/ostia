@@ -24,7 +24,12 @@ endif()
 
 # RUN: after a passing configure, build the project and run <BIN>/<RUN>; it must exit 0.
 if(DEFINED RUN AND NOT RUN STREQUAL "")
-  execute_process(COMMAND ${CMAKE_COMMAND} --build "${BIN}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err)
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --build "${BIN}"
+    RESULT_VARIABLE rc
+    OUTPUT_VARIABLE out
+    ERROR_VARIABLE err
+  )
   if(NOT rc EQUAL 0)
     message(FATAL_ERROR "build of ${SRC} failed\n${out}${err}")
   endif()

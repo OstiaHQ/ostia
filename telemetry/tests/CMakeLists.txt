@@ -1,7 +1,10 @@
 include(GoogleTest)
 
 add_executable(ostia_telemetry_tests build_level_test.cpp result_test.cpp)
-target_link_libraries(ostia_telemetry_tests PRIVATE ostia::telemetry GTest::gtest_main ${CMAKE_DL_LIBS})
+target_link_libraries(
+  ostia_telemetry_tests
+  PRIVATE ostia::telemetry GTest::gtest_main ${CMAKE_DL_LIBS}
+)
 target_compile_definitions(
   ostia_telemetry_tests
   PRIVATE OSTIA_EXPECT_LIBDIR="$<TARGET_FILE_DIR:ostia_telemetry>"

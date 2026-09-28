@@ -82,19 +82,36 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     " fix: build through pixi (pixi run build)"
   )
 endif()
-ostia_summary_set(compiler "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})")
+ostia_summary_set(
+  compiler
+  "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})"
+)
 
 # CUDA (RFC-0001 §1.1, §3.4): find nvcc, check its version and the host compiler range,
 # choose the architectures, and only then enable the language.
-set(OSTIA_CUDA_ARCH_MODE release CACHE STRING "CUDA architecture policy: dev or release (RFC-0001 §1.1)")
+set(
+  OSTIA_CUDA_ARCH_MODE
+  release
+  CACHE STRING
+  "CUDA architecture policy: dev or release (RFC-0001 §1.1)"
+)
 set_property(CACHE OSTIA_CUDA_ARCH_MODE PROPERTY STRINGS dev release)
-set(OSTIA_CUDA_ARCHITECTURES_RELEASE "80-real;90-real;100" CACHE STRING
-  "Release CUDA architectures: SASS for sm_80/90/100, PTX for sm_100 (RFC-0001 §1.1)")
+set(
+  OSTIA_CUDA_ARCHITECTURES_RELEASE
+  "80-real;90-real;100"
+  CACHE STRING
+  "Release CUDA architectures: SASS for sm_80/90/100, PTX for sm_100 (RFC-0001 §1.1)"
+)
 set(_cuda_default AUTO)
 if(DEFINED ENV{OSTIA_ENABLE_CUDA})
   set(_cuda_default $ENV{OSTIA_ENABLE_CUDA}) # pixi: OFF in default, ON in cuda-*
 endif()
-set(OSTIA_ENABLE_CUDA ${_cuda_default} CACHE STRING "Build CUDA code: AUTO, ON or OFF (RFC-0001 §3.4)")
+set(
+  OSTIA_ENABLE_CUDA
+  ${_cuda_default}
+  CACHE STRING
+  "Build CUDA code: AUTO, ON or OFF (RFC-0001 §3.4)"
+)
 set_property(CACHE OSTIA_ENABLE_CUDA PROPERTY STRINGS AUTO ON OFF)
 
 set(_cuda_state "off (OSTIA_ENABLE_CUDA=OFF)")
@@ -134,10 +151,15 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
     )
     if(NOT _cuda_host_ok STREQUAL "TRUE")
       ostia_fail(
-        PROBLEM "host compiler ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} is not supported by CUDA ${_cuda_version}"
-        DETAILS "compiler: ${CMAKE_CXX_COMPILER}" "nvcc: ${OSTIA_NVCC}" "supported: ${_cuda_host_range}"
+        PROBLEM
+          "host compiler ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} is not supported by CUDA ${_cuda_version}"
+        DETAILS
+          "compiler: ${CMAKE_CXX_COMPILER}"
+          "nvcc: ${OSTIA_NVCC}"
+          "supported: ${_cuda_host_range}"
         RULE "nvcc accepts only the host compilers its installation guide lists"
-        FIX "use the matching pixi environment (cuda-12: GCC 11, cuda-13: GCC 14), or -DOSTIA_ENABLE_CUDA=OFF"
+        FIX
+          "use the matching pixi environment (cuda-12: GCC 11, cuda-13: GCC 14), or -DOSTIA_ENABLE_CUDA=OFF"
         SEE "RFC-0001 §1.2"
       )
     endif()

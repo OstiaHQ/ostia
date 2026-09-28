@@ -5,8 +5,15 @@ string(JSON n LENGTH "${json}" configurePresets)
 math(EXPR last "${n} - 1")
 set(found "")
 foreach(i RANGE ${last})
-  string(JSON v ERROR_VARIABLE err GET "${json}" configurePresets ${i} cacheVariables
-         OSTIA_CUDA_ARCHITECTURES_RELEASE)
+  string(
+    JSON v
+    ERROR_VARIABLE err
+    GET "${json}"
+    configurePresets
+    ${i}
+    cacheVariables
+    OSTIA_CUDA_ARCHITECTURES_RELEASE
+  )
   if(NOT err)
     set(found "${v}")
   endif()

@@ -14,7 +14,6 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -60,7 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--build-root", type=Path)
     parser.add_argument("--force", action="store_true", help="reinstall even when up to date")
     parser.add_argument(
-        "--build-native", action="store_true",
+        "--build-native",
+        action="store_true",
         help="configure, build and install native code first (tests; pixi does this otherwise)",
     )
     args = parser.parse_args(argv)
@@ -98,8 +98,16 @@ def main(argv: list[str] | None = None) -> int:
             continue
         run(
             [
-                sys.executable, "-m", "pip", "install", "--no-build-isolation", "--no-deps",
-                "--quiet", "-e", ".", f"-Cbuild-dir={build / 'py' / component}",
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--no-build-isolation",
+                "--no-deps",
+                "--quiet",
+                "-e",
+                ".",
+                f"-Cbuild-dir={build / 'py' / component}",
                 f"-Ccmake.define.CMAKE_PREFIX_PATH={prefix}",
             ],
             cwd=project,
@@ -115,5 +123,9 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except subprocess.CalledProcessError as e:
-        sys.exit(fail(f"command failed ({e.returncode}): {' '.join(map(str, e.cmd))}",
-                      "read the output above; pixi run doctor checks the environment"))
+        sys.exit(
+            fail(
+                f"command failed ({e.returncode}): {' '.join(map(str, e.cmd))}",
+                "read the output above; pixi run doctor checks the environment",
+            )
+        )

@@ -57,40 +57,56 @@ endif()
 # with the named message, and one legitimate transitive dependency that must pass.
 set(_layering ${CMAKE_CURRENT_SOURCE_DIR}/cmake/layering)
 ostia_configure_test(layering.upward_depends SOURCE ${_layering}/upward_depends EXPECT fail
-  REGEX "DEPENDS runtime.*exchange may depend on: fabric, telemetry.*RFC-0001 §3\\.3")
+  REGEX "DEPENDS runtime.*exchange may depend on: fabric, telemetry.*RFC-0001 §3\\.3"
+)
 ostia_configure_test(layering.upward_raw_link SOURCE ${_layering}/upward_raw_link EXPECT fail
-  REGEX "ostia_telemetry LINK_LIBRARIES contains ostia::fabric.*telemetry may depend on: nothing")
+  REGEX "ostia_telemetry LINK_LIBRARIES contains ostia::fabric.*telemetry may depend on: nothing"
+)
 ostia_configure_test(layering.upward_interface_link SOURCE ${_layering}/upward_interface_link
-  EXPECT fail REGEX "ostia_telemetry INTERFACE_LINK_LIBRARIES contains ostia_fabric")
+  EXPECT fail REGEX "ostia_telemetry INTERFACE_LINK_LIBRARIES contains ostia_fabric"
+)
 ostia_configure_test(layering.upward_genex_link SOURCE ${_layering}/upward_genex_link EXPECT fail
-  REGEX "ostia_telemetry LINK_LIBRARIES contains [^\n]*ostia::fabric")
+  REGEX "ostia_telemetry LINK_LIBRARIES contains [^\n]*ostia::fabric"
+)
 ostia_configure_test(layering.unknown_ostia_ref SOURCE ${_layering}/unknown_ostia_ref EXPECT fail
-  REGEX "references ostia::fabirc, which is not a component")
+  REGEX "references ostia::fabirc, which is not a component"
+)
 ostia_configure_test(layering.disabled_dependency SOURCE ${_layering}/disabled_dependency
-  EXPECT fail REGEX "needs ostia-telemetry, which is disabled.*RFC-0001 §3\\.3")
+  EXPECT fail REGEX "needs ostia-telemetry, which is disabled.*RFC-0001 §3\\.3"
+)
 ostia_configure_test(layering.rank_mismatch SOURCE ${_layering}/rank_mismatch EXPECT fail
-  REGEX "declares RANK 3.*write RANK 2")
+  REGEX "declares RANK 3.*write RANK 2"
+)
 ostia_configure_test(layering.unknown_component SOURCE ${_layering}/unknown_component EXPECT fail
-  REGEX "unknown component 'storage'")
+  REGEX "unknown component 'storage'"
+)
 ostia_configure_test(layering.transitive_ok SOURCE ${_layering}/transitive_ok EXPECT pass)
 ostia_configure_test(configure.telemetry_off SOURCE ${PROJECT_SOURCE_DIR} EXPECT fail
-  REGEX "needs ostia-telemetry, which is disabled" ARGS -DOSTIA_BUILD_TELEMETRY=OFF -DOSTIA_BUILD_TESTS=OFF)
+  REGEX "needs ostia-telemetry, which is disabled" ARGS -DOSTIA_BUILD_TELEMETRY=OFF -DOSTIA_BUILD_TESTS=OFF
+)
 
 # Part 2's resolved-graph check: an upward edge inside a generator expression.
 find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
 add_test(
   NAME layering.graph_genex
   COMMAND
-    ${CMAKE_COMMAND} -DSRC=${_layering}/graph_genex -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/graph_genex
-    -DPYTHON=${Python3_EXECUTABLE} -DCHECK=${PROJECT_SOURCE_DIR}/tools/ci/check_graph.py
-    -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
+    ${CMAKE_COMMAND} -DSRC=${_layering}/graph_genex
+    -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/graph_genex -DPYTHON=${Python3_EXECUTABLE}
+    -DCHECK=${PROJECT_SOURCE_DIR}/tools/ci/check_graph.py -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
 )
 set_tests_properties(layering.graph_genex PROPERTIES LABELS cpu)
 
 # Install and package config (RFC-0001 §3.1–§3.2): consumers of an installed tree.
 set(_stage ${CMAKE_CURRENT_BINARY_DIR}/stage)
-add_test(NAME install.stage COMMAND ${CMAKE_COMMAND} -E rm -rf ${_stage})
-add_test(NAME install.stage_install COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR} --prefix ${_stage})
+add_test(
+  NAME install.stage
+  COMMAND ${CMAKE_COMMAND} -E rm -rf ${_stage}
+)
+add_test(
+  NAME install.stage_install
+  COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR} --prefix ${_stage}
+)
 set_tests_properties(install.stage PROPERTIES FIXTURES_SETUP ostia_stage_clean LABELS cpu)
 set_tests_properties(
   install.stage_install
@@ -98,25 +114,31 @@ set_tests_properties(
 )
 set(_consumer ${CMAKE_CURRENT_SOURCE_DIR}/cmake/find_package)
 ostia_configure_test(find_package.fabric SOURCE ${_consumer} EXPECT pass RUN consumer
-  FIXTURE ostia_stage ARGS -DWANT=fabric -DCMAKE_PREFIX_PATH=${_stage})
+  FIXTURE ostia_stage ARGS -DWANT=fabric -DCMAKE_PREFIX_PATH=${_stage}
+)
 ostia_configure_test(find_package.exchange SOURCE ${_consumer} EXPECT fail FIXTURE ostia_stage
   REGEX "ostia component 'exchange' is a placeholder.*the ostia-exchange RFC.*RFC-0001 §3\\.1"
-  ARGS -DWANT=exchange -DCMAKE_PREFIX_PATH=${_stage})
+  ARGS -DWANT=exchange -DCMAKE_PREFIX_PATH=${_stage}
+)
 ostia_configure_test(find_package.unknown SOURCE ${_consumer} EXPECT fail FIXTURE ostia_stage
-  REGEX "unknown ostia component 'storage'" ARGS -DWANT=storage -DCMAKE_PREFIX_PATH=${_stage})
+  REGEX "unknown ostia component 'storage'" ARGS -DWANT=storage -DCMAKE_PREFIX_PATH=${_stage}
+)
 ostia_configure_test(find_package.none SOURCE ${_consumer} EXPECT pass FIXTURE ostia_stage
-  ARGS -DWANT= -DCMAKE_PREFIX_PATH=${_stage})
+  ARGS -DWANT= -DCMAKE_PREFIX_PATH=${_stage}
+)
 add_test(
   NAME install.no_placeholders
-  COMMAND ${CMAKE_COMMAND} -DSTAGE=${_stage} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_check.cmake
+  COMMAND
+    ${CMAKE_COMMAND} -DSTAGE=${_stage} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_check.cmake
 )
 set_tests_properties(install.no_placeholders PROPERTIES FIXTURES_REQUIRED ostia_stage LABELS cpu)
 add_test(
   NAME install.fabric_disabled
   COMMAND
-    ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/cfg/fabric_disabled
-    -DCONSUMER=${_consumer} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fabric_disabled.cmake
+    ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR}
+    -DWORK=${CMAKE_CURRENT_BINARY_DIR}/cfg/fabric_disabled -DCONSUMER=${_consumer}
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -P
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/fabric_disabled.cmake
 )
 set_tests_properties(install.fabric_disabled PROPERTIES LABELS cpu)
 

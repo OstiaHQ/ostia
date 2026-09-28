@@ -18,7 +18,14 @@ set(_OSTIA_HOST_FLOOR_Clang 17)
 #                           OUT_OK <var> OUT_RANGE <var>)
 # OUT_OK is TRUE, FALSE or UNKNOWN_CUDA; OUT_RANGE describes the supported range.
 function(ostia_host_compiler_range)
-  cmake_parse_arguments(PARSE_ARGV 0 A "" "CUDA_VERSION;COMPILER_ID;COMPILER_VERSION;OUT_OK;OUT_RANGE" "")
+  cmake_parse_arguments(
+    PARSE_ARGV
+    0
+    A
+    ""
+    "CUDA_VERSION;COMPILER_ID;COMPILER_VERSION;OUT_OK;OUT_RANGE"
+    ""
+  )
   string(REGEX MATCH "^[0-9]+" major "${A_COMPILER_VERSION}")
   set(id "${A_COMPILER_ID}")
 
@@ -30,7 +37,11 @@ function(ostia_host_compiler_range)
     endif()
     if(NOT DEFINED _OSTIA_HOST_FLOOR_${id})
       set(${A_OUT_OK} FALSE PARENT_SCOPE)
-      set(${A_OUT_RANGE} "GNU ${_OSTIA_HOST_FLOOR_GNU}+ or Clang ${_OSTIA_HOST_FLOOR_Clang}+" PARENT_SCOPE)
+      set(
+        ${A_OUT_RANGE}
+        "GNU ${_OSTIA_HOST_FLOOR_GNU}+ or Clang ${_OSTIA_HOST_FLOOR_Clang}+"
+        PARENT_SCOPE
+      )
       return()
     endif()
     set(floor ${_OSTIA_HOST_FLOOR_${id}})
@@ -118,7 +129,11 @@ function(ostia_choose_cuda_architectures)
     set(${A_OUT_REASON} "release list" PARENT_SCOPE)
   else()
     set(${A_OUT} INVALID PARENT_SCOPE)
-    set(${A_OUT_REASON} "unknown OSTIA_CUDA_ARCH_MODE '${A_MODE}' (expected dev or release)" PARENT_SCOPE)
+    set(
+      ${A_OUT_REASON}
+      "unknown OSTIA_CUDA_ARCH_MODE '${A_MODE}' (expected dev or release)"
+      PARENT_SCOPE
+    )
   endif()
 endfunction()
 
@@ -128,8 +143,13 @@ function(ostia_detect_gpus out)
   if(NOT DEFINED OSTIA_GPU_DETECT_COMMAND)
     set(OSTIA_GPU_DETECT_COMMAND nvidia-smi --query-gpu=compute_cap --format=csv,noheader)
   endif()
-  execute_process(COMMAND ${OSTIA_GPU_DETECT_COMMAND}
-    RESULT_VARIABLE rc OUTPUT_VARIABLE text ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(
+    COMMAND ${OSTIA_GPU_DETECT_COMMAND}
+    RESULT_VARIABLE rc
+    OUTPUT_VARIABLE text
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
   set(caps "")
   if(rc EQUAL 0 AND NOT text STREQUAL "")
     string(REPLACE "\n" ";" lines "${text}")

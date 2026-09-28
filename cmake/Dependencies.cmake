@@ -19,7 +19,8 @@ function(ostia_dep_googletest)
     NAME googletest
     GITHUB_REPOSITORY google/googletest
     VERSION 1.18.0
-    GIT_TAG 063de7e9578f82b369302001269680b4b1553359 # v1.18.0
+    GIT_TAG
+      063de7e9578f82b369302001269680b4b1553359 # v1.18.0
     OPTIONS "INSTALL_GTEST OFF" "gtest_force_shared_crt ON"
   )
 endfunction()
@@ -34,7 +35,8 @@ macro(ostia_dep_nanobind)
     NAME nanobind
     GITHUB_REPOSITORY wjakob/nanobind
     VERSION 3.1.0
-    GIT_TAG 68480a9e6883bb1bf65e1925423321e2a89d07f9 # v3.1.0
+    GIT_TAG
+      68480a9e6883bb1bf65e1925423321e2a89d07f9 # v3.1.0
   )
 endmacro()
 

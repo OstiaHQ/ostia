@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 #include <memory>
-#include <ostia/telemetry/result.hpp>
 #include <string>
+
+#include <ostia/telemetry/result.hpp>
 
 using ostia::Error;
 using ostia::Result;

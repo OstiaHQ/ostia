@@ -86,14 +86,14 @@ cuda-12 = { features = ["cuda-12"] }
 cuda-13 = { features = ["cuda-13"] }
 
 [tasks]
-configure = { cmd = "cmake --preset dev", inputs = [
+_configure = { cmd = "cmake --preset dev", inputs = [
   "CMakePresets.json",
   "pixi.lock",
 ], outputs = [
   "build/$PIXI_ENVIRONMENT_NAME/dev/CMakeCache.txt",
 ], description = "Configure the dev preset (re-runs only when presets or the lock change)" }
 build = { cmd = "cmake --build --preset dev", depends-on = [
-  "configure",
+  "_configure",
 ], description = "Build the dev preset" }
 test-cpp = { cmd = "ctest --preset dev", depends-on = [
   "build",
@@ -111,3 +111,20 @@ test = { depends-on = ["test-cpp", "test-py"], description = "Run all tests" }
 test-rebuild = { cmd = "pytest -m slow tests/python", depends-on = [
   "py-dev",
 ], description = "Slow tests: native change visible after rebuild, py-dev idempotency" }
+lint = { cmd = "python tools/ci/lint.py lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, docs index" }
+fmt = { cmd = "python tools/ci/lint.py fmt", description = "Apply clang-format, ruff and gersemi" }
+check-graph = { cmd = "cmake --preset dev --graphviz=$OSTIA_BUILD_ROOT/dev/ostia.dot && python tools/ci/check_graph.py --dot $OSTIA_BUILD_ROOT/dev/ostia.dot", depends-on = [
+  "_configure",
+], description = "Check resolved link edges against the layering table (reconfigures)" }
+check = { depends-on = [
+  "lint",
+  "check-graph",
+  "test",
+], description = "Everything CI requires (RFC-0001 §4.1)" }
+tidy = { cmd = "run-clang-tidy -quiet -p $OSTIA_BUILD_ROOT/dev", depends-on = [
+  "_configure",
+], description = "clang-tidy over the compile database (slow; manual pre-commit stage)" }
+doctor = { cmd = "python tools/dev/doctor.py", description = "Print the environment and diagnose common problems" }
+clean = { cmd = "python tools/dev/clean.py", description = "Remove build output and everything py-dev installed into the environment" }
+hooks = { cmd = "pre-commit install", description = "Install the git pre-commit hook (runs pixi run lint)" }
+docs-index = { cmd = "python tools/docs/gen_index.py", description = "Regenerate the RFC/ADR index in docs/README.md" }

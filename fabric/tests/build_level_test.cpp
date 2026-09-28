@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include <ostia/fabric/fabric.h>
 #include <ostia/telemetry/telemetry.h>
 

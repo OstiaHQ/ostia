@@ -2,8 +2,13 @@
 include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/OstiaToolchain.cmake)
 
 macro(check cuda id ver want)
-  ostia_host_compiler_range(CUDA_VERSION "${cuda}" COMPILER_ID ${id} COMPILER_VERSION ${ver}
-                            OUT_OK ok OUT_RANGE range)
+  ostia_host_compiler_range(
+    CUDA_VERSION "${cuda}"
+    COMPILER_ID ${id}
+    COMPILER_VERSION ${ver}
+    OUT_OK ok
+    OUT_RANGE range
+  )
   if(NOT ok STREQUAL "${want}")
     message(FATAL_ERROR "${cuda}/${id}/${ver}: want ${want}, got ${ok} (${range})")
   endif()
@@ -28,8 +33,13 @@ check("" Clang 16.0.6 FALSE) # host-only floor Clang 17
 check("" Clang 19.1.7 TRUE)
 check("" AppleClang 16.0.0 TRUE) # allowed (tier 3); configure warns
 
-ostia_host_compiler_range(CUDA_VERSION "12.8.93" COMPILER_ID GNU COMPILER_VERSION 15.1.0
-                          OUT_OK ok OUT_RANGE range)
+ostia_host_compiler_range(
+  CUDA_VERSION "12.8.93"
+  COMPILER_ID GNU
+  COMPILER_VERSION 15.1.0
+  OUT_OK ok
+  OUT_RANGE range
+)
 if(NOT range STREQUAL "GNU 11–14")
   message(FATAL_ERROR "range text: '${range}'")
 endif()

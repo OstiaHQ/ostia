@@ -109,7 +109,8 @@ function(ostia_check_layering)
               PROBLEM "ostia_${c} ${prop} references ${ref}, which is not a component"
               DETAILS "components: ${components_text}" "internal targets: ${internal_text}"
               RULE "components link only table components or listed internal targets"
-              FIX "fix the name, or add an internal target to internal_targets in cmake/layering.json"
+              FIX
+                "fix the name, or add an internal target to internal_targets in cmake/layering.json"
               SEE "RFC-0001 §3.3"
             )
           endif()

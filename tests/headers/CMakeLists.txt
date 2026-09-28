@@ -7,8 +7,12 @@ foreach(c IN LISTS _components)
   if(c IN_LIST _placeholders)
     continue()
   endif()
-  file(GLOB_RECURSE headers RELATIVE ${PROJECT_SOURCE_DIR}/${c}/include
-       ${PROJECT_SOURCE_DIR}/${c}/include/ostia/*.h ${PROJECT_SOURCE_DIR}/${c}/include/ostia/*.hpp)
+  file(
+    GLOB_RECURSE headers
+    RELATIVE ${PROJECT_SOURCE_DIR}/${c}/include
+    ${PROJECT_SOURCE_DIR}/${c}/include/ostia/*.h
+    ${PROJECT_SOURCE_DIR}/${c}/include/ostia/*.hpp
+  )
   foreach(h IN LISTS headers)
     string(MAKE_C_IDENTIFIER "${h}" flat)
     set(exts cpp)

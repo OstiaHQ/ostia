@@ -1,6 +1,7 @@
 #include <dlfcn.h>
 #include <filesystem>
 #include <gtest/gtest.h>
+
 #include <ostia/telemetry/telemetry.h>
 
 // Fixed at metrics (1) until the build levels land (RFC-0001 §5, Rollout PR 3).
