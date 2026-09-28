@@ -26,7 +26,8 @@ SCRIPT = r"""
 set -e
 command -v git >/dev/null || (apt-get update -qq && apt-get install -y -qq git >/dev/null)
 git config --global --add safe.directory '*'
-mkdir -p /w && cd /src && git ls-files -co --exclude-standard -z | tar --null -T - -cf - | tar -x -C /w
+mkdir -p /w && cd /src
+git ls-files -co --exclude-standard -z | tar --null -T - -cf - | tar -x -C /w
 cd /w
 for env in {envs}; do
   echo "== $env: configure and build (release preset, compile-only)"
@@ -52,10 +53,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     cmd = [
-        engine, "run", "--rm", "--platform", "linux/arm64",
-        "-v", f"{repo_root()}:/src:ro",
-        "-v", "ostia-pixi-cache:/root/.cache/rattler",
-        IMAGE, "bash", "-c", SCRIPT.format(envs=" ".join(args.envs)),
+        engine,
+        "run",
+        "--rm",
+        "--platform",
+        "linux/arm64",
+        "-v",
+        f"{repo_root()}:/src:ro",
+        "-v",
+        "ostia-pixi-cache:/root/.cache/rattler",
+        IMAGE,
+        "bash",
+        "-c",
+        SCRIPT.format(envs=" ".join(args.envs)),
     ]
     return subprocess.run(cmd).returncode
 

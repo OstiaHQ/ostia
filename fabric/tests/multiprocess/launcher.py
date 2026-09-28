@@ -30,7 +30,10 @@ def main(argv: list[str] | None = None) -> int:
         procs = [
             subprocess.Popen(
                 [*command, "--rank", str(r), "--size", str(args.ranks), "--dir", rendezvous],
-                env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
             )
             for r in range(args.ranks)
         ]

@@ -2,8 +2,6 @@
 // writes a checksummed slice into it with a raw UCX put, rank 0 verifies. The ranks
 // rendezvous through files in a shared directory. Replaced by fabric's own multi-process
 // tests in M1.
-#include <ucp/api/ucp.h>
-
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -12,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <ucp/api/ucp.h>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -42,7 +41,8 @@ bool check(ucs_status_t s, const char* what) {
 
 void write_file(const fs::path& path, const std::string& data) {
     const fs::path tmp = path.string() + ".tmp";
-    std::ofstream(tmp, std::ios::binary).write(data.data(), static_cast<std::streamsize>(data.size()));
+    std::ofstream(tmp, std::ios::binary)
+        .write(data.data(), static_cast<std::streamsize>(data.size()));
     fs::rename(tmp, path); // atomic: readers never see a partial file
 }
 
@@ -172,7 +172,8 @@ int source(const Args& a, ucp_worker_h worker) {
     }
     ucp_request_param_t rp{};
     const std::uint64_t dest = base + static_cast<std::uint64_t>(a.rank - 1) * a.bytes;
-    if (!wait_request(worker, ucp_put_nbx(ep, data.data(), a.bytes, dest, rkey, &rp), "ucp_put_nbx") ||
+    if (!wait_request(worker, ucp_put_nbx(ep, data.data(), a.bytes, dest, rkey, &rp),
+                      "ucp_put_nbx") ||
         !wait_request(worker, ucp_ep_flush_nbx(ep, &rp), "ucp_ep_flush_nbx")) {
         return 1;
     }
@@ -212,7 +213,8 @@ int main(int argc, char** argv) {
         }
     }
     if (a.rank < 0 || a.size < 2 || a.dir.empty()) {
-        std::fprintf(stderr, "usage: ucx_put --rank R --size N --dir DIR [--bytes B] [--corrupt]\n");
+        std::fprintf(stderr,
+                     "usage: ucx_put --rank R --size N --dir DIR [--bytes B] [--corrupt]\n");
         return 2;
     }
     ucp_params_t params{};
