@@ -16,6 +16,11 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0 CACHE STRING "Minimum macOS version (RFC-00
 project(ostia VERSION 0.0.0 LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+# conda prefixes (the pixi environment) always use lib/, which py-dev and the Python
+# extensions' relative RPATH rely on; GNUInstallDirs would pick lib64 on RHEL hosts.
+if(DEFINED ENV{CONDA_PREFIX} AND NOT DEFINED CMAKE_INSTALL_LIBDIR)
+  set(CMAKE_INSTALL_LIBDIR lib CACHE PATH "Object code libraries (lib in conda prefixes)")
+endif()
 include(OstiaMessages)
 include(OstiaToolchain)
 include(OstiaComponent)
@@ -86,6 +91,18 @@ ostia_summary_set(
   compiler
   "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER})"
 )
+
+# Sanitizers for the CI sanitizer jobs (RFC-0001 §4.1): OSTIA_SANITIZE=address,undefined
+# or thread. Applied to everything built here, dependencies included.
+set(OSTIA_SANITIZE "" CACHE STRING "Sanitizers to build with, e.g. address,undefined or thread")
+if(OSTIA_SANITIZE)
+  add_compile_options(
+    -fsanitize=${OSTIA_SANITIZE}
+    -fno-omit-frame-pointer
+    -fno-sanitize-recover=all
+  )
+  add_link_options(-fsanitize=${OSTIA_SANITIZE})
+endif()
 
 # CUDA (RFC-0001 §1.1, §3.4): find nvcc, check its version and the host compiler range,
 # choose the architectures, and only then enable the language.
@@ -197,6 +214,8 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
     set(CMAKE_CUDA_ARCHITECTURES "${_arch}" CACHE STRING "CUDA architectures" FORCE)
     set(_OSTIA_CUDA_ARCH_CHOSEN "${_arch_previous}" CACHE INTERNAL "")
     enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 20)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     set(_cuda_state "on (OSTIA_ENABLE_CUDA=${OSTIA_ENABLE_CUDA})")
     set(_cuda_toolkit "${_cuda_version} (${OSTIA_NVCC})")
     set(_cuda_arch "${_arch} (${_arch_reason})")

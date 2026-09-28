@@ -85,17 +85,20 @@ ostia_configure_test(configure.telemetry_off SOURCE ${PROJECT_SOURCE_DIR} EXPECT
   REGEX "needs ostia-telemetry, which is disabled" ARGS -DOSTIA_BUILD_TELEMETRY=OFF -DOSTIA_BUILD_TESTS=OFF
 )
 
-# Part 2's resolved-graph check: an upward edge inside a generator expression.
-find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
-add_test(
-  NAME layering.graph_genex
-  COMMAND
-    ${CMAKE_COMMAND} -DSRC=${_layering}/graph_genex
-    -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/graph_genex -DPYTHON=${Python3_EXECUTABLE}
-    -DCHECK=${PROJECT_SOURCE_DIR}/tools/ci/check_graph.py -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR}
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
-)
-set_tests_properties(layering.graph_genex PROPERTIES LABELS cpu)
+# Part 2's resolved-graph check: an upward edge inside a generator expression. Needs
+# Python 3.10+ (the container jobs without pixi may lack it; CI's lint job runs it too).
+find_package(Python3 3.10 COMPONENTS Interpreter)
+if(Python3_FOUND)
+  add_test(
+    NAME layering.graph_genex
+    COMMAND
+      ${CMAKE_COMMAND} -DSRC=${_layering}/graph_genex
+      -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/graph_genex -DPYTHON=${Python3_EXECUTABLE}
+      -DCHECK=${PROJECT_SOURCE_DIR}/tools/ci/check_graph.py -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
+  )
+  set_tests_properties(layering.graph_genex PROPERTIES LABELS cpu)
+endif()
 
 # Install and package config (RFC-0001 §3.1–§3.2): consumers of an installed tree.
 set(_stage ${CMAKE_CURRENT_BINARY_DIR}/stage)
@@ -113,8 +116,13 @@ set_tests_properties(
   PROPERTIES FIXTURES_SETUP ostia_stage FIXTURES_REQUIRED ostia_stage_clean LABELS cpu
 )
 set(_consumer ${CMAKE_CURRENT_SOURCE_DIR}/cmake/find_package)
+# A consumer of sanitized libraries links the sanitizer runtime too.
+set(_consumer_flags "")
+if(OSTIA_SANITIZE)
+  set(_consumer_flags "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=${OSTIA_SANITIZE}")
+endif()
 ostia_configure_test(find_package.fabric SOURCE ${_consumer} EXPECT pass RUN consumer
-  FIXTURE ostia_stage ARGS -DWANT=fabric -DCMAKE_PREFIX_PATH=${_stage}
+  FIXTURE ostia_stage ARGS -DWANT=fabric -DCMAKE_PREFIX_PATH=${_stage} ${_consumer_flags}
 )
 ostia_configure_test(find_package.exchange SOURCE ${_consumer} EXPECT fail FIXTURE ostia_stage
   REGEX "ostia component 'exchange' is a placeholder.*the ostia-exchange RFC.*RFC-0001 §3\\.1"

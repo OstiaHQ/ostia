@@ -15,3 +15,9 @@ add_executable(ostia_telemetry_c_abi c_abi_test.c)
 target_link_libraries(ostia_telemetry_c_abi PRIVATE ostia::telemetry)
 add_test(NAME telemetry.c_abi COMMAND ostia_telemetry_c_abi)
 set_tests_properties(telemetry.c_abi PROPERTIES LABELS cpu)
+
+# CUDA compile-only check (RFC-0001 §1.2; the nvcc-12.8 and nvcc-13 CI jobs).
+if(CMAKE_CUDA_COMPILER_LOADED)
+  add_library(ostia_telemetry_cuda_compile OBJECT cuda_compile.cu)
+  target_link_libraries(ostia_telemetry_cuda_compile PRIVATE ostia::telemetry)
+endif()
