@@ -1,0 +1,4 @@
+# Compile database of the default pixi environment's dev preset.
+# For another environment, see docs/guides/building.md#ide-setup.
+CompileFlags:
+  CompilationDatabase: build/default/dev

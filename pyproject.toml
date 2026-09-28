@@ -1,0 +1,16 @@
+# Tool configuration only. Packages live in <component>/python/pyproject.toml.
+[tool.pytest.ini_options]
+testpaths = ["tests/python", "tools"]
+pythonpath = ["."]
+addopts = "-m 'not slow and not gpu'"
+markers = [
+    "slow: rebuilds native code; run with `pixi run test-rebuild`",
+    "gpu: needs a CUDA device",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
