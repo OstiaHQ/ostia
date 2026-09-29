@@ -5,7 +5,7 @@ status: Accepted
 authors: [ShAlireza]
 components: [build, telemetry, fabric, docs]
 created: 2026-09-25
-updated: 2026-09-27
+updated: 2026-09-29
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/7
@@ -96,7 +96,7 @@ CMake 4 rejects `cmake_minimum_required` below 3.5 in dependencies. CPM-fetched 
 
 | Tier | Meaning | Platforms | CI job that backs it |
 | --- | --- | --- | --- |
-| 1 | Built and tested on every PR; GPU-tested before merging GPU-affecting PRs ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md)); gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`; GPU: `ostia-dev remote k8s --suite gpu` on an L4 node |
+| 1 | Built and tested on every PR; GPU-tested before merging GPU-affecting PRs ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md)); gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`, ~~`gpu-l4`~~; GPU: `ostia-dev remote k8s --suite gpu` on an L4 node |
 | 1 | Built and tested on every PR | macOS 15 arm64, host-only (no CUDA) | `macos-arm64-host` |
 | 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 without pixi | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
 | 3 | Best effort | Other Linux distributions; building without pixi elsewhere | none |
@@ -107,10 +107,10 @@ aarch64 moves to tier 1 after a gate run passes on a rented Grace Hopper machine
 
 **Done when**
 
-- [ ] `CMakePresets.json` encodes the architecture list; the top-level `CMakeLists.txt` implements the `dev` GPU detection and the compiler-range check, with a configure test for each.
+- [ ] `CMakePresets.json` encodes the architecture list; the top-level `CMakeLists.txt` implements the `dev` GPU detection and the compiler-range check, with a configure test for each (the GPU-detected half from a remote run, [ADR-0014](../adr/0014-on-demand-remote-test-runs.md)).
 - [ ] The GCC 11 job builds all code with CUDA 12.8, and the GCC 14 job builds it with CUDA 13.4.
 - [ ] `ostia::Result<T>` exists with `value()`, `error()`, `has_value()` and `operator bool` named as in `std::expected`.
-- [ ] The support-tier table is in `docs/guides/building.md`, and each tier-1 row has a green CI job.
+- [ ] The support-tier table is in `docs/guides/building.md`, and each tier-1 row has a green CI job (the GPU half from a remote run, [ADR-0014](../adr/0014-on-demand-remote-test-runs.md)).
 
 ### 2. Dependencies
 
@@ -290,7 +290,7 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 
 #### 4.2 GPU jobs
 
-> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Automated GPU CI is dropped; GPU testing uses on-demand remote runs designed in RFC-0005. The text below is kept for the record.
+> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Automated GPU CI is dropped; GPU testing uses on-demand remote runs designed in [RFC-0005](https://github.com/OstiaHQ/ostia/pull/21). The rule on ctest labels and skipping GPU tests without a device (below, under "What GPU jobs run") stays in force. The text below is kept for the record.
 
 **Runner.** An ephemeral AWS `g6.xlarge` (one L4, `sm_89`) per job, started by **Cirun**: it is free for public repositories and supports spot instances with fallback to on-demand. GitHub's own GPU runners were rejected: they are T4 (`sm_75`, below the architecture floor), and larger runners are not free for public repositories. RunsOn was rejected because an open-core company needs its commercial licence.
 
@@ -339,7 +339,7 @@ sequenceDiagram
 
 #### 4.3 GPU CI cost (estimates, prices checked 2026-09-25)
 
-> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Runs on the maintainer's clusters are outside the M0 budget; the $200 GPU CI sub-budget moved to the contingency ($500).
+> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** The cost table and the enforcement paragraph are superseded: runs on the maintainer's clusters are outside the M0 budget, and the $200 GPU CI sub-budget moved to the contingency ($500). In the Done-when list below, only the struck items are superseded.
 
 | Item | Price | Planned use | Estimate |
 | --- | --- | --- | --- |
