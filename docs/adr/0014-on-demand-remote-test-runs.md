@@ -8,7 +8,7 @@ created: 2026-09-29
 updated: 2026-09-29
 supersedes: []
 superseded_by: []
-discussion:
+discussion: https://github.com/OstiaHQ/ostia/pull/22
 ---
 
 # ADR-0014: Replace automated GPU CI with on-demand remote test runs
