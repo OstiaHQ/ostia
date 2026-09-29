@@ -8,7 +8,7 @@ created: 2026-09-29
 updated: 2026-09-29
 supersedes: []
 superseded_by: []
-discussion:
+discussion: https://github.com/OstiaHQ/ostia/pull/21
 ---
 
 # RFC-0005: ostia dev CLI and remote runner
