@@ -51,7 +51,7 @@ Spend control therefore has to work through each provider's API.
 
 **Non-goals**
 
-- Everyday GPU CI, which uses Cirun in a separate AWS account (RFC-0001 §4.2).
+- Everyday GPU CI, which uses Cirun in a separate AWS account (RFC-0001 §4.2). *Update: automated GPU CI was dropped by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md); GPU tests run on demand with RFC-0005's remote runner.*
 - Long-lived clusters, and anything Layer 2 will need later (scheduling, membership).
 - Running untrusted code: only maintainers run `rent`, on commits they chose.
 
@@ -162,7 +162,7 @@ Prices were checked on 2026-09-25 (sources below) and are re-quoted live at ever
 
 ### 3. Spend limits
 
-The rented-hardware sub-budget is **$1,000** of the M0 total. RFC-0001 §4.3 holds the GPU CI sub-budget ($200) and the $300 contingency.
+The rented-hardware sub-budget is **$1,000** of the M0 total. RFC-0001 §4.3 holds the GPU CI sub-budget ($200) and the $300 contingency. *Update: [ADR-0014](../adr/0014-on-demand-remote-test-runs.md) moved the $200 to the contingency, which is now $500.*
 
 **Estimated gate spend**
 

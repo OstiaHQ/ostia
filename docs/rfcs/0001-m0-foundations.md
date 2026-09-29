@@ -96,7 +96,7 @@ CMake 4 rejects `cmake_minimum_required` below 3.5 in dependencies. CPM-fetched 
 
 | Tier | Meaning | Platforms | CI job that backs it |
 | --- | --- | --- | --- |
-| 1 | Built and tested on every PR; gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`, `gpu-l4` |
+| 1 | Built and tested on every PR; GPU-tested before merging GPU-affecting PRs ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md)); gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`; GPU: `ostia-dev remote k8s --suite gpu` on an L4 node |
 | 1 | Built and tested on every PR | macOS 15 arm64, host-only (no CUDA) | `macos-arm64-host` |
 | 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 without pixi | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
 | 3 | Best effort | Other Linux distributions; building without pixi elsewhere | none |
@@ -290,6 +290,8 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 
 #### 4.2 GPU jobs
 
+> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Automated GPU CI is dropped; GPU testing uses on-demand remote runs designed in RFC-0005. The text below is kept for the record.
+
 **Runner.** An ephemeral AWS `g6.xlarge` (one L4, `sm_89`) per job, started by **Cirun**: it is free for public repositories and supports spot instances with fallback to on-demand. GitHub's own GPU runners were rejected: they are T4 (`sm_75`, below the architecture floor), and larger runners are not free for public repositories. RunsOn was rejected because an open-core company needs its commercial licence.
 
 **Authorisation.** A pull request's `pull_request` workflow runs the workflow file from the PR's own merge commit, so a fork could edit it to skip any check it contains. GPU jobs therefore run only from workflow files on the default branch:
@@ -337,6 +339,8 @@ sequenceDiagram
 
 #### 4.3 GPU CI cost (estimates, prices checked 2026-09-25)
 
+> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Runs on the maintainer's clusters are outside the M0 budget; the $200 GPU CI sub-budget moved to the contingency ($500).
+
 | Item | Price | Planned use | Estimate |
 | --- | --- | --- | --- |
 | `g6.xlarge`, us-east-1 | $0.63/h spot, $0.81/h on demand | Nightly (~45 min), pushes to `main` (~40 × 15 min/month), labelled PRs (~20 × 15 min/month): about 40 h/month | $25–32 per month |
@@ -349,13 +353,13 @@ The rented-hardware sub-budget ($1,000) and a $300 contingency make up the rest 
 
 - [ ] Every job in §4.1 is green on `main`, and required checks finish within 20 minutes on a typical PR.
 - [ ] The `docs-as-test` job passes and records its duration.
-- [ ] A test fork PR that edits the workflow files and any Cirun file cannot obtain a GPU runner.
-- [ ] A test step in the GPU job confirms that the instance metadata service returns no IAM credentials.
-- [ ] Label-then-push cancels the queued run; a push between approval and checkout is caught by the recheck; re-labelling runs the new SHA only.
-- [ ] Pushes to `main` and nightly runs start GPU jobs without waiting for approval.
-- [ ] The AWS Budgets action is tested in a dry run that confirms Cirun's role loses launch permission.
-- [ ] Nightly `compute-sanitizer` survives a simulated spot interruption through retry.
-- [ ] Multi-process tests pass over UCX TCP loopback on CPU and with 2 processes on one L4.
+- [ ] ~~A test fork PR that edits the workflow files and any Cirun file cannot obtain a GPU runner.~~ Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
+- [ ] ~~A test step in the GPU job confirms that the instance metadata service returns no IAM credentials.~~ Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
+- [ ] ~~Label-then-push cancels the queued run; a push between approval and checkout is caught by the recheck; re-labelling runs the new SHA only.~~ Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
+- [ ] ~~Pushes to `main` and nightly runs start GPU jobs without waiting for approval.~~ Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
+- [ ] ~~The AWS Budgets action is tested in a dry run that confirms Cirun's role loses launch permission.~~ Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
+- [ ] ~~Nightly `compute-sanitizer` survives a simulated spot interruption through retry.~~ Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
+- [ ] Multi-process tests pass over UCX TCP loopback on CPU and with 2 processes on one L4 (the L4 part from a remote run, [ADR-0014](../adr/0014-on-demand-remote-test-runs.md)).
 
 ### 5. Telemetry build levels
 
@@ -483,7 +487,7 @@ The prototype's published figures (public repository `fardatalab/MGI`, formerly 
 **Done when**
 
 - [ ] `compare.py` has tests for each outcome, including the rejection of missing, duplicate and non-finite cases, and for comparing results from different commits on the same compatible box.
-- [ ] An injected 3% slowdown fails the overhead mechanism's self-test, 0% passes, and an A/A run on the L4 runner reports its noise floor.
+- [ ] An injected 3% slowdown fails the overhead mechanism's self-test, 0% passes, and an A/A run on the L4 runner reports its noise floor (on an L4 node with `--suite overhead-aa`, [ADR-0014](../adr/0014-on-demand-remote-test-runs.md)).
 - [ ] Each gate workload in §6.4 exists with its oracle and records transport evidence.
 - [ ] The gate passes on the nvlink-node and rdma-pair setups (RFC-0004), or on pre-declared fallbacks, and the informational `tcp_put` run is recorded.
 - [ ] `docs/guides/benchmarks.md` shows how to run a benchmark and update a baseline.

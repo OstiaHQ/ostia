@@ -88,4 +88,5 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 | [RFC-0004](rfcs/0004-rented-hardware.md) | Rented hardware automation | Accepted | build | 2026-09-25 |
 | [RFC-0005](rfcs/0005-dev-cli-remote-runner.md) | ostia dev CLI and remote runner | Accepted | build, docs | 2026-09-29 |
 | [ADR-0013](adr/0013-code-style.md) | C++ and Python code style | Accepted | build | 2026-09-27 |
+| [ADR-0014](adr/0014-on-demand-remote-test-runs.md) | Replace automated GPU CI with on-demand remote test runs | Draft | build | 2026-09-29 |
 <!-- index:end -->
