@@ -1,0 +1,43 @@
+# Nightly: every CPU configuration at every telemetry level (RFC-0001 §4.1 levels-full).
+name: Nightly
+
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  levels-full:
+    name: levels-full ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64-gcc14, runner: ubuntu-24.04, env: default }
+          - { name: linux-x64-gcc11, runner: ubuntu-24.04, env: gcc11 }
+          - { name: linux-x64-clang, runner: ubuntu-24.04, env: clang }
+          - { name: linux-arm64-clang, runner: ubuntu-24.04-arm, env: clang }
+          - { name: macos-arm64-host, runner: macos-15, env: default }
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          environment: ${{ matrix.env }}
+      - name: pixi run -e ${{ matrix.env }} test-levels
+        run: pixi run -e ${{ matrix.env }} test-levels
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### levels-full ${{ matrix.name }}"
+            echo "Reproduce: \`pixi run -e ${{ matrix.env }} test-levels\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2,7 +2,12 @@
 # fabric fails with "not installed" (RFC-0001 §3.2).
 cmake_policy(VERSION 4.1)
 file(REMOVE_RECURSE "${WORK}")
-set(compilers -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+set(
+  compilers
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DOSTIA_SOURCE_DIR=${SOURCE}
+)
 macro(run)
   execute_process(COMMAND ${ARGN} RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err)
 endmacro()

@@ -27,4 +27,4 @@ def test_py_dev_idempotent(run_py):
     assert "telemetry: up to date" in second.stdout
     assert "fabric: up to date" in second.stdout
     data = _load(run_py)
-    assert len(data["tele"]) == 1 and data["levels"] == [1, 1]
+    assert len(data["tele"]) == 1 and data["levels"][0] == data["levels"][1]

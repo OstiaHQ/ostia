@@ -1,0 +1,3 @@
+# The dynamic symbols libostia-telemetry exports, identical in every telemetry flavour
+# (RFC-0001 §5). RFC-0002 §9's C ABI extends this list with its implementation.
+ostia_telemetry_build_level

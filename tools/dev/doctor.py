@@ -12,6 +12,7 @@ import importlib.metadata
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -161,6 +162,21 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
     return c
 
 
+def _installed_flavour(prefix: Path | None) -> str:
+    """The telemetry level of the stack installed into the environment (RFC-0001 §5)."""
+    if prefix is None:
+        return "not running under pixi"
+    config = prefix / "lib" / "cmake" / "ostia" / "ostiaConfig.cmake"
+    if not config.exists():
+        return "none installed (pixi run py-dev)"
+    text = config.read_text()
+    name = re.search(r'set\(ostia_TELEMETRY "(\w+)"\)', text)
+    level = re.search(r"set\(ostia_TELEMETRY_LEVEL (\d)\)", text)
+    if not name:
+        return "unknown (installed before telemetry levels; pixi run py-dev)"
+    return f"{name.group(1)} ({level.group(1) if level else '?'})"
+
+
 def _direct_url(comp: str) -> str | None:
     try:
         dist = importlib.metadata.distribution(f"ostia-{comp}")
@@ -184,6 +200,7 @@ def main() -> int:
     print(f"pixi_env: {env_name()} ({prefix or 'CONDA_PREFIX not set: not running under pixi'})")
     print(f"cmake: {_version('cmake')}")
     print(f"ninja: {_version('ninja')}")
+    print(f"installed_flavour: {_installed_flavour(prefix)}")
     checks = run_checks(root, prefix)
     return 1 if checks.failed else 0
 

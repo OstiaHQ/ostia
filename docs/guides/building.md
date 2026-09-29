@@ -65,6 +65,23 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 - A `-DCMAKE_CUDA_ARCHITECTURES=...` you pass always wins, and so does `CUDAARCHS` in a plain CMake build. The presets clear `CUDAARCHS`, because conda's `cuda-nvcc` activation exports its own default list; with a preset, pass `-DCMAKE_CUDA_ARCHITECTURES` instead. The configure summary prints the choice and the reason.
 - Architectures outside the list, such as `sm_120`, run through PTX JIT. Set `CUDA_CACHE_PATH` to a persistent directory so the JIT cost is paid once.
 
+## Telemetry levels
+
+The build compiles one of four telemetry levels (RFC-0001 §5). `OSTIA_TELEMETRY` selects it.
+
+| Level | Compiles in |
+| --- | --- |
+| `off` | No telemetry: the instrumentation macros compile to nothing |
+| `metrics` | Counters and histograms (the default for release builds) |
+| `trace` | Plus trace events |
+| `debug` | Plus debug checks (the default for the `dev` preset) |
+
+- Presets `level-off`, `level-metrics`, `level-trace` and `level-debug` build a release at each level. `pixi run test-preset level-off` builds and tests one; `pixi run test-levels` runs all four.
+- The macros (`OSTIA_COUNT`, `OSTIA_TRACE_EVENT`, `OSTIA_DEBUG_CHECK`) type-check their arguments at every level, but evaluate them only at their own. Arguments must not have side effects: `pixi run check-macros` rejects calls, assignments and `++`/`--` in them.
+- A telemetry flavour applies to the whole installed stack. A Python extension that finds a `libostia-telemetry` built at another level raises `ImportError`, naming both levels. `pixi run doctor` shows the installed flavour.
+- To install another level into the environment, run `pixi run python tools/dev/py_dev.py --preset level-off --build-native --force`. `pixi run py-dev` switches back to `dev`.
+- Each component declares its metrics and trace events in `<component>/telemetry.toml` (RFC-0002 §1). The build turns the catalog into storage-free handles.
+
 ## Everyday tasks
 
 | Task | What it does |
@@ -77,7 +94,10 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 | `pixi run py-dev` | Build, install native code into the environment, install the Python editables |
 | `pixi run lint` | Fast checks: clang-format, ruff, gersemi, include layering, CPM pins, docs index |
 | `pixi run fmt` | Apply clang-format, ruff and gersemi |
-| `pixi run check` | Everything CI requires: `lint`, `check-graph` and `test` |
+| `pixi run check` | Everything CI requires: `lint`, `check-graph`, `check-macros` and `test` |
+| `pixi run check-macros` | Telemetry macro arguments must not change state (parses the sources with libclang) |
+| `pixi run test-preset <preset>` | Configure, build and test one preset, e.g. `level-off` |
+| `pixi run test-levels` | Build and test all four telemetry levels |
 | `pixi run check-graph` | Check the resolved link graph against the layering table (reconfigures) |
 | `pixi run tidy` | clang-tidy over the compile database (slow) |
 | `pixi run doctor` | Print the environment and diagnose common problems |

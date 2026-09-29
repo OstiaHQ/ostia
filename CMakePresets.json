@@ -27,7 +27,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "OSTIA_CUDA_ARCH_MODE": "dev",
         "CMAKE_C_FLAGS_DEBUG": "-g -O0",
-        "CMAKE_CXX_FLAGS_DEBUG": "-g -O0"
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O0",
+        "OSTIA_TELEMETRY": "debug"
       }
     },
     {
@@ -36,7 +37,8 @@
       "displayName": "Release (RelWithDebInfo; release CUDA arch list)",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "OSTIA_CUDA_ARCH_MODE": "release"
+        "OSTIA_CUDA_ARCH_MODE": "release",
+        "OSTIA_TELEMETRY": "metrics"
       }
     },
     {
@@ -62,6 +64,38 @@
       "cacheVariables": {
         "OSTIA_SANITIZE": "thread"
       }
+    },
+    {
+      "name": "level-off",
+      "inherits": "release",
+      "displayName": "Release at telemetry level off (RFC-0001 \u00a75)",
+      "cacheVariables": {
+        "OSTIA_TELEMETRY": "off"
+      }
+    },
+    {
+      "name": "level-metrics",
+      "inherits": "release",
+      "displayName": "Release at telemetry level metrics (RFC-0001 \u00a75)",
+      "cacheVariables": {
+        "OSTIA_TELEMETRY": "metrics"
+      }
+    },
+    {
+      "name": "level-trace",
+      "inherits": "release",
+      "displayName": "Release at telemetry level trace (RFC-0001 \u00a75)",
+      "cacheVariables": {
+        "OSTIA_TELEMETRY": "trace"
+      }
+    },
+    {
+      "name": "level-debug",
+      "inherits": "release",
+      "displayName": "Release at telemetry level debug (RFC-0001 \u00a75)",
+      "cacheVariables": {
+        "OSTIA_TELEMETRY": "debug"
+      }
     }
   ],
   "buildPresets": [
@@ -84,6 +118,22 @@
     {
       "name": "tsan",
       "configurePreset": "tsan"
+    },
+    {
+      "name": "level-off",
+      "configurePreset": "level-off"
+    },
+    {
+      "name": "level-metrics",
+      "configurePreset": "level-metrics"
+    },
+    {
+      "name": "level-trace",
+      "configurePreset": "level-trace"
+    },
+    {
+      "name": "level-debug",
+      "configurePreset": "level-debug"
     }
   ],
   "testPresets": [
@@ -130,6 +180,46 @@
     {
       "name": "tsan",
       "configurePreset": "tsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
+    },
+    {
+      "name": "level-off",
+      "configurePreset": "level-off",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
+    },
+    {
+      "name": "level-metrics",
+      "configurePreset": "level-metrics",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
+    },
+    {
+      "name": "level-trace",
+      "configurePreset": "level-trace",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
+    },
+    {
+      "name": "level-debug",
+      "configurePreset": "level-debug",
       "output": {
         "outputOnFailure": true
       },
