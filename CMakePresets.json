@@ -1,6 +1,10 @@
 {
   "version": 6,
-  "cmakeMinimumRequired": { "major": 4, "minor": 1, "patch": 0 },
+  "cmakeMinimumRequired": {
+    "major": 4,
+    "minor": 1,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "base",
@@ -10,6 +14,9 @@
       "cacheVariables": {
         "OSTIA_CUDA_ARCHITECTURES_RELEASE": "80-real;90-real;100",
         "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0"
+      },
+      "environment": {
+        "CUDAARCHS": ""
       }
     },
     {
@@ -35,33 +42,100 @@
     {
       "name": "gpu-ci",
       "inherits": "release",
-      "displayName": "GPU CI (sm_89 only, RFC-0001 §1.1)",
-      "cacheVariables": { "CMAKE_CUDA_ARCHITECTURES": "89" }
+      "displayName": "GPU CI (sm_89 only, RFC-0001 \u00a71.1)",
+      "cacheVariables": {
+        "CMAKE_CUDA_ARCHITECTURES": "89"
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "inherits": "dev",
+      "displayName": "AddressSanitizer + UBSan (Clang, CI)",
+      "cacheVariables": {
+        "OSTIA_SANITIZE": "address,undefined"
+      }
+    },
+    {
+      "name": "tsan",
+      "inherits": "dev",
+      "displayName": "ThreadSanitizer (Clang, CI)",
+      "cacheVariables": {
+        "OSTIA_SANITIZE": "thread"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "dev", "configurePreset": "dev" },
-    { "name": "release", "configurePreset": "release" },
-    { "name": "gpu-ci", "configurePreset": "gpu-ci" }
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "gpu-ci",
+      "configurePreset": "gpu-ci"
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan"
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan"
+    }
   ],
   "testPresets": [
     {
       "name": "dev",
       "configurePreset": "dev",
-      "output": { "outputOnFailure": true },
-      "execution": { "jobs": 0 }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
     },
     {
       "name": "release",
       "configurePreset": "release",
-      "output": { "outputOnFailure": true },
-      "execution": { "jobs": 0 }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
     },
     {
       "name": "gpu-ci",
       "configurePreset": "gpu-ci",
-      "output": { "outputOnFailure": true },
-      "execution": { "jobs": 0 }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      }
     }
   ]
 }

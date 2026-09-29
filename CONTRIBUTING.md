@@ -23,7 +23,7 @@ Ostia is building its M0 foundations. Useful contributions right now are feedbac
 - Keep each pull request to one logical change. Large features land as a series of reviewable pull requests that follow their RFC.
 - Fill in the pull request template, including which RFC the change implements.
 - Add or update tests for behaviour changes, and update the docs in the same pull request.
-- CI must pass. Until the build lands in M0, the docs checks are run by hand: `python3 tools/docs/gen_index.py --check`.
+- CI must pass. Every job runs a pixi task you can run locally, and its summary shows the command that reproduces it; `pixi run check` covers the required subset (RFC-0001 §4.1).
 - A maintainer reviews every pull request. Expect a first response within 5 working days. Address review comments with new commits; the pull request is squash-merged, so the history stays clean.
 
 ## Commit messages

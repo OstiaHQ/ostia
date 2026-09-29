@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Check that every CPMAddPackage pins a tag and a full commit SHA (RFC-0001 §2.4).
 
-The pinned form, which Renovate's regex manager also updates:
+The pinned form, which Renovate's regex manager also updates (ostia_cpm_add is the
+wrapper in cmake/Dependencies.cmake that announces the pin before fetching):
 
-    CPMAddPackage(
+    ostia_cpm_add(
       NAME googletest
       GITHUB_REPOSITORY google/googletest
       VERSION 1.18.0
-      GIT_TAG 063de7e9578f82b369302001269680b4b1553359 # v1.18.0
+      GIT_TAG 063de7e9578f82b369302001269680b4b1553359
     )
 """
 
@@ -25,8 +26,8 @@ from tools.ci._contract import ROOT, violation
 
 SKIP_DIRS = {"build", ".pixi", ".cache", ".git", ".superpowers"}
 SKIP_FILES = {"cmake/CPM.cmake"}
-CALL = re.compile(r"\bCPMAddPackage\s*\(")
-GIT_TAG = re.compile(r"^\s*GIT_TAG\s+(\S+)(?:\s*#\s*(\S+))?", re.MULTILINE)
+CALL = re.compile(r"\b(?:CPMAddPackage|ostia_cpm_add)\s*\(")
+GIT_TAG = re.compile(r"^\s*GIT_TAG\s+(\S+)(?:[ \t]*#[ \t]*(\S+))?", re.MULTILINE)
 VERSION = re.compile(r"^\s*VERSION\s+(\S+)", re.MULTILINE)
 NAME = re.compile(r"^\s*NAME\s+(\S+)", re.MULTILINE)
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -70,12 +71,10 @@ def _reason(body: str) -> str | None:
     sha, comment = tag.groups()
     if not SHA.match(sha):
         return f"GIT_TAG {sha} is not a full 40-character commit SHA"
-    if not comment:
-        return "GIT_TAG has no '# <tag>' comment naming the release"
     version = VERSION.search(body)
     if not version:
-        return "no VERSION"
-    if comment.lstrip("v") != version.group(1).lstrip("v"):
+        return "no VERSION naming the release tag"
+    if comment and comment.lstrip("v") != version.group(1).lstrip("v"):
         return f"VERSION {version.group(1)} does not match the tag comment {comment}"
     return None
 
@@ -90,6 +89,8 @@ def scan(root: Path) -> list[Unpinned]:
             if "#" in text[line_start : m.start()]:
                 continue  # a call in a comment
             body = _body(text, m.end() - 1)
+            if body.strip() == "${ARGN}":
+                continue  # the wrapper forwarding its arguments
             reason = _reason(body)
             if reason:
                 name = NAME.search(body)
@@ -114,8 +115,8 @@ def main(argv: list[str] | None = None) -> int:
             violation(
                 f"{u.path}:{u.line} CPMAddPackage(NAME {u.name}) is not pinned",
                 [u.reason],
-                "every CPMAddPackage pins VERSION, a full GIT_TAG commit SHA "
-                "and a '# <tag>' comment",
+                "every CPMAddPackage pins VERSION (the release tag) "
+                "and GIT_TAG (its full commit SHA)",
                 "resolve the SHA with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` "
                 "and write the pinned form shown in tools/ci/check_cpm_pins.py",
                 "RFC-0001 §2.4",

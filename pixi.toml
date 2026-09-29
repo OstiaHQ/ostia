@@ -48,7 +48,40 @@ libcxx = ">=19"
 [feature.host-toolchain.target.osx-arm64.activation.env]
 MACOSX_DEPLOYMENT_TARGET = "14.0"
 
-# CUDA 12.8 with GCC 11: the floor (RFC-0001 §1.1, §1.2).
+# Linux-only environments for CI's compiler matrix (RFC-0001 §4.1). Host-only.
+[feature.linux]
+platforms = ["linux-64", "linux-aarch64"]
+[feature.linux.activation.env]
+OSTIA_ENABLE_CUDA = "OFF"
+
+[feature.gcc11.target.linux-64.dependencies]
+gxx_linux-64 = "11.*"
+[feature.gcc11.target.linux-aarch64.dependencies]
+gxx_linux-aarch64 = "11.*"
+
+[feature.gcc14.target.linux-64.dependencies]
+gxx_linux-64 = "14.*"
+[feature.gcc14.target.linux-aarch64.dependencies]
+gxx_linux-aarch64 = "14.*"
+
+# Only for the out-of-range host-compiler configure test (RFC-0001 §1 Done when).
+[feature.gcc15.target.linux-64.dependencies]
+gxx_linux-64 = "15.*"
+[feature.gcc15.target.linux-aarch64.dependencies]
+gxx_linux-aarch64 = "15.*"
+
+[feature.clang.target.linux-64.dependencies]
+clangxx_linux-64 = "19.*"
+[feature.clang.target.linux-aarch64.dependencies]
+clangxx_linux-aarch64 = "19.*"
+
+# UCX over TCP for the CPU multi-process harness (RFC-0001 §4.1 multiprocess-tcp).
+[feature.ucx-cpu.dependencies]
+ucx = "*"
+rdma-core = "*"
+
+# CUDA 12.8 (the floor) and 13.4 (CI's 13.x), RFC-0001 §1.1-§1.2. The compiler comes from
+# the environment: GCC 11 with 12.8, GCC 14 with 13.4.
 [feature.cuda-12]
 platforms = ["linux-64-cuda-12", "linux-aarch64-cuda-12"]
 [feature.cuda-12.activation.env]
@@ -59,12 +92,7 @@ cuda-nvcc = "12.8.*"
 cuda-cudart-dev = "12.8.*"
 ucx = "*"
 rdma-core = "*"
-[feature.cuda-12.target.linux-64.dependencies]
-gxx_linux-64 = "11.*"
-[feature.cuda-12.target.linux-aarch64.dependencies]
-gxx_linux-aarch64 = "11.*"
 
-# CUDA 13.4 with GCC 14: the latest 13.x that CI pins (RFC-0001 §1.1, §1.2).
 [feature.cuda-13]
 platforms = ["linux-64-cuda-13", "linux-aarch64-cuda-13"]
 [feature.cuda-13.activation.env]
@@ -75,15 +103,15 @@ cuda-nvcc = "13.4.*"
 cuda-cudart-dev = "13.4.*"
 ucx = "*"
 rdma-core = "*"
-[feature.cuda-13.target.linux-64.dependencies]
-gxx_linux-64 = "14.*"
-[feature.cuda-13.target.linux-aarch64.dependencies]
-gxx_linux-aarch64 = "14.*"
 
 [environments]
 default = { features = ["host-toolchain"] }
-cuda-12 = { features = ["cuda-12"] }
-cuda-13 = { features = ["cuda-13"] }
+cuda-12 = { features = ["cuda-12", "gcc11"] }
+cuda-13 = { features = ["cuda-13", "gcc14"] }
+gcc11 = { features = ["linux", "gcc11"] }
+clang = { features = ["linux", "clang"] }
+ucx = { features = ["linux", "gcc14", "ucx-cpu"] }
+gcc15 = { features = ["linux", "gcc15"] }
 
 [tasks]
 _configure = { cmd = "cmake --preset dev", inputs = [
@@ -128,3 +156,10 @@ doctor = { cmd = "python tools/dev/doctor.py", description = "Print the environm
 clean = { cmd = "python tools/dev/clean.py", description = "Remove build output and everything py-dev installed into the environment" }
 hooks = { cmd = "pre-commit install", description = "Install the git pre-commit hook (runs pixi run lint)" }
 docs-index = { cmd = "python tools/docs/gen_index.py", description = "Regenerate the RFC/ADR index in docs/README.md" }
+check-cuda = { cmd = "python tools/dev/check_cuda.py", description = "Compile the CUDA code with nvcc in a linux/arm64 container (no GPU needed)" }
+sanitize-asan = { cmd = "cmake --preset asan-ubsan && cmake --build --preset asan-ubsan && ctest --preset asan-ubsan", description = "Build and test with AddressSanitizer + UBSan (CI: pixi run -e clang sanitize-asan)" }
+sanitize-tsan = { cmd = "cmake --preset tsan && cmake --build --preset tsan && ctest --preset tsan", description = "Build and test with ThreadSanitizer (CI: pixi run -e clang sanitize-tsan)" }
+test-multiprocess = { cmd = "ctest --preset dev -L multiprocess", depends-on = [
+  "build",
+], description = "Multi-process tests over UCX TCP loopback (Linux: pixi run -e ucx test-multiprocess)" }
+docs-as-test = { cmd = "python tools/ci/docs_as_test.py", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }

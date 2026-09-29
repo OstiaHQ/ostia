@@ -21,7 +21,7 @@ You don't need a GPU or a cloud account for anything on this page.
 | 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 without pixi | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
 | 3 | Best effort | Other Linux distributions; building without pixi elsewhere | none |
 
-The CI jobs arrive with RFC-0001 Rollout PR 2 (CPU) and PR 4 (GPU).
+CPU jobs are in `.github/workflows/ci.yml`; GPU jobs arrive with RFC-0001 Rollout PR 4.
 
 ## Quick start
 
@@ -51,7 +51,8 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 - Run a task in another environment with `-e`, for example `pixi run -e cuda-12 build`.
 - `OSTIA_ENABLE_CUDA` is set per environment: `OFF` in `default`, `ON` in the CUDA environments. A plain CMake build outside pixi defaults to `AUTO`.
 - Each environment builds into its own directory, `build/<env>/<preset>`, so switching environments never reuses a cache made with another compiler.
-- Download sizes of the CUDA environments are recorded by CI (Rollout PR 2).
+- CI also uses Linux-only environments `gcc11`, `clang`, `ucx` (UCX over TCP for the multi-process tests) and `gcc15` (only for a configure test).
+- On linux/arm64 the environments take about 1.9 GB (`default`), 2.1 GB (`cuda-12`) and 2.3 GB (`cuda-13`) on disk; on macOS `default` is about 1.0 GB.
 
 ## Presets and CUDA architectures
 
@@ -61,7 +62,7 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 | `release` | RelWithDebInfo | The release list: SASS for `sm_80`, `sm_90`, `sm_100`, and PTX for `sm_100` |
 | `gpu-ci` | RelWithDebInfo | `sm_89` only (the L4 CI runner) |
 
-- A `CMAKE_CUDA_ARCHITECTURES` or `CUDAARCHS` you set yourself always wins. The configure summary prints the choice and the reason.
+- A `-DCMAKE_CUDA_ARCHITECTURES=...` you pass always wins, and so does `CUDAARCHS` in a plain CMake build. The presets clear `CUDAARCHS`, because conda's `cuda-nvcc` activation exports its own default list; with a preset, pass `-DCMAKE_CUDA_ARCHITECTURES` instead. The configure summary prints the choice and the reason.
 - Architectures outside the list, such as `sm_120`, run through PTX JIT. Set `CUDA_CACHE_PATH` to a persistent directory so the JIT cost is paid once.
 
 ## Everyday tasks
@@ -82,6 +83,10 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 | `pixi run doctor` | Print the environment and diagnose common problems |
 | `pixi run clean` | Remove build output and everything `py-dev` installed |
 | `pixi run hooks` | Install the git pre-commit hook, which runs `pixi run lint` |
+| `pixi run check-cuda` | Compile the CUDA code with nvcc in a `linux/arm64` container (needs podman or docker) |
+| `pixi run -e clang sanitize-asan` | Build and test with AddressSanitizer and UBSan (Linux); `sanitize-tsan` for ThreadSanitizer |
+| `pixi run -e ucx test-multiprocess` | Multi-process tests over UCX TCP loopback (Linux) |
+| `pixi run docs-as-test` | Run this guide's quick start verbatim, as CI does on a fresh runner |
 | `pixi run docs-index` | Regenerate the RFC/ADR index in `docs/README.md` |
 
 `pixi task list` shows the same list.
@@ -130,7 +135,7 @@ pixi shell                                                    # a shell with the
 
 ## Checking CUDA code on a Mac
 
-The Mac has no CUDA toolkit. RFC-0001 Rollout PR 2 adds `pixi run check-cuda`, which compiles the CUDA code with nvcc in a `linux/arm64` container. The container runs natively on Apple silicon, and nvcc needs no GPU.
+The Mac has no CUDA toolkit. `pixi run check-cuda` compiles the CUDA code with nvcc in a `linux/arm64` container, for both `cuda-12` and `cuda-13` (`pixi run check-cuda cuda-13` for one). The container runs natively on Apple silicon, and nvcc needs no GPU. It needs [podman](https://podman.io) (`brew install podman && podman machine init && podman machine start`) or Docker. Run it before asking for the `ci:gpu` label.
 
 ## Building without pixi
 

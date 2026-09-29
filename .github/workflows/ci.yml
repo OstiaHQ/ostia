@@ -1,0 +1,205 @@
+# CPU CI (RFC-0001 §4.1). Every job runs the same pixi tasks a contributor runs, and its
+# summary prints the environment (`pixi run doctor`) and the command that reproduces it.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+jobs:
+  host:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64-gcc14, runner: ubuntu-24.04, env: default, task: test }
+          - { name: linux-x64-gcc11, runner: ubuntu-24.04, env: gcc11, task: test }
+          - { name: linux-x64-clang, runner: ubuntu-24.04, env: clang, task: test }
+          - { name: linux-arm64-clang, runner: ubuntu-24.04-arm, env: clang, task: test }
+          - { name: linux-arm64-gcc14, runner: ubuntu-24.04-arm, env: default, task: test }
+          - { name: macos-arm64-host, runner: macos-15, env: default, task: test }
+          - { name: sanitize-asan-ubsan, runner: ubuntu-24.04, env: clang, task: sanitize-asan }
+          - { name: sanitize-tsan, runner: ubuntu-24.04, env: clang, task: sanitize-tsan }
+          - { name: multiprocess-tcp, runner: ubuntu-24.04, env: ucx, task: test-multiprocess }
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          environment: ${{ matrix.env }}
+          ccache-key: ${{ matrix.name }}
+      - name: pixi run -e ${{ matrix.env }} ${{ matrix.task }}
+        run: pixi run -e ${{ matrix.env }} ${{ matrix.task }}
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.name }}"
+            echo "Reproduce: \`pixi run -e ${{ matrix.env }} ${{ matrix.task }}\`"
+            echo '```'
+            pixi run -e ${{ matrix.env }} doctor || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  nvcc:
+    name: nvcc-${{ matrix.cuda }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { cuda: "12.8", env: cuda-12, override: "12.8" }
+          - { cuda: "13", env: cuda-13, override: "13.4" }
+    env:
+      # No GPU on this runner: let pixi select the CUDA platform for compile-only builds.
+      CONDA_OVERRIDE_CUDA: ${{ matrix.override }}
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          environment: ${{ matrix.env }}
+          ccache-key: nvcc-${{ matrix.cuda }}
+      - name: Compile-only build (no GPU on this runner)
+        run: pixi run -e ${{ matrix.env }} build
+      - name: Without a GPU, the dev preset uses the release architecture list
+        run: |
+          grep -F 'architectures: 80-real;90-real;100 (dev preset, no GPU detected: release list)' \
+            build/${{ matrix.env }}/dev/ostia-summary.txt
+      - name: CPU tests of the CUDA build
+        run: pixi run -e ${{ matrix.env }} ctest --preset dev -L cpu
+      - name: A host compiler outside CUDA 12.8's range fails configure
+        if: matrix.cuda == '12.8'
+        run: pixi run -e gcc15 test-cpp -R configure.cuda_host_compiler_out_of_range
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### nvcc-${{ matrix.cuda }}"
+            echo "Reproduce: \`pixi run -e ${{ matrix.env }} build\` (on a Mac: \`pixi run check-cuda ${{ matrix.env }}\`)"
+            echo '```'
+            cat build/${{ matrix.env }}/dev/ostia-summary.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  container:
+    name: container-${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu2204
+            image: ubuntu:22.04
+            deps: apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential git curl python3 >/dev/null
+            python: /usr/bin/python3
+          - name: rocky9
+            image: rockylinux/rockylinux:9
+            deps: dnf install -y -q gcc-c++ git python3.11 tar gzip
+            python: /usr/bin/python3.11
+    steps:
+      - name: Install distro packages
+        run: ${{ matrix.deps }}
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install the pinned CMake 4.1 and Ninja
+        # Some images (Rocky) define no PATH, so extend the effective one explicitly.
+        run: |
+          tools/ci/install_cmake.sh /opt/ostia-tools
+          echo "PATH=/opt/ostia-tools/bin:$PATH" >> "$GITHUB_ENV"
+      - name: Build and test without pixi (host-only)
+        run: |
+          cmake --preset release -DOSTIA_ENABLE_CUDA=OFF -DPython3_EXECUTABLE=${{ matrix.python }}
+          cmake --build --preset release
+          ctest --preset release
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### container-${{ matrix.name }}"
+            echo "Reproduce: see docs/guides/building.md#building-without-pixi"
+            echo '```'
+            cat build/release/ostia-summary.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: pixi run lint
+        run: pixi run lint
+      - name: pixi run check-graph
+        run: pixi run check-graph
+      - name: clang-tidy on changed files
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          files=$(git diff --name-only --diff-filter=AM "$BASE"...HEAD -- '*.cpp' '*.c' | grep -v '^tests/' || true)
+          if [ -z "$files" ]; then echo "no changed C/C++ sources"; exit 0; fi
+          # The clang environment's compile database uses Clang, which clang-tidy understands.
+          pixi run -e clang _configure
+          # shellcheck disable=SC2086 # one argument per file
+          pixi run -e clang run-clang-tidy -quiet -p build/clang/dev $files
+
+  docs-as-test:
+    name: docs-as-test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install pixi only (the guide's commands install the environment)
+        # prefix-dev/setup-pixi v0.10.2
+        uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e
+        with:
+          pixi-version: v0.81.0
+          run-install: false
+      - name: Run building.md's quick start verbatim
+        run: python3 tools/ci/docs_as_test.py
+      - name: A fresh clone can run test-py first
+        run: |
+          git clone -q "$GITHUB_WORKSPACE" "$RUNNER_TEMP/fresh"
+          cd "$RUNNER_TEMP/fresh" && pixi run test-py

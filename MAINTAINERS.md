@@ -45,5 +45,6 @@ These settings back the contribution process. They live in GitHub, not in files,
 
 **With M0** (once there is code and CI):
 
-- [ ] Add build dependencies to Dependabot and required CI checks to the `main` ruleset
+- [ ] Add the required CI checks to the `main` ruleset after their first green run on `main` (RFC-0001 §4.1): `linux-x64-gcc14`, `linux-x64-gcc11`, `linux-x64-clang`, `linux-arm64-clang`, `linux-arm64-gcc14`, `macos-arm64-host`, `nvcc-12.8`, `nvcc-13`, `container-ubuntu2204`, `container-rocky9`, `sanitize-asan-ubsan`, `sanitize-tsan`, `multiprocess-tcp`, `lint`, `docs-as-test (ubuntu-24.04)`, `docs-as-test (macos-15)`
+- [ ] Renovate: create the `RENOVATE_TOKEN` secret (a GitHub App or fine-grained token with contents, pull requests and workflows write access), then run the Renovate workflow once by hand; Dependabot stays for GitHub Actions only
 - [ ] Organization setting: require two-factor authentication for members (Organization settings → Authentication security; not available through the API)
