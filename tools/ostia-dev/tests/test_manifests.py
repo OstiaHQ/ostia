@@ -253,11 +253,9 @@ def test_role_rules_match_rfc_4_3_plus_secrets():
     assert rules[("", "pods")] == {"get", "list", "watch", "delete"}
     assert rules[("", "pods/exec")] == {"create"}
     assert rules[("", "pods/log")] == {"get"}
-    assert (
-        rules[("", "services")]
-        == rules[("networking.k8s.io", "networkpolicies")]
-        == {"create", "get", "delete"}
-    )
+    assert rules[("", "services")] == {"create", "get", "delete"}
+    # preflight lists the policies to find one selecting the run's pods (RFC §4.3 update note)
+    assert rules[("networking.k8s.io", "networkpolicies")] == {"create", "get", "list", "delete"}
     assert (
         rules[("", "events")]
         == rules[("", "resourcequotas")]

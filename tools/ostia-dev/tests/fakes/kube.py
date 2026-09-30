@@ -291,7 +291,9 @@ class FakeKube:
     def create(self, obj: dict) -> dict:
         if self._key(obj["kind"], obj["metadata"]["name"]) in self.store:
             raise FileExistsError(obj["metadata"]["name"])
-        return self.apply(obj)
+        self._record("create", obj.get("kind"), obj["metadata"]["name"])
+        self._check("create", obj["kind"].lower() + "s")
+        return self.apply(obj, record=False)
 
     def _job_pods(self, job: dict) -> list[dict]:
         name = job["metadata"]["name"]
@@ -360,6 +362,9 @@ class FakeKube:
                 if self.drops and self.drops[0] <= i:
                     self.drops.pop(0)
                     return
+            if self.drops and self.drops[0] <= i:
+                self.drops.pop(0)
+                return
             phase = next(
                 (p["status"]["phase"] for p in self._objs("pod") if p["metadata"]["name"] == pod),
                 "Gone",
@@ -377,6 +382,8 @@ class FakeKube:
     def exec_in(self, pod: str, argv: list[str], stdin, *, check: bool = True):
         data = stdin.read() if stdin is not None else b""
         self._record("exec_in", pod, tuple(argv), stdin_size=len(data))
+        if not check and ("create", "pods/exec") in self.forbidden:
+            return subprocess.CompletedProcess(argv, 1, b"", b"Error from server (Forbidden)")
         self._check("create", "pods/exec")
         if (hit := self._scripted(argv)) is not None:
             return subprocess.CompletedProcess(argv, hit[0], b"", b"")

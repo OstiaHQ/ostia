@@ -160,6 +160,7 @@ rules:
   verbs:
   - create
   - get
+  - list
   - delete
 - apiGroups:
   - ''

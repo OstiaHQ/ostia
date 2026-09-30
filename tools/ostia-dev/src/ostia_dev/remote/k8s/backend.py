@@ -15,6 +15,7 @@ import datetime
 import fnmatch
 import io
 import json
+import signal
 import sys
 import tarfile
 from pathlib import Path
@@ -87,7 +88,9 @@ class K8sBackend:
         )
 
     def prepare(self, run: Run) -> None:
-        self.notes = preflight.check(self.target, self.kube, run.profile, yes=run.spec.yes)
+        self.notes = preflight.check(
+            self.target, self.kube, run.profile, yes=run.spec.yes, cfg=self.cfg
+        )
         run.state.update(
             job=manifests.job_name(run.run_id),
             keep=run.windows.get("keep", 0),
@@ -126,13 +129,14 @@ class K8sBackend:
             secret=secret,
             secret_keys=state["secret_keys"],
         )
+        state["created"] = True  # before the call: the server may create it and the reply be lost
         created = self.kube.apply(job)
         state["job_uid"] = created["metadata"]["uid"]
-        state["created"] = True
         if secret:
             values = {k: run.env_vars[k] for k in state["secret_keys"]}
             ref = manifests.owner_reference(created)
-            self.kube.apply(manifests.secret(run.run_id, values, ref, owner_id()))
+            # create, not apply: apply copies stringData into last-applied-configuration
+            self.kube.create(manifests.secret(run.run_id, values, ref, owner_id()))
         self.kube.patch("job", state["job"], {"spec": {"suspend": False}})
         self._wait_running(run)
 
@@ -149,40 +153,39 @@ class K8sBackend:
             uids = {run.state["job_uid"], *(i["metadata"]["uid"] for i in items)}
             events = [e for e in self.kube.events() if e["involvedObject"].get("uid") in uids]
             for e in events:
-                key = (e["reason"], e["message"])
-                if key not in shown:
-                    shown.add(key)
-                    self._say(
-                        f"{round(self.clock.monotonic() - t0)}s {e['reason']}: {e['message']}"
-                    )
-                if e["reason"] == "FailedCreate":
+                reason, message = e.get("reason", ""), e.get("message", "")
+                if (reason, message) not in shown:
+                    shown.add((reason, message))
+                    self._say(f"{round(self.clock.monotonic() - t0)}s {reason}: {message}")
+                if reason == "FailedCreate":
                     raise UsageError(
                         violation(
                             "the cluster refused to create the run's pod",
-                            [e["message"]],
+                            [message],
                             "admission (quota, Pod Security, webhooks) runs before a pod exists",
                             "fix what the message names, or raise the namespace's quota with init",
                             "RFC-0005 §4.2",
                         ),
                         step="start",
                     )
-                if e["reason"] == "FailedScheduling":
-                    last_scheduling = e["message"]
-                    if run.state["cache"] and any(c in e["message"] for c in CACHE_ERRORS):
-                        raise self._infra(
-                            run,
-                            "the --cache volume can't be used on this node",
-                            [e["message"], f"volume: {manifests.CACHE_PVC}"],
-                            "rerun without --cache, or remove the volume with "
-                            "ostia-dev remote k8s cleanup --cache",
-                            step="start",
-                            see="RFC-0005 §4.7",
-                        )
-                if any(p in e["message"] for p in PULL_ERRORS):
+                if reason == "FailedScheduling":
+                    last_scheduling = message
+                # A zone conflict shows as FailedScheduling, a volume in use as FailedAttachVolume
+                if run.state["cache"] and any(c in message for c in CACHE_ERRORS):
+                    raise self._infra(
+                        run,
+                        "the --cache volume can't be used on this node",
+                        [message, f"volume: {manifests.CACHE_PVC}"],
+                        "rerun without --cache, or remove the volume with "
+                        "ostia-dev remote k8s cleanup --cache",
+                        step="start",
+                        see="RFC-0005 §4.7",
+                    )
+                if any(p in message for p in PULL_ERRORS):
                     raise self._infra(
                         run,
                         f"the image could not be pulled: {run.image}",
-                        [e["message"]],
+                        [message],
                         "check the image and the node's egress",
                         step="start",
                     )
@@ -221,7 +224,7 @@ class K8sBackend:
         t0 = self.clock.monotonic()
         pod = run.state["pod"]
         with run.tarball.path.open("rb") as f:
-            r = self.kube.exec_in(pod, ["tar", "-x", "-C", suites.WORK], f, check=False)
+            r = self.kube.exec_in(pod, ["tar", "-x", "-C", suites.WORK], f)
         if r.returncode != 0:
             raise self._upload_failed(run, f"tar -x exited {r.returncode}")
         count = self.kube.exec_out(
@@ -274,6 +277,8 @@ class K8sBackend:
                         run.state["last_step"] = line.split()[2]
                     if line.startswith(FINISHED):
                         return
+                lost_since = None
+                items = self.kube.run_status(run.run_id).get("items", [])
             except LostConnection:
                 lost_since = lost_since if lost_since is not None else self.clock.monotonic()
                 if self.clock.monotonic() - lost_since >= LOST_FOR_GOOD:
@@ -287,7 +292,6 @@ class K8sBackend:
                     ) from None
                 self.clock.sleep(POLL)
                 continue
-            items = self.kube.run_status(run.run_id).get("items", [])
             pod = self._pod(items)
             if pod is None or pod["status"].get("phase") not in ("Running", "Pending"):
                 self._terminal(run, pod, items, step=run.state["last_step"])
@@ -390,20 +394,32 @@ class K8sBackend:
         end = self.clock.monotonic() + run.state["keep"]
         try:
             while self.clock.monotonic() < end:
-                pod = self._pod(self.kube.run_status(run.run_id).get("items", []))
+                try:
+                    pod = self._pod(self.kube.run_status(run.run_id).get("items", []))
+                except LostConnection:
+                    self.clock.sleep(POLL)
+                    continue
                 if not pod or pod["status"].get("phase") not in ("Running", "Pending"):
                     return
                 self.clock.sleep(POLL)
         except KeyboardInterrupt:
             run.state["interrupted"] = True
 
+    def _delete(self, run: Run) -> None:
+        """RFC §4.8: a second Ctrl-C skips the wait, not the delete; kubectl inherits SIG_IGN."""
+        previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        try:
+            self.kube.delete("job", run.state["job"])
+        finally:
+            signal.signal(signal.SIGINT, previous)
+
     def teardown(self, run: Run) -> bool:
         if not run.state.get("created"):
             return True
-        if run.state.get("kept"):
-            self._wait_kept(run)
         try:
-            self.kube.delete("job", run.state["job"])
+            if run.state.get("kept"):
+                self._wait_kept(run)
+            self._delete(run)
             deadline = self.clock.monotonic() + TEARDOWN_WAIT
             while True:
                 if not self.kube.run_status(run.run_id).get("items"):

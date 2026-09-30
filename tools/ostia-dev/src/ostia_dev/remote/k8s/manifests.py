@@ -290,7 +290,9 @@ def guardrails(
                 _rule([""], ["pods/exec"], ["create"]),
                 _rule([""], ["pods/log"], ["get"]),
                 _rule([""], ["services"], ["create", "get", "delete"]),
-                _rule(["networking.k8s.io"], ["networkpolicies"], ["create", "get", "delete"]),
+                _rule(
+                    ["networking.k8s.io"], ["networkpolicies"], ["create", "get", "list", "delete"]
+                ),
                 _rule([""], ["events", "resourcequotas", "limitranges"], ["get", "list"]),
                 _rule([""], ["persistentvolumeclaims"], ["create", "get", "delete"]),
                 _rule([""], ["secrets"], ["create", "get", "delete"]),

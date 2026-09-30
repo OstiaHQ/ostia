@@ -278,3 +278,33 @@ def test_usage_totals_node_hours_and_cost(tmp_path, capsys):
     assert "c1  l4  2 runs  0.75 node-hours  $0.64" in text
     assert "c1  cpu  1 runs  1.00 node-hours  (no price)" in text
     assert "broken" in capsys.readouterr().err
+
+
+def test_verify_fails_on_a_truncated_probe_log(fake, clock, target, cfg, capsys):
+    fake.script([(3, pod_phase("Running")), (6, log(PROBE_OK[:2])), (7, pod_phase("Failed"))])
+    assert admin.verify(target, fake, cfg=cfg, profile="cpu", clock=clock) == 1
+    assert "incomplete" in capsys.readouterr().out
+
+
+def test_init_on_an_existing_namespace_does_not_mark_it_managed(fake, target, cfg):
+    fake.load(FIXTURES / "namespace-no-quota.json")
+    admin.init(target, fake, cfg=cfg)
+    labels = fake.get("namespace", "ostia-test", namespaced=False)["metadata"]["labels"]
+    assert "ostia.dev/managed" not in labels  # cleanup --delete-namespace must not delete it
+    assert labels["pod-security.kubernetes.io/enforce"] == "restricted"
+
+
+def test_init_keeps_ipv4_cidrs_only(fake, target, cfg):
+    fake.apply(
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "ServiceCIDR",
+            "metadata": {"name": "kubernetes"},
+            "spec": {"cidrs": ["34.118.224.0/20", "fd00:10:96::/112"]},
+        },
+        record=False,
+    )
+    admin.init(target, fake, cfg=cfg)
+    (egress,) = [p for p in fake.list("networkpolicy") if p["metadata"]["name"] == "ostia-egress"]
+    blocked = egress["spec"]["egress"][1]["to"][0]["ipBlock"]["except"]
+    assert "34.118.224.0/20" in blocked and not [c for c in blocked if ":" in c]

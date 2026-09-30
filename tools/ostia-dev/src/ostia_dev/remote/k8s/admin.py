@@ -12,7 +12,7 @@ from ostia_dev.contract import violation
 from ostia_dev.errors import OstiaError, UsageError
 from ostia_dev.remote import core, suites
 from ostia_dev.remote.k8s import manifests
-from ostia_dev.remote.k8s.preflight import Target, fit_check
+from ostia_dev.remote.k8s.preflight import Target, apply_guardrails, fit_check
 from ostia_dev.remote.profiles import parse_duration, resolve
 from ostia_dev.remote.tarball import Tarball
 
@@ -50,46 +50,8 @@ echo "[ostia] probe done"
 """
 
 
-def _detect_cidrs(kube, lines: list[str]) -> list[str]:
-    cidrs = []
-    try:
-        for sc in kube.list("servicecidr", namespaced=False):
-            cidrs += sc.get("spec", {}).get("cidrs", [])
-    except OstiaError:
-        pass
-    if not cidrs:
-        lines.append(
-            "note: Service CIDR not detected (no ServiceCIDR API); add it to "
-            "blocked_cidrs for the context if it is outside the private ranges"
-        )
-    try:
-        for node in kube.list("node", namespaced=False):
-            cidrs += node.get("spec", {}).get("podCIDRs", [])
-    except OstiaError:
-        lines.append("note: pod CIDRs not detected (no access to nodes)")
-    return list(dict.fromkeys(cidrs))
-
-
 def init(target: Target, kube, *, cfg: Config, privileged: bool = False) -> list[str]:
-    ctx = cfg.context(target.context)
-    lines: list[str] = []
-    cidrs = _detect_cidrs(kube, lines) + list(ctx.get("blocked_cidrs", []))
-    try:
-        nodelocal = bool(
-            kube.list("daemonset", selector="k8s-app=node-local-dns", all_namespaces=True)
-        )
-    except OstiaError:
-        nodelocal = False
-    objs = manifests.guardrails(
-        target.namespace,
-        privileged=privileged,
-        blocked_cidrs=cidrs,
-        nodelocal_dns=nodelocal,
-        quota=ctx.get("quota"),
-    )
-    for obj in objs:
-        kube.apply(obj)
-        lines.append(f"applied {obj['kind']}/{obj['metadata']['name']}")
+    lines = apply_guardrails(target, kube, cfg=cfg, privileged=privileged)
     ns, role = target.namespace, manifests.ROLE
     lines += [
         "",
@@ -102,6 +64,9 @@ def init(target: Target, kube, *, cfg: Config, privileged: bool = False) -> list
         f"--namespace {ns}",
     ]
     return lines
+
+
+CHECKS = ("curl", "metadata", "token", "apiserver", "node", "dns", "https")
 
 
 def _probe_run(cfg: Config, profile: str, provider: str) -> core.Run:
@@ -153,6 +118,7 @@ def verify(
     name = job["metadata"]["name"]
     kube.apply(job)
     results: list[tuple[str, str, str]] = []
+    done = False
     try:
         t0 = clock.monotonic()
         pod = None
@@ -173,10 +139,19 @@ def verify(
                 results.append((word, check, detail))
                 print(f"{word} {check}: {detail}", flush=True)
             if line.startswith("[ostia] probe done"):
+                done = True
                 break
     finally:
         kube.delete("job", name)
+    expected = set(CHECKS) | ({"memlock"} if run.profile.kind == "rdma" else set())
+    missing = sorted(expected - {r[1] for r in results})
     failed = [r for r in results if r[0] == "FAIL"]
+    if failed and failed[0][1] == "curl":
+        missing = []  # the probe stops by design when it has no curl
+    if not done or missing:
+        # a cut-off log must never read as a pass (the checks that didn't run proved nothing)
+        print(f"FAIL probe: incomplete; no result for {', '.join(missing) or 'the end marker'}")
+        failed.append(("FAIL", "probe", "incomplete"))
     passed = len(results) - len(failed)
     print(
         f"verify: {passed} checks passed, {len(failed)} failed (context {target.context}, "

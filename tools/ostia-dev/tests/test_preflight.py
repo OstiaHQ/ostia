@@ -251,3 +251,30 @@ def test_failure_kubectl_skew(fake, cfg_path, capsys, fixture, warns):
     assert warned is warns
     if warns:
         assert "--kubectl" in capsys.readouterr().err
+
+
+def test_yes_creates_a_namespace_with_the_detected_guardrails(fake, cfg_path):
+    fake.apply(
+        {
+            "apiVersion": "apps/v1",
+            "kind": "DaemonSet",
+            "metadata": {"name": "node-local-dns", "labels": {"k8s-app": "node-local-dns"}},
+        },
+        record=False,
+    )
+    fake.apply(
+        {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "ServiceCIDR",
+            "metadata": {"name": "kubernetes"},
+            "spec": {"cidrs": ["34.118.224.0/20"]},
+        },
+        record=False,
+    )
+    cfg = _cfg(cfg_path, GKE + '[remote.k8s.contexts.gke_p_z_c.quota]\n"pods" = "3"\n')
+    target, kube = _resolve(fake, cfg)
+    preflight.check(target, kube, profiles.resolve("l4", "gke", cfg), yes=True, cfg=cfg)
+    (egress,) = [p for p in fake.list("networkpolicy") if p["metadata"]["name"] == "ostia-egress"]
+    assert {"ipBlock": {"cidr": "169.254.20.10/32"}} in egress["spec"]["egress"][0]["to"]
+    assert "34.118.224.0/20" in egress["spec"]["egress"][1]["to"][0]["ipBlock"]["except"]
+    assert fake.get("resourcequota", "ostia-test-quota")["spec"]["hard"]["pods"] == "3"

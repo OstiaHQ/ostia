@@ -105,11 +105,12 @@ def test_create_suspended_then_owned_then_unsuspend(fake, clock, cfg, repo, tmp_
         )
         == 0
     )
-    calls = [(c.verb, c.args[:2]) for c in fake.calls if c.verb in ("apply", "patch", "delete")]
+    verbs = ("apply", "create", "patch", "delete")
+    calls = [(c.verb, c.args[:2]) for c in fake.calls if c.verb in verbs]
     job = f"ostia-{_summary(tmp_path)['run_id']}"
     assert calls[:3] == [
         ("apply", ("Job", job)),
-        ("apply", ("Secret", f"{job}-env")),
+        ("create", ("Secret", f"{job}-env")),
         ("patch", ("job", job)),
     ]
     assert calls[-1] == ("delete", ("job", job))
@@ -405,3 +406,107 @@ def test_describe_without_a_price(fake, clock, repo, tmp_path):
     s = _summary(tmp_path)
     assert s["price"] is None and s["cost_estimate"] is None
     assert s["provider"] == "gke" and s["allow_unguarded"] is False
+
+
+# Review fixes (see the ledger's "Final:" lines).
+
+
+def test_a_connection_that_recovers_does_not_fail_the_run(fake, clock, cfg, repo, tmp_path):
+    timeline = [
+        (3, pod_phase("Running")),
+        (6, log(["A"])),
+        (7, drop_stream()),
+        (7, lose_connection(for_seconds=30)),
+        (150, drop_stream()),
+        (150, lose_connection(for_seconds=10)),
+        (200, log(OK_LOG)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline) == 0
+
+
+def test_a_lost_connection_while_kept_still_tears_down(fake, clock, cfg, repo, tmp_path):
+    fake.step_codes, fake.junit = {"command": 8}, "failed.xml"
+    timeline = [*HAPPY, (100, lose_connection(for_seconds=20)), (900, pod_phase("Succeeded"))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, keep="30m") == 1
+    assert fake.list("job") == []
+    assert _summary(tmp_path)["teardown"] == "verified"
+
+
+def test_failure_cache_volume_in_use(fake, clock, cfg, repo, tmp_path, capsys):
+    timeline = [
+        (
+            3,
+            event(
+                "FailedAttachVolume",
+                'Multi-Attach error for volume "pvc-1" Volume '
+                "is already used by pod(s) ostia-other",
+            ),
+        )
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, cache=True) == 3
+    err = capsys.readouterr().err
+    assert "ostia-test-cache" in err and "cleanup --cache" in err
+    assert clock.monotonic() < 60
+
+
+def test_the_delete_ignores_a_second_ctrl_c(fake, clock, cfg, repo, tmp_path):
+    import signal
+
+    seen = []
+    original = fake.delete
+
+    def delete(*a, **kw):
+        seen.append(signal.getsignal(signal.SIGINT))
+        original(*a, **kw)
+
+    fake.delete = delete
+    assert _drive(fake, clock, cfg, repo, tmp_path) == 0
+    assert seen == [signal.SIG_IGN]  # kubectl inherits it, so the DELETE is always sent
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+
+def test_failure_kubectl_forbidden_rbac(fake, clock, cfg, repo, tmp_path, capsys):
+    from fakes.kube import forbid
+
+    timeline = [*HAPPY, (3, forbid("create", "pods/exec"))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline) == 2
+    err = capsys.readouterr().err
+    assert "create pods/exec" in err and "ostia-test-developer" in err
+    assert fake.list("job") == []
+
+
+def test_a_job_created_before_a_lost_connection_is_still_deleted(fake, clock, cfg, repo, tmp_path):
+    from ostia_dev.remote.k8s.kube import LostConnection
+
+    original = fake.apply
+
+    def apply(obj, record=True):
+        out = original(obj, record=record)
+        if obj["kind"] == "Job" and record:
+            raise LostConnection("error: the response never came back")
+        return out
+
+    fake.apply = apply
+    assert _drive(fake, clock, cfg, repo, tmp_path) == 3
+    assert fake.list("job") == []
+
+
+def test_the_secret_is_created_not_applied(fake, clock, cfg, repo, tmp_path):
+    # apply would copy stringData, in plain text, into last-applied-configuration
+    _drive(fake, clock, cfg, repo, tmp_path, allow_secret=True, env_vars=["GH_TOKEN=s3cret"])
+    assert [c.args[0] for c in fake.calls if c.verb == "create"] == ["Secret"]
+    assert not [c for c in fake.calls if c.verb == "apply" and c.args[0] == "Secret"]
+
+
+def test_an_event_without_a_message(fake, clock, cfg, repo, tmp_path):
+    def bare(k):
+        (pod,) = k._objs("pod")
+        k.event_list.append(
+            {
+                "kind": "Event",
+                "reason": "Pulling",
+                "involvedObject": {"uid": pod["metadata"]["uid"]},
+            }
+        )
+
+    assert _drive(fake, clock, cfg, repo, tmp_path, [(1, bare), *HAPPY]) == 0

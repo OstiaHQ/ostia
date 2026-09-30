@@ -9,7 +9,7 @@ from pathlib import Path
 from ostia_dev import config, prompts
 from ostia_dev.config import Config
 from ostia_dev.contract import violation
-from ostia_dev.errors import UsageError
+from ostia_dev.errors import OstiaError, UsageError
 from ostia_dev.remote.core import RunSpec
 from ostia_dev.remote.k8s import kubectl, manifests
 from ostia_dev.remote.k8s.kube import KubeError
@@ -135,6 +135,55 @@ def resolve(spec: RunSpec, cfg: Config, *, kube_factory, ensure_kubectl=kubectl.
     return target, kube
 
 
+def _detect_cidrs(kube, lines: list[str]) -> list[str]:
+    """Service and pod CIDRs for the egress blocklist (P7); IPv4 only, as the ipBlock is."""
+    cidrs = []
+    try:
+        for sc in kube.list("servicecidr", namespaced=False):
+            cidrs += sc.get("spec", {}).get("cidrs", [])
+    except OstiaError:
+        pass
+    if not cidrs:
+        lines.append(
+            "note: Service CIDR not detected (no ServiceCIDR API); add it to "
+            "blocked_cidrs for the context if it is outside the private ranges"
+        )
+    try:
+        for node in kube.list("node", namespaced=False):
+            cidrs += node.get("spec", {}).get("podCIDRs", [])
+    except OstiaError:
+        lines.append("note: pod CIDRs not detected (no access to nodes)")
+    return [c for c in dict.fromkeys(cidrs) if ":" not in c]
+
+
+def apply_guardrails(target: Target, kube, *, cfg: Config, privileged: bool = False) -> list[str]:
+    """The §4.6 guardrails, as `init` and a run's --yes both create them."""
+    ctx = cfg.context(target.context)
+    lines: list[str] = []
+    cidrs = _detect_cidrs(kube, lines) + list(ctx.get("blocked_cidrs", []))
+    try:
+        nodelocal = bool(
+            kube.list("daemonset", selector="k8s-app=node-local-dns", all_namespaces=True)
+        )
+    except OstiaError:
+        nodelocal = False
+    existing = kube.get("namespace", target.namespace, namespaced=False)
+    objs = manifests.guardrails(
+        target.namespace,
+        privileged=privileged,
+        blocked_cidrs=cidrs,
+        nodelocal_dns=nodelocal,
+        quota=ctx.get("quota"),
+    )
+    for obj in objs:
+        if obj["kind"] == "Namespace" and existing:
+            # the label means "ostia-dev created it", which lets cleanup delete it (§4.3)
+            obj["metadata"]["labels"].pop("ostia.dev/managed", None)
+        kube.apply(obj)
+        lines.append(f"applied {obj['kind']}/{obj['metadata']['name']}")
+    return lines
+
+
 def _skew(target: Target, kube) -> None:
     v = kube.version()
     client, server = v.get("clientVersion", {}), v.get("serverVersion", {})
@@ -158,7 +207,7 @@ def _selects(policy: dict, labels: dict) -> bool:
     return not sel.get("matchExpressions") and all(labels.get(k) == v for k, v in wanted.items())
 
 
-def _ensure_namespace(target: Target, kube, *, yes: bool, privileged: bool) -> dict:
+def _ensure_namespace(target: Target, kube, *, yes: bool, cfg: Config | None) -> dict:
     ns = kube.get("namespace", target.namespace, namespaced=False)
     if ns:
         return ns
@@ -179,14 +228,15 @@ def _ensure_namespace(target: Target, kube, *, yes: bool, privileged: bool) -> d
             "runs need a namespace",
             "rerun and answer yes, or run init",
         )
-    for obj in manifests.guardrails(target.namespace, privileged=privileged):
-        kube.apply(obj)
+    apply_guardrails(target, kube, cfg=cfg or config.load(), privileged=False)
     return kube.get("namespace", target.namespace, namespaced=False)
 
 
-def check(target: Target, kube, profile: Profile, *, yes: bool) -> list[str]:
+def check(
+    target: Target, kube, profile: Profile, *, yes: bool, cfg: Config | None = None
+) -> list[str]:
     _skew(target, kube)
-    ns = _ensure_namespace(target, kube, yes=yes, privileged=False)
+    ns = _ensure_namespace(target, kube, yes=yes, cfg=cfg)
     target.psa = ns["metadata"].get("labels", {}).get("pod-security.kubernetes.io/enforce")
     run_labels = {"ostia.dev/managed": "true"}
     missing = []
