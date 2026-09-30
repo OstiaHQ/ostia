@@ -2,10 +2,11 @@
 [tool.pytest.ini_options]
 testpaths = ["tests/python", "tools", "telemetry/tools"]
 pythonpath = ["."]
-addopts = "-m 'not slow and not gpu'"
+addopts = "-m 'not slow and not gpu and not kind'"
 markers = [
     "slow: rebuilds native code; run with `pixi run test-rebuild`",
     "gpu: needs a CUDA device",
+    "kind: needs a kind cluster (RFC-0005 Testing); the remote.yml kind job runs them",
 ]
 
 [tool.ruff]
