@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run the fast checks, or apply the formatters (ADR-0013, RFC-0001 §4.1 lint row).
 
-    pixi run lint    # clang-format, ruff, gersemi, include layering, CPM pins, docs index
+    pixi run lint    # clang-format, ruff, gersemi, include layering, CPM pins, comments,
+                     # docs index
     pixi run fmt     # apply clang-format, ruff and gersemi
 
 Each failing check prints an error-message-contract block with its fix; the run ends
@@ -17,6 +18,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.ci._contract import ROOT
+from tools.ci.check_comments import language
 
 CPP = (".h", ".hpp", ".c", ".cpp", ".cu", ".cuh")
 VENDORED = {"cmake/CPM.cmake"}
@@ -40,6 +42,7 @@ def file_lists(root: Path) -> dict[str, list[str]]:
             if (f.endswith(".cmake") or Path(f).name == "CMakeLists.txt") and f not in VENDORED
         ],
         "python": [f for f in files if f.endswith(".py")],
+        "comments": [f for f in files if language(f) and f not in VENDORED],
     }
 
 
@@ -72,6 +75,12 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
             "",
         ),
         (
+            "comments",
+            [py, str(ROOT / "tools/ci/check_comments.py")],
+            lists["comments"],
+            "",
+        ),
+        (
             "docs-index",
             [py, str(ROOT / "tools/docs/gen_index.py"), "--check"],
             None,
@@ -98,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         failed += 1
         output = (r.stdout + r.stderr).strip()
-        if name in ("layering", "cpm-pins", "telemetry-headers"):
+        if name in ("layering", "cpm-pins", "telemetry-headers", "comments"):
             print(output)  # already in contract form
             continue
         lines = output.splitlines()
