@@ -1,4 +1,4 @@
-"""Config loading, merging and writing (RFC-0005 §1.2; R8)."""
+"""Config loading, merging and writing (RFC-0005 §1.2)."""
 
 import tomllib
 

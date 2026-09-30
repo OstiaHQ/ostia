@@ -1,4 +1,4 @@
-"""Exit codes and the entry point's error mapping (RFC-0005 §1.4, §3.5; R18)."""
+"""Exit codes and the entry point's error mapping (RFC-0005 §1.4, §3.5)."""
 
 import os
 import shutil

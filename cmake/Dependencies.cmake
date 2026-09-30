@@ -74,4 +74,4 @@ endfunction()
 # A dependency that still declares cmake_minimum_required < 3.5 is configured with the
 # policy minimum scoped to that one package (RFC-0001 §1.3), for example:
 #   CPMAddPackage(NAME foo ... OPTIONS "CMAKE_POLICY_VERSION_MINIMUM 3.5")
-# Re-check this for each new dependency (nvbench and CCCL arrive in PR 5a).
+# Re-check this for each new dependency.

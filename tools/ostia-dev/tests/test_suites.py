@@ -1,4 +1,4 @@
-"""Suites become supervisor step plans (RFC-0005 §3.2, §3.3; R5, R6, R16)."""
+"""Suites become supervisor step plans (RFC-0005 §3.2, §3.3)."""
 
 import os
 import shlex

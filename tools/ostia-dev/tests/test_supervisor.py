@@ -1,4 +1,4 @@
-"""The pod supervisor, run for real with stub tools (RFC-0005 §3.2, §4.5; R1, R2, R3, R6).
+"""The pod supervisor, run for real with stub tools (RFC-0005 §3.2, §4.5).
 
 Each case runs under /bin/sh, and under dash and busybox sh when they are installed
 (ubuntu-24.04 CI has dash; on macOS /bin/sh is bash in POSIX mode).

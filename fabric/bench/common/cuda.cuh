@@ -44,7 +44,6 @@ static __global__ void verify_kernel(const std::uint8_t* data, std::uint64_t n, 
 inline constexpr int kBlocks = 1024;
 inline constexpr int kThreads = 256;
 
-// A device buffer on one GPU.
 class DeviceBuffer {
   public:
     DeviceBuffer(int device, std::uint64_t bytes) : device_(device), bytes_(bytes) {
@@ -151,7 +150,7 @@ class EventTimer {
     cudaEvent_t stop_{};
 };
 
-// Two GPUs, or --smoke on one: exit code 77 without a device, an error without a peer.
+// `needed` GPUs, or --smoke on one: exit code 77 without a device, an error with too few.
 inline int require_devices(const Args& a, int needed, const std::string& bench) {
     const int n = device_count();
     if (n == 0) {

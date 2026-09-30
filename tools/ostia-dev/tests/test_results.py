@@ -1,5 +1,5 @@
 """Collected results: control files, the allowlist, summary.json and the summary line
-(RFC-0005 §3.4; R7, R14)."""
+(RFC-0005 §3.4)."""
 
 import io
 import json
