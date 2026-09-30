@@ -251,6 +251,7 @@ endif()
 ostia_summary_set(telemetry_level "${OSTIA_TELEMETRY} (${OSTIA_TELEMETRY_LEVEL})")
 
 option(OSTIA_BUILD_TESTS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
+option(OSTIA_BUILD_BENCH "Build the benchmarks (with CUDA; fetches nvbench and CCCL)" OFF)
 set(_deps "")
 if(OSTIA_BUILD_TESTS)
   enable_testing()

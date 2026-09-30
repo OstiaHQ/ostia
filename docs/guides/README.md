@@ -6,6 +6,6 @@ How-tos for contributors: building, testing, benchmarking and renting hardware. 
 | --- | --- |
 | Build Ostia and run the tests | [building.md](building.md) |
 | Add a component, or turn a placeholder into one | [adding-a-component.md](adding-a-component.md) |
-| Run a benchmark and update a baseline | Coming with RFC-0001 Rollout PR 5 |
+| Run a benchmark, compare it with a baseline, or update a baseline | [benchmarks.md](benchmarks.md) |
 | Capture a topology fixture | Coming with RFC-0001 Rollout PR 6 |
 | Run a rented reference setup | Coming with RFC-0001 Rollout PR 7 |

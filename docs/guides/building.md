@@ -108,6 +108,8 @@ The build compiles one of four telemetry levels (RFC-0001 §5). `OSTIA_TELEMETRY
 | `pixi run check-cuda` | Compile the CUDA code with nvcc in a `linux/arm64` container (needs podman or docker) |
 | `pixi run -e clang sanitize-asan` | Build and test with AddressSanitizer and UBSan (Linux); `sanitize-tsan` for ThreadSanitizer |
 | `pixi run -e ucx test-multiprocess` | Multi-process tests over UCX TCP loopback (Linux) |
+| `pixi run -e cuda-12 bench run --bench <binary>` | Run a benchmark and record schema-1 results ([benchmarks.md](benchmarks.md)) |
+| `pixi run compare --baseline <file> --candidate <file>` | Compare benchmark results with a baseline |
 | `pixi run docs-as-test` | Run this guide's quick start verbatim, as CI does on a fresh runner |
 | `pixi run docs-index` | Regenerate the RFC/ADR index in `docs/README.md` |
 

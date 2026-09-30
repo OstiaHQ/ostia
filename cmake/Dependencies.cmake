@@ -44,6 +44,33 @@ macro(ostia_dep_nanobind)
   )
 endmacro()
 
+# CUDA benchmark dependencies (RFC-0001 §2.3, §6.1): CCCL from GitHub, and nvbench.
+# nvbench has no C++ release tags; its python-X.Y.Z tags mark the whole repository.
+function(ostia_dep_cccl)
+  ostia_cpm_add(
+    NAME CCCL
+    GITHUB_REPOSITORY
+    NVIDIA/cccl
+    VERSION 3.4.2
+    GIT_TAG 81a339a47dae98fa66b0779215bd04581d6efdbb
+  )
+endfunction()
+
+function(ostia_dep_nvbench)
+  ostia_cpm_add(
+    NAME nvbench
+    GITHUB_REPOSITORY
+    NVIDIA/nvbench
+    VERSION 0.3.0
+    GIT_TAG deb95d3da687fb1e57ba65364210e354aa67198c
+    OPTIONS
+    "NVBench_ENABLE_EXAMPLES OFF"
+    "NVBench_ENABLE_TESTING OFF"
+    "NVBench_ENABLE_CUPTI OFF"
+    "NVBench_ENABLE_NVML OFF"
+  )
+endfunction()
+
 # A dependency that still declares cmake_minimum_required < 3.5 is configured with the
 # policy minimum scoped to that one package (RFC-0001 §1.3), for example:
 #   CPMAddPackage(NAME foo ... OPTIONS "CMAKE_POLICY_VERSION_MINIMUM 3.5")
