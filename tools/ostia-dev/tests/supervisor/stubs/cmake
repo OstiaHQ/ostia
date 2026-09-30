@@ -1,0 +1,3 @@
+#!/bin/sh
+# cmake stub: prints what it was asked to do.
+echo "cmake stub: $*"

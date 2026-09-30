@@ -1,0 +1,7 @@
+gpu-preflight	preflight	sh -c 'command -v nvidia-smi >/dev/null || { echo "error: nvidia-smi not found on PATH=$PATH"; echo "  fix: set the profile'"'"'s env (PATH, LD_LIBRARY_PATH) for this provider"; echo "  see: RFC-0005 §4.9"; exit 1; }; sh tools/ci/gpu_preflight.sh > .ostia/fingerprint.txt; rc=$?; cat .ostia/fingerprint.txt; exit $rc'
+compute-capability	preflight	sh -c 'cc=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n 1); if [ "$cc" != "8.9" ]; then echo "error: the GPU has compute capability ${cc:-unknown}, profile l4 expects 8.9"; echo "  rule: a run must land on the node type its profile names"; echo "  fix: check the node_selector of profile l4"; echo "  see: RFC-0005 §4.9"; exit 1; fi; echo "compute capability $cc: ok"'
+libcuda	preflight	sh -c 'if ldconfig -p 2>/dev/null | grep -q '"'"'libcuda[.]so[.]1'"'"'; then echo "libcuda.so.1: found by ldconfig"; exit 0; fi; IFS=:; for d in ${LD_LIBRARY_PATH:-}; do if [ -e "$d/libcuda.so.1" ]; then echo "libcuda.so.1: $d"; exit 0; fi; done; echo "error: libcuda.so.1 not found by ldconfig or in LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}"; echo "  fix: set the profile'"'"'s env (LD_LIBRARY_PATH) for this provider"; echo "  see: RFC-0005 §4.9"; exit 1'
+install	install	pixi install --locked -e cuda-12
+configure	build	pixi run --frozen -e cuda-12 cmake --preset dev
+build	build	pixi run --frozen -e cuda-12 cmake --build --preset dev
+test	command	pixi run --frozen -e cuda-12 ctest --test-dir /w/build/cuda-12/dev -L cpu --output-on-failure --output-junit junit.xml

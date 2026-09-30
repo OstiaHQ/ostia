@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="2"
+	failures="0"
+	disabled="0"
+	skipped="1"
+	hostname=""
+	time="0"
+	timestamp="2026-09-30T10:07:04"
+	>
+	<testcase name="gpu.skipped" classname="gpu.skipped" time="0.00294687" status="notrun">
+		<skipped message="SKIP_RETURN_CODE=77"/>
+		<properties>
+			<property name="cmake_labels" value="gpu;multiprocess"/>
+		</properties>
+		<system-out>skipped: no CUDA device
+</system-out>
+	</testcase>
+	<testcase name="gpu.pass" classname="gpu.pass" time="0.00280767" status="run">
+		<properties>
+			<property name="cmake_labels" value="gpu"/>
+		</properties>
+		<system-out></system-out>
+	</testcase>
+</testsuite>

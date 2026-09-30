@@ -1,0 +1,23 @@
+# ostia-dev, the contributor CLI (RFC-0005 §1.1). pixi installs it editable in every
+# environment; it is contributor tooling and is never uploaded.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ostia-dev"
+version = "0.0.0"
+description = "Ostia's contributor CLI and remote runner"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+classifiers = ["Private :: Do Not Upload"]
+dependencies = ["typer"]
+
+[project.scripts]
+ostia-dev = "ostia_dev.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"ostia_dev.remote" = ["profiles.toml", "pod/supervisor.sh"]
