@@ -301,3 +301,22 @@ def test_the_watchdog_works_with_a_setsid_without_wait(shell, tmp_path):
     assert r.steps["state"] == "timeout"
     time.sleep(0.5)
     assert not _alive(marker)
+
+
+def test_expand_env_uses_the_pods_own_values(shell, tmp_path):
+    """Kubernetes can't expand $PATH from the image, so profile env references come here."""
+    expand = "PATH=/opt/x/bin:$PATH\nLD_LIBRARY_PATH=/opt/x/lib\nNOTE=a b 'c'"
+    plan = [
+        (
+            "command",
+            "command",
+            'printf "%s|%s|%s" "$PATH" "$LD_LIBRARY_PATH" "$NOTE" > "$OSTIA_SOURCE_DIR/.ostia/env"',
+        )
+    ]
+    r = start(shell, tmp_path, plan, OSTIA_EXPAND_ENV=expand)
+    assert r.wait() == 0
+    path, ld, note = (r.state / "env").read_text().split("|")
+    assert path.startswith("/opt/x/bin:") and path.endswith(
+        os.environ["PATH"].split(os.pathsep)[-1]
+    )
+    assert (ld, note) == ("/opt/x/lib", "a b 'c'")
