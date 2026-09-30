@@ -45,5 +45,7 @@ Match the comment density of the code around you, and prefer a better name to a 
 ## Consequences
 
 - `tools/ci/check_comments.py` flags the mechanical cases with heuristics: commented-out code, banners, narration, change-log notes, comments that restate the next line, TODOs without an issue, and over-commented edits. `comment-ok` on a line silences a false positive.
-- `.claude/settings.json` runs it as a Claude Code `PostToolUse` hook on every Edit and Write. It checks only the text the edit added and returns the findings to the agent, which then revises the comments. The edit itself is kept.
-- The check isn't part of `pixi run lint` or CI, so a heuristic false positive never blocks a merge. Humans follow this ADR through review. Section banners already in long files stay until someone next edits them; the hook flags new ones. Adding the check to lint takes a new ADR.
+- `pixi run lint` runs it over every tracked file as the `comments` check, so the pre-commit hook and the CI `lint` job enforce it for everyone. The judgement calls it can't make, such as whether a comment says something that matters, are left to review.
+- `.claude/settings.json` also runs it as a Claude Code `PostToolUse` hook on every Edit and Write. It checks only the text the edit added and returns the findings to the agent, which revises the comments before lint ever sees them. The edit itself is kept.
+- The hook is stricter than lint in two places: named section banners and the density rule. Banners already in long files stay until someone edits them; new ones are flagged. Density only makes sense for a single edit.
+- A heuristic false positive now fails CI. Mark the line `comment-ok`, and if a rule misfires often, tune it in the checker.

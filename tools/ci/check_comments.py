@@ -73,11 +73,13 @@ PY_STATEMENTS = (
 # Words that carry no meaning of their own in a "restates" comment: articles, glue and
 # the verbs agents use to narrate an obvious line ("Increment the counter").
 STOPWORDS = set(
-    "a an the to of and or in on for with from by is are be it its this that we our into at as"
-    " then now here new value values variable variables call calls get gets set sets create"
-    " creates make makes initialize initialise init increment increments decrement add adds"
-    " return returns loop loops over through each every check checks store stores save saves"
-    " define defines import imports update updates assign assigns run runs".split()
+    (  # noqa: SIM905 -- one string reads better than a literal with a word per line
+        "a an the to of and or in on for with from by is are be it its this that we our into at"
+        " as then now here new value values variable variables call calls get gets set sets"
+        " create creates make makes initialize initialise init increment increments decrement"
+        " add adds return returns loop loops over through each every check checks store stores"
+        " save saves define defines import imports update updates assign assigns run runs"
+    ).split()
 )
 
 RULES = {
@@ -291,7 +293,9 @@ def report(findings: list[Finding]) -> str:
         hits = [f for f in findings if f.rule == rule]
         if hits:
             details = [f"{f.path}:{f.line}: {f.text}" for f in hits]
-            blocks.append(violation(f"{rule}: comment breaks ADR-0015", details, text, fix, "ADR-0015"))
+            blocks.append(
+                violation(f"{rule}: comment breaks ADR-0015", details, text, fix, "ADR-0015")
+            )
     return "\n".join(blocks)
 
 

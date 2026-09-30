@@ -33,7 +33,7 @@ Layer 1 is C++20 + CUDA with a stable C ABI and Python bindings (D7). Python pac
 
 ## Comments
 
-Follow [ADR-0015](docs/adr/0015-code-comments.md). A comment says why the code is this way, states an invariant, unit or hazard, or cites an RFC or ADR section. Don't narrate steps, restate the next line, leave commented-out code or banners, or write notes about your edit ("added", "as requested"); those go in the commit message. Match the comment density of the surrounding code. A `PostToolUse` hook (`.claude/settings.json`) checks each edit and returns findings; revise the comments, or mark a real false positive with `comment-ok`.
+Follow [ADR-0015](docs/adr/0015-code-comments.md). A comment says why the code is this way, states an invariant, unit or hazard, or cites an RFC or ADR section. Don't narrate steps, restate the next line, leave commented-out code or banners, or write notes about your edit ("added", "as requested"); those go in the commit message. Match the comment density of the surrounding code. `pixi run lint` (pre-commit and CI) runs `tools/ci/check_comments.py` on every file, and a `PostToolUse` hook (`.claude/settings.json`) runs it on each edit and returns the findings; revise the comments, or mark a real false positive with `comment-ok`.
 
 ## Commits and pull requests
 

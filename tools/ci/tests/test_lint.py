@@ -53,3 +53,12 @@ def test_fmt_fixes_what_lint_reports(tmp_path, capsys):
     shutil.copy(REPO / ".clang-format", tmp_path / ".clang-format")
     assert main(["fmt", "--root", str(tmp_path), "--only", "clang-format"]) == 0
     assert main(["lint", "--root", str(tmp_path), "--only", "clang-format"]) == 0
+
+
+def test_comments_check(tmp_path, capsys):
+    git_repo(tmp_path, {"a.py": "# Now we increment i\ni += 1\n", "cmake/CPM.cmake": "# ----\n"})
+    assert main(["lint", "--root", str(tmp_path), "--only", "comments"]) == 1
+    out = capsys.readouterr().out
+    assert "error: narration: comment breaks ADR-0015" in out
+    assert "CPM.cmake" not in out
+    assert "lint: 1 checks, 1 failed" in out

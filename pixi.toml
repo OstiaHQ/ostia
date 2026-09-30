@@ -145,7 +145,7 @@ test = { depends-on = ["test-cpp", "test-py"], description = "Run all tests" }
 test-rebuild = { cmd = "pytest -m slow tests/python", depends-on = [
   "py-dev",
 ], description = "Slow tests: native change visible after rebuild, py-dev idempotency" }
-lint = { cmd = "python tools/ci/lint.py lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, docs index" }
+lint = { cmd = "python tools/ci/lint.py lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, comments, docs index" }
 fmt = { cmd = "python tools/ci/lint.py fmt", description = "Apply clang-format, ruff and gersemi" }
 check-graph = { cmd = "cmake --preset dev --graphviz=$OSTIA_BUILD_ROOT/dev/ostia.dot && python tools/ci/check_graph.py --dot $OSTIA_BUILD_ROOT/dev/ostia.dot", depends-on = [
   "_configure",
