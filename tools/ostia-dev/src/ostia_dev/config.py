@@ -1,10 +1,4 @@
-"""Config (RFC-0005 §1.2): the built-in profiles.toml, with the user's file merged over it.
-
-The user file is $OSTIA_CONFIG, else $XDG_CONFIG_HOME/ostia/config.toml, else
-~/.config/ostia/config.toml. Its `[remote.k8s.profiles]` and `[remote.windows]` tables
-merge per key over the built-in `[profiles]` and `[windows]`. The CLI writes to the file
-only after asking (§4.3), through append_table().
-"""
+"""Config (RFC-0005 §1.2): the built-in profiles.toml with the user's file merged over it."""
 
 import copy
 import os
@@ -30,7 +24,6 @@ def user_path() -> Path:
 
 
 def builtin_defaults() -> dict:
-    """ostia_dev/remote/profiles.toml, shipped as package data."""
     return tomllib.loads((resources.files("ostia_dev.remote") / "profiles.toml").read_text())
 
 
@@ -44,7 +37,6 @@ class Config:
     image: str = ""
 
     def remote(self, *keys: str) -> dict:
-        """A table under the user's [remote], e.g. remote("k8s", "machines")."""
         node = self.user.get("remote", {})
         for k in keys:
             node = node.get(k, {})
@@ -130,7 +122,6 @@ def _value(v: object) -> str:
 
 
 def _header_path(line: str) -> tuple[str, ...] | None:
-    """The key path of a `[table]` header line, or None for anything else."""
     stripped = line.strip()
     if not stripped.startswith("[") or stripped.startswith("[["):
         return None
@@ -170,7 +161,7 @@ def append_table(path: Path, table: tuple[str, ...], values: dict[str, object]) 
             len(rows),
         )
         while end > start + 1 and not rows[end - 1].strip():
-            end -= 1  # insert before the blank lines that separate the next table
+            end -= 1
         if not rows[end - 1].endswith("\n"):
             rows[end - 1] += "\n"
         rows[end:end] = lines

@@ -158,7 +158,7 @@ def test_failed_upload_is_exit_3_and_teardown(engine, cfg, repo, tmp_path, fail,
     engine.fail[fail] = 1
     assert _drive(engine, cfg, repo, tmp_path) == 3
     assert engine.container()["removed"]
-    assert "exec:touch" not in _subs(engine)  # no ready marker
+    assert "exec:touch" not in _subs(engine)
     (run_dir,) = (tmp_path / "res").iterdir()
     assert json.loads((run_dir / "summary.json").read_text())["failing_step"] == "upload"
     assert "ephemeral_storage" in capsys.readouterr().err
@@ -174,7 +174,7 @@ def test_oom_kill_is_exit_3(engine, cfg, repo, tmp_path):
     engine.running_after_stream = False
     engine.step_codes = {"build": 137}
     assert _drive(engine, cfg, repo, tmp_path) == 3
-    assert "cp" in _subs(engine)  # a stopped container is read with cp
+    assert "cp" in _subs(engine)
 
 
 def test_env_repeat_gives_two_runs_and_the_worst_wins(engine, cfg, repo, tmp_path):

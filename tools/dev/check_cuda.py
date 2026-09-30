@@ -5,11 +5,9 @@
     pixi run check-cuda cuda-13    # one environment
 
 Runs a linux/arm64 container (native on Apple silicon) with podman or docker, streams the
-working tree into it (tracked and untracked, not ignored, files, as a tar built on the
-host, so it works in a git worktree), and builds the release preset with nvcc. No GPU is
-needed: this is compile-only. Run it before opening a pull request that changes CUDA code.
-`ostia-dev remote container --env cuda-12 --env cuda-13 --preset release --no-test`
-replaces it in RFC-0005 Rollout PR B.
+working tree into it as a tar built on the host, and builds the release preset with nvcc.
+No GPU is needed: this is compile-only. Run it before opening a pull request that changes
+CUDA code.
 """
 
 import argparse
@@ -53,7 +51,7 @@ def find_engine() -> str | None:
 def build_command(envs: list[str], engine: str) -> tuple[list[str], str]:
     """The container's argv and its script; the tarball goes to its stdin."""
     script = SCRIPT.format(envs=" ".join(envs))
-    image = config.builtin_defaults()["image"]  # the digest remote runs use (RFC-0005 §4.5)
+    image = config.builtin_defaults()["image"]
     argv = [
         engine,
         "run",

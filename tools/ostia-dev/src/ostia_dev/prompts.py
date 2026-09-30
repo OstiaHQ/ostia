@@ -1,8 +1,4 @@
-"""Prompts only on a TTY; every prompt has a flag (RFC-0005 §1.5).
-
-Without a TTY, a question the flags don't answer is exit 2 with the flag to pass, so
-scripts never hang.
-"""
+"""Prompts only on a TTY; without one, a question no flag answers is exit 2 (RFC-0005 §1.5)."""
 
 import sys
 

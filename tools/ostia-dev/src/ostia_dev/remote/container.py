@@ -1,17 +1,4 @@
-"""The `container` backend (RFC-0005 §5): the §3.2 pipeline in a local podman or docker container.
-
-The same pinned image and supervisor as the pods (§4.5). The container runs as uid 1000
-with every capability dropped, an init process as PID 1 (--init), an anonymous volume at
-/w and the named download cache `ostia-pixi-cache` at /w/cache/rattler (RATTLER_CACHE_DIR).
-Docker creates both volumes owned by root, so there a short root step chowns them and drops
-to uid 1000 with setpriv before the supervisor starts; podman's `:U` needs none.
-
-    start:    run -d --name ostia-<run-id> ... <image> /bin/sh -c <supervisor> ostia-supervisor
-    upload:   exec -i tar -x -C /w < tarball; count the files; touch /w/.ostia/ready
-    stream:   logs -f, until the supervisor prints its "finished" line
-    collect:  exec tar -c of the control files, then of the artifacts; touch collected
-    teardown: rm -f -v, verified with inspect
-"""
+"""The `container` backend (RFC-0005 §5): the pipeline in a local podman or docker container."""
 
 import datetime
 import platform
@@ -34,7 +21,7 @@ CACHE_VOLUME = "ostia-pixi-cache"
 CACHE_DIR = f"{suites.WORK}/cache/rattler"
 USER = "1000:1000"
 FINISHED = "[ostia] finished with exit"
-# Docker only: make the volumes uid 1000's, then drop to it (no capability survives setuid).
+# Docker creates the volumes owned by root: chown them, then drop to uid 1000.
 ROOT_INIT = (
     f"mkdir -p {CACHE_DIR} && chown 1000:1000 /w /w/cache {CACHE_DIR} && "
     'exec setpriv --reuid=1000 --regid=1000 --clear-groups /bin/sh -c "$1" ostia-supervisor'
@@ -46,7 +33,6 @@ def supervisor_script() -> str:
 
 
 def detect_engine(requested: str | None, which=shutil.which) -> str:
-    """--engine, else podman, else docker (RFC-0005 §5)."""
     for name in [requested] if requested else ["podman", "docker"]:
         if path := which(name):
             return path
@@ -92,8 +78,6 @@ class ContainerBackend:
         interactive = ["-i"] if stdin is not None else []
         return self._run("exec", *interactive, "--user", USER, run.state["name"], *argv,
                          stdin=stdin, **kw)  # fmt: skip
-
-    # -- the seven operations ---------------------------------------------------------
 
     def prepare(self, run: Run) -> None:
         self.engine = detect_engine(self.requested, self.which)
@@ -153,7 +137,7 @@ class ContainerBackend:
         ]  # fmt: skip
         if podman:
             argv += ["--user", USER]
-        else:  # the root init step needs these three, and setpriv drops them all
+        else:  # for the root init step; setpriv drops them before the supervisor runs
             argv += ["--cap-add", "CHOWN", "--cap-add", "SETUID", "--cap-add", "SETGID"]
         argv += ["--security-opt", "no-new-privileges"]
         for key, value in {**run.supervisor_env(), "RATTLER_CACHE_DIR": CACHE_DIR}.items():
@@ -245,7 +229,7 @@ class ContainerBackend:
             self._to_file(artifacts, "exec", "--user", USER, name, "sh", "-c",
                           results.artifact_tar_script(build_rel))  # fmt: skip
             self._exec(run, "touch", f"{suites.WORK}/.ostia/collected")
-        else:  # the supervisor is gone (OOM, terminated): only the control files remain
+        else:  # exec needs a running container; cp still reads a stopped one
             self._to_file(control, "cp", f"{name}:{suites.WORK}/.ostia", "-")
             with tarfile.open(artifacts, "w"):
                 pass

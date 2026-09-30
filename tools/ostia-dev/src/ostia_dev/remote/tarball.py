@@ -1,12 +1,5 @@
-"""The upload tarball, built on the host before anything exists remotely (RFC-0005 §4.10).
-
-The file set is `git ls-files -co --exclude-standard` minus `git ls-files -d`: tracked and
-untracked files, without tracked files deleted locally and without git-ignored ones. It
-works in a linked worktree, because git runs on the host. Untracked files that look like
-secrets are skipped with a warning (tracked ones are already in git). The tar is
-deterministic (sorted, mtime 0, uid/gid 0, fixed modes), so its sha256 is the tree hash.
-
---ref <sha> and --ref pr/<n> fetch the commit from origin and archive it instead.
+"""The upload tarball, built on the host so it works in git worktrees (RFC-0005 §4.10).
+It is deterministic, so its sha256 is the tree hash.
 """
 
 import fnmatch
@@ -23,8 +16,8 @@ from ostia_dev import proc
 from ostia_dev.contract import violation
 from ostia_dev.errors import UsageError
 
-WARN_BYTES = 10 * 1024**2  # an untracked file this large gets a warning
-MAX_BYTES = 500 * 1024**2  # a bigger upload is refused
+WARN_BYTES = 10 * 1024**2
+MAX_BYTES = 500 * 1024**2
 SECRET_PATTERNS = (
     ".env",
     ".env.*",
@@ -47,7 +40,7 @@ class Tarball:
     size: int
     tree_hash: str
     files: list[str]
-    file_count: int  # regular files, what `find /w -type f` counts after unpacking
+    file_count: int  # regular files only, to match `find -type f` after unpacking
     skipped: list[str] = field(default_factory=list)
     ref_sha: str | None = None
 
@@ -137,7 +130,7 @@ def _from_worktree(root: Path, out_dir: Path | None) -> Tarball:
             entries.append((info, None))
             continue
         if not p.is_file():
-            continue  # a submodule or a directory
+            continue
         data = p.read_bytes()
         sizes[f] = len(data)
         count += 1
@@ -211,7 +204,6 @@ def build(root: Path, *, ref: str | None = None, out_dir: Path | None = None) ->
 
 
 def worktree_sha(root: Path) -> str:
-    """The short HEAD SHA, with +dirty when the working tree differs from it."""
     sha = _git(root, "rev-parse", "--short", "HEAD").strip()
     dirty = proc.run(["git", "-C", str(root), "status", "--porcelain"]).stdout.strip()
     return f"{sha}+dirty" if dirty else sha

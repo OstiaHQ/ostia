@@ -1,15 +1,10 @@
 # ostia-supervisor: runs a remote run's steps in the pod or container (RFC-0005 §3.2, §4.5).
-# POSIX sh (dash in the pixi image); the CLI passes it as `/bin/sh -c <this> ostia-supervisor`.
+# POSIX sh: the image's /bin/sh is dash, which has no pipefail.
 #
-# States: waiting for $OSTIA_WORK/.ostia/ready (at most OSTIA_CODE_WAIT s, else exit 3)
-#   -> running the OSTIA_PLAN steps (each `name<TAB>kind<TAB>command`, run by sh -c in its
-#      own session; output tee'd to .ostia/log.txt; code and seconds in .ostia/steps.json)
-#   -> waiting for .ostia/collected (at most OSTIA_COLLECT_WINDOW s) -> exit with the
-#      command's code. A failing preflight or install step is exit 3; a failing build or
-#      command step stops the plan with its code; a report step never stops it. After
-#      OSTIA_TIMEOUT s the watchdog TERMs the step's group, then KILLs it 10 s later, and
-#      the run records `timeout` (exit 3). TERM or INT records `terminated` (exit 3).
-# The guards that decide the run's exit code run CLI-side on steps.json and the junit.
+# States: waiting for .ostia/ready (else exit 3) -> running the OSTIA_PLAN steps ->
+# waiting for .ostia/collected or the collection window -> exit with the command's code.
+# A failing preflight or install step is exit 3; a report step never stops the plan;
+# the --timeout watchdog and TERM record `timeout` or `terminated` (exit 3).
 set -u
 
 W=${OSTIA_WORK:-/w}
@@ -24,9 +19,7 @@ export OSTIA_BUILD_DIR="${OSTIA_BUILD_DIR:-$W/build/${OSTIA_ENV:-default}/${OSTI
 export CTEST_NO_TESTS_ACTION="${CTEST_NO_TESTS_ACTION:-error}"
 export HOME="${HOME:-$W/home}"
 TAB=$(printf '\t')
-# util-linux setsid needs -w to pass the exit code back when it has to fork; busybox's applet
-# (which busybox-static's sh prefers over PATH) has no -w. A step is never a process group
-# leader here, so neither forks.
+# busybox's setsid applet has no -w; a step is never a group leader, so neither one forks.
 if setsid -w true 2>/dev/null; then SETSID="setsid -w"; else SETSID=setsid; fi
 
 state=waiting
@@ -45,7 +38,6 @@ write_steps() {
   mv "$S/steps.json.tmp" "$S/steps.json"
 }
 
-# add_entry name kind code seconds result
 add_entry() {
   e=$(printf '{"name": "%s", "kind": "%s", "code": %s, "seconds": %s, "result": "%s"}' \
     "$1" "$2" "$3" "$4" "$5")
@@ -65,7 +57,6 @@ group_alive() {
   [ -n "$pg" ] && kill -s 0 -- "-$pg" 2>/dev/null
 }
 
-# stop_group seconds: TERM the running step's group, KILL it if it outlives the wait
 stop_group() {
   kill_group TERM
   i=0
@@ -134,8 +125,7 @@ while IFS="$TAB" read -r name kind cmd; do
   running="$name $kind $start"
   (
     cd "$dir" || { echo 1 >"$S/rc"; exit 1; }
-    # After the step exits, KILL what it left in its group: a leftover holding the pipe
-    # would keep tee, and so the run, waiting until the watchdog.
+    # KILL what the step left in its group; a leftover holding the pipe would block tee.
     { $SETSID sh -c 'echo $$ >"$0"; exec sh -c "$1"' "$S/pgid" "$cmd" </dev/null 2>&1
       echo $? >"$S/rc"; kill_group KILL; } | tee -a "$LOG"
   ) &

@@ -1,14 +1,4 @@
-"""The shared remote-run pipeline (RFC-0005 §3): run IDs, argument rules, exit codes, drive().
-
-A backend implements the seven operations of §3.1. drive() runs them once per --env:
-
-    prepare (host: pixi lock check, tarball, step plan; then the backend's own preflight)
-    gc -> start -> upload -> stream -> collect, and teardown in `finally`
-
-then evaluates the guards on the collected results (guards.py), writes summary.json and
-prints the summary line. Each environment is its own run with its own run ID; the worst
-exit code wins.
-"""
+"""The shared remote-run pipeline (RFC-0005 §3): argument rules, exit codes and drive()."""
 
 import datetime
 import fnmatch
@@ -38,8 +28,6 @@ SECRET_KEYS = ("*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*")
 
 @dataclass
 class RunSpec:
-    """Every §3.1 flag, plus the backend's own under `extra`."""
-
     backend: str
     profile: str
     envs: list[str]
@@ -61,8 +49,6 @@ class RunSpec:
 
 @dataclass
 class Run:
-    """One run: one environment of a RunSpec."""
-
     spec: RunSpec
     env: str
     run_id: str
@@ -78,10 +64,9 @@ class Run:
     phases: dict[str, int] = field(default_factory=dict)
     oom: bool = False
     node: str | None = None
-    state: dict = field(default_factory=dict)  # the backend's own (container name, Job UID)
+    state: dict = field(default_factory=dict)
 
     def supervisor_env(self) -> dict[str, str]:
-        """The environment the supervisor gets, identical for every backend (§4.5)."""
         env = {
             "OSTIA_WORK": suites.WORK,
             "OSTIA_PLAN": suites.encode(self.plan.steps),
@@ -235,7 +220,7 @@ def prepare(spec: RunSpec, env: str, cfg: Config, repo: Path, workdir: Path) -> 
         no_test=spec.no_test,
         run_id=rid,
     )
-    suites.encode(plan.steps)  # refuses newlines and tabs before anything is created
+    suites.encode(plan.steps)  # refuse bad argv before anything exists remotely
     if not spec.ref:
         check_lock(repo)
     tb = tarball.build(repo, ref=spec.ref, out_dir=workdir)
@@ -337,7 +322,7 @@ def _pipeline(backend: Backend, run: Run, workdir: Path) -> int:
         infra, message, failing = True, e.message, e.step
     except UsageError as e:
         usage, message, failing = True, e.message, e.step
-    except Exception as e:  # a bug or an unreadable result: the test result is unknown
+    except Exception as e:  # the test result is unknown, so exit 3 with a summary
         if proc.verbose():
             traceback.print_exc()
         infra = True
@@ -419,7 +404,6 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
 
 
 def drive(backend: Backend, spec: RunSpec, *, cfg: Config, repo: Path) -> int:
-    """Run the pipeline once per --env (RFC-0005 §3.1); the worst exit code wins."""
     codes = []
     for env in spec.envs:
         code = run_one(backend, spec, env, cfg, repo)

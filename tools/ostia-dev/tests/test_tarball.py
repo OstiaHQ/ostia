@@ -15,10 +15,10 @@ def _members(tb: tarball.Tarball) -> dict[str, tarfile.TarInfo]:
 
 
 def test_tracked_untracked_ignored_and_deleted(git_repo):
-    (git_repo / "new.txt").write_text("untracked\n")  # untracked, not ignored: in
+    (git_repo / "new.txt").write_text("untracked\n")
     (git_repo / "build" / "default").mkdir(parents=True)
-    (git_repo / "build" / "default" / "x.o").write_text("obj")  # ignored by the real .gitignore
-    (git_repo / "src" / "a.cpp").unlink()  # tracked but deleted locally: out
+    (git_repo / "build" / "default" / "x.o").write_text("obj")
+    (git_repo / "src" / "a.cpp").unlink()
     tb = tarball.build(git_repo)
     assert sorted(_members(tb)) == [".gitignore", "README.md", "new.txt", "tools/run.sh"]
     assert tb.files == [".gitignore", "README.md", "new.txt", "tools/run.sh"]
@@ -111,7 +111,7 @@ def test_oversized_upload_is_refused_listing_the_largest(git_repo, monkeypatch):
 
 def test_works_in_a_git_worktree(git_worktree):
     (git_worktree / "wt-only.txt").write_text("x\n")
-    assert (git_worktree / ".git").is_file()  # a gitdir: file, as in a real worktree
+    assert (git_worktree / ".git").is_file()
     tb = tarball.build(git_worktree)
     assert "wt-only.txt" in tb.files and "README.md" in tb.files
     assert ".git" not in tb.files

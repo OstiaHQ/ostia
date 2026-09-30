@@ -64,12 +64,12 @@ gpus = 4
     )
     cfg = config.load(path, builtins=BUILTINS)
     l4 = cfg.profiles["l4"]
-    assert l4["gke"]["ephemeral_storage"] == "80Gi"  # the override
+    assert l4["gke"]["ephemeral_storage"] == "80Gi"
     assert l4["gke"]["node_selector"] == {"cloud.google.com/gke-accelerator": "nvidia-l4"}
-    assert l4["ephemeral_storage"] == "60Gi" and l4["cpu"] == "6"  # untouched
-    assert cfg.profiles["a100x4"] == {"kind": "gpu", "gpus": 4}  # an addition
+    assert l4["ephemeral_storage"] == "60Gi" and l4["cpu"] == "6"
+    assert cfg.profiles["a100x4"] == {"kind": "gpu", "gpus": 4}
     assert cfg.windows == {"code_wait": "60s", "collect": "10m"}
-    assert BUILTINS["profiles"]["l4"]["gke"].get("ephemeral_storage") is None  # not mutated
+    assert BUILTINS["profiles"]["l4"]["gke"].get("ephemeral_storage") is None
 
 
 @pytest.mark.parametrize("text", ["schema = 2\n", "x = 1\n"])
@@ -134,9 +134,9 @@ def test_append_adds_keys_to_an_existing_table(tmp_path):
 @pytest.mark.parametrize(
     "context",
     [
-        "arn:aws:eks:us-east-1:123456789012:cluster/ostia",  # EKS
-        "gke_my-project_us-central1-a_ostia",  # GKE
-        'odd"name\\with.dots',  # a quote, a backslash and dots
+        "arn:aws:eks:us-east-1:123456789012:cluster/ostia",
+        "gke_my-project_us-central1-a_ostia",
+        'odd"name\\with.dots',
     ],
 )
 def test_context_names_round_trip(tmp_path, context):

@@ -143,7 +143,7 @@ def test_a_failing_step_under_tee_keeps_its_code(shell, tmp_path):
     (step,) = r.steps["steps"]
     assert (step["code"], step["result"]) == (5, "failed")
     assert "compiler says no" in (r.state / "log.txt").read_text()
-    assert "compiler says no" in r.out  # also streamed
+    assert "compiler says no" in r.out
 
 
 def test_a_failing_build_stops_the_plan(shell, tmp_path):
@@ -228,7 +228,7 @@ def test_working_directories_and_exported_paths(shell, tmp_path):
     work = (tmp_path / "w").resolve()
     assert Path((r.state / "build-pwd").read_text().strip()).resolve() == work
     build = work / "build" / "default" / "dev"
-    assert Path((r.state / "command-pwd").read_text().strip()).resolve() == build  # created
+    assert Path((r.state / "command-pwd").read_text().strip()).resolve() == build
 
 
 def test_no_tests_action_is_error_by_default(shell, tmp_path):

@@ -1,24 +1,18 @@
 # Built-in node profiles, suites and windows for remote runs (RFC-0005 §3.3, §4.4, §4.8).
-# Users override fields or add profiles in ~/.config/ostia/config.toml (§1.2), under
-# [remote.k8s.profiles.<name>] and [remote.windows]; `ostia-dev remote k8s profiles`
-# shows the merged result.
+# Users override them under [remote.k8s.profiles.<name>] and [remote.windows] (§1.2).
 schema = 1
 
-# The pod and container image (§4.5): Ubuntu 24.04 with the pixi version CI uses.
 # Renovate bumps it together with CI's pixi-version and pixi.toml's requires-pixi.
 image = "ghcr.io/prefix-dev/pixi:0.81.0-noble@sha256:788ae451641666e2d1f79d3dbe35392dfc7e9b394b16a3acb75c347f3badb2ab"
 
-# How long each phase may take (§4.8); tests shorten them through [remote.windows].
 [windows]
-code_wait = "10m"         # the supervisor waits this long for the code
-collect = "10m"           # and this long for the CLI to copy the results
+code_wait = "10m"
+collect = "10m"
 ttl = "600s"              # ttlSecondsAfterFinished
 margin = "15m"            # added to activeDeadlineSeconds
-schedule_timeout = "20m"  # --schedule-timeout default
-timeout = "60m"           # --timeout default: the pipeline inside the pod
+schedule_timeout = "20m"
+timeout = "60m"
 
-# Node profiles (§4.4). requests equal limits; the fit check compares them with the
-# allocatable resources of a node matching the selector.
 [profiles.l4]
 kind = "gpu"
 gpus = 1
@@ -77,13 +71,12 @@ cpu = "4"
 memory = "16Gi"
 ephemeral_storage = "20Gi"
 
-# Suites (§3.3): named step lists run after the preflight and install steps. Placeholders:
-# {build_dir} (the suite preset's build directory in the pod), {source_dir}, {env},
-# {cc} (compute capability without the dot), {cc_dot}, {profile} and {run_id}.
+# Suites run after the preflight and install steps. Placeholders: {build_dir} (the suite
+# preset's build directory in the pod), {source_dir}, {env}, {cc} (compute capability
+# without the dot), {cc_dot}, {profile} and {run_id}.
 [suites.gpu]
 description = "every test at telemetry levels off, metrics, trace and debug"
 preset = "dev"
-# The dev preset must pick native when it sees the GPU (§4.9); checked by the CLI.
 expect_summary = "architectures: native (dev preset, GPU detected ({cc_dot}))"
 steps = [
   { name = "configure-dev", kind = "build", run = ["cmake", "--preset", "dev"] },
@@ -133,7 +126,7 @@ steps = [
   { name = "configure", kind = "build", run = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON", "-DCMAKE_CUDA_ARCHITECTURES={cc}-real"] },
   { name = "build", kind = "build", run = ["cmake", "--build", "--preset", "release"] },
   { name = "self-test", kind = "command", run = ["python", "{source_dir}/tools/bench/overhead.py", "--target", "{profile}", "--self-test", "python {source_dir}/tools/bench/ostia_bench.py median-seconds --bench {build_dir}/telemetry/bench/ostia_telemetry_bench_noop"] },
-  # A report step: its code and noise floor go into summary.json, never into the exit code
+  # A report step never affects the exit code
   { name = "aa", kind = "report", run = ["python", "{source_dir}/tools/bench/overhead.py", "--target", "{profile}", "--aa", "python {source_dir}/tools/bench/ostia_bench.py median-seconds --bench {build_dir}/telemetry/bench/ostia_telemetry_bench_noop"] },
 ]
 

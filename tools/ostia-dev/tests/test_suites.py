@@ -94,7 +94,7 @@ def test_custom_ctest_command_gets_junit(cfg):
     plan = suites.build_plan(cfg, p, "default", command=["ctest", "-L", "gpu"])
     assert plan.steps[-1].argv[5:] == ("ctest", "-L", "gpu", "--output-junit", "junit.xml")
     plan = suites.build_plan(cfg, p, "default", command=["ctest", "--output-junit", "x.xml"])
-    assert plan.steps[-1].argv[5:] == ("ctest", "--output-junit", "x.xml")  # already there
+    assert plan.steps[-1].argv[5:] == ("ctest", "--output-junit", "x.xml")
 
 
 def test_other_custom_commands_are_unchanged(cfg):

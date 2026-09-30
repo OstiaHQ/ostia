@@ -1,10 +1,5 @@
-"""Collected results (RFC-0005 §3.4): control files, artifacts, summary.json, summary line.
-
-Collection copies two tars out of the pod or container. The control files first
-(.ostia/steps.json, tests.json, log.txt, fingerprint.txt): required, exempt from the
-artifact cap, log.txt truncated at 256 MiB. Then the artifacts, through an extraction
-filter: tarfile.data_filter first, then no links, only allowlisted paths, and a running
-2 GiB cap. Every dropped item is listed in a warning; the run keeps its exit code.
+"""Collected results (RFC-0005 §3.4). The pod's tar is untrusted: artifacts pass
+tarfile.data_filter, then Ostia's allowlist, link and size rules.
 """
 
 import json
@@ -23,7 +18,6 @@ from ostia_dev.errors import InfraError
 CONTROL = ("steps.json", "tests.json", "log.txt", "fingerprint.txt")
 LOG_CAP_BYTES = 256 * 1024**2
 CAP_BYTES = 2 * 1024**3
-# Paths under the command's build directory that are copied back, and bench output.
 BUILD_ALLOW = ("ostia-summary.txt", "junit*.xml", "Testing/*")
 BENCH = "bench/results/"
 
@@ -35,7 +29,6 @@ class Control:
 
 
 def control_tar_script(work: str = "/w") -> str:
-    """The pod-side command (sh -c) that tars the control files present."""
     names = " ".join(CONTROL)
     return (
         f"cd {work}/.ostia && tar -cf - -T /dev/null "
@@ -44,7 +37,6 @@ def control_tar_script(work: str = "/w") -> str:
 
 
 def artifact_tar_script(build_rel: str, work: str = "/w") -> str:
-    """The pod-side command (sh -c) that tars the artifact candidates present."""
     paths = (
         f"{build_rel}/ostia-summary.txt {build_rel}/junit*.xml {build_rel}/Testing bench/results"
     )
@@ -97,7 +89,6 @@ def extract_control(tar_path: Path, dest: Path) -> Control:
 
 
 def _target(name: str, build_rel: str) -> str | None:
-    """Where an artifact lands in the results directory, or None if it isn't allowed."""
     prefix = build_rel.rstrip("/") + "/"
     if name.startswith(prefix):
         rel = name[len(prefix) :]
@@ -110,7 +101,6 @@ def _target(name: str, build_rel: str) -> str | None:
 
 
 def extract_artifacts(tar_path: Path, dest: Path, build_rel: str) -> list[str]:
-    """Extract the allowlisted artifacts; returns (and warns about) every dropped member."""
     dest.mkdir(parents=True, exist_ok=True)
     root = os.path.realpath(dest) + os.sep
     dropped: list[str] = []
@@ -120,15 +110,15 @@ def extract_artifacts(tar_path: Path, dest: Path, build_rel: str) -> list[str]:
         nonlocal total
         name = member.name
         try:
-            member = tarfile.data_filter(member, path)  # strips a leading /, refuses escapes
+            member = tarfile.data_filter(member, path)
         except tarfile.FilterError:
             dropped.append(name)
             return None
         if member.name != name:
-            dropped.append(name)  # an absolute path is not an artifact
+            dropped.append(name)  # data_filter stripped a leading /
             return None
         if member.isdir():
-            return None  # directories are created for the files they hold
+            return None
         if member.issym() or member.islnk() or not member.isfile():
             dropped.append(name)
             return None
@@ -157,7 +147,6 @@ def extract_artifacts(tar_path: Path, dest: Path, build_rel: str) -> list[str]:
 
 
 def copy_bench_results(results_dir: Path, repo: Path, run_id: str) -> Path | None:
-    """Copy bench output where compare.py expects it: <repo>/bench/results/<run-id>/."""
     src = results_dir / "bench" / "results" / run_id
     if not src.is_dir():
         return None
@@ -196,7 +185,6 @@ _GROUPS = (("preflight", "preflight"), ("install", "install"), ("build", "build"
 
 
 def summary_lines(s: dict) -> list[str]:
-    """The summary line (what goes into a pull request) and the per-step durations."""
     where = s.get("gpu") or s["profile"]
     what = f"suite {s['suite']}" if s.get("suite") else f"env {s['env']}"
     code = "  code contributor pr/" + str(s["pr"]) if s.get("code") == "contributor" else ""

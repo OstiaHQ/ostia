@@ -62,7 +62,6 @@ class FakeEngine:
     def which(self, name):
         return f"/usr/bin/{name}" if name in ("podman", "docker") else None
 
-    # ostia_dev.proc interface
     def run(self, cmd, *, input=None, capture=True, check=False, verbose=None, **kw):
         cmd = [str(c) for c in cmd]
         self.calls.append(cmd)
@@ -129,7 +128,6 @@ class FakeEngine:
             raise self.raise_in["stream"]
         return _Stream([*self.log_lines, FINISHED])
 
-    # helpers
     def _write(self, cmd, kw, data: bytes):
         rc = self.fail.get("collect", 0)
         if rc == 0:

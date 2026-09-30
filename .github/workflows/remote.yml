@@ -1,6 +1,5 @@
-# Remote runs (RFC-0005 Testing): the ostia-dev remote pipeline end to end without a GPU.
-# container-backend runs the real pipeline in a docker container. Path-filtered on pull
-# requests, so it is not a required check; it also runs nightly and on demand.
+# The ostia-dev remote pipeline end to end, without a GPU (RFC-0005 Testing).
+# Path-filtered on pull requests, so it can't be a required check.
 name: Remote
 
 on:

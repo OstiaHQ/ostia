@@ -1,10 +1,5 @@
-"""Suites and commands become supervisor step plans (RFC-0005 §3.2, §3.3).
-
-A plan is a list of Steps. Every step's argv is complete: the install step is
-`pixi install --locked -e <env>`, and every later step runs through
-`pixi run --frozen -e <env>`, so the pod never re-solves pixi.lock. encode() writes the
-plan for the supervisor's OSTIA_PLAN variable, one `name<TAB>kind<TAB>command` line per
-step, where the command is shlex-quoted once and run by `sh -c` in the pod.
+"""Suites and commands become supervisor step plans (RFC-0005 §3.2, §3.3). Install uses
+--locked and later steps --frozen, so the pod never re-solves pixi.lock.
 """
 
 import re
@@ -16,7 +11,7 @@ from ostia_dev.contract import violation
 from ostia_dev.errors import UsageError
 from ostia_dev.remote.profiles import Profile, parallelism
 
-WORK = "/w"  # the work volume in the pod or container (§4.5)
+WORK = "/w"
 KINDS = ("preflight", "install", "build", "command", "report")
 _NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
@@ -28,7 +23,7 @@ class Step:
     argv: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        # The supervisor writes names into steps.json verbatim, so they must need no escaping
+        # The supervisor writes names into its JSON without escaping
         if not _NAME.match(self.name):
             raise ValueError(f"step name {self.name!r} must match {_NAME.pattern}")
         if self.kind not in KINDS:
@@ -40,9 +35,9 @@ class Plan:
     steps: list[Step]
     env: str
     preset: str
-    build_dir: str  # the command's working directory in the pod, OSTIA_BUILD_DIR
+    build_dir: str
     suite: str | None = None
-    expect_summary: str | None = None  # a line the configure summary must contain
+    expect_summary: str | None = None
     build_jobs: int = 1
     test_jobs: int = 1
     notes: list[str] = field(default_factory=list)
@@ -53,7 +48,6 @@ def _pixi(env: str, argv: list[str] | tuple[str, ...]) -> tuple[str, ...]:
 
 
 def gpu_preflight(profile: Profile) -> list[Step]:
-    """The GPU checks that run before anything else on GPU profiles (§4.9), without pixi."""
     cc = profile.compute_capability or ""
     fail = 'echo "  see: RFC-0005 §4.9"; exit 1'
     fingerprint = (
@@ -190,7 +184,6 @@ def build_plan(
 
 
 def encode(steps: list[Step]) -> str:
-    """The OSTIA_PLAN text: `name<TAB>kind<TAB>command` per line."""
     lines = []
     for s in steps:
         for a in s.argv:

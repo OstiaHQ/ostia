@@ -1,9 +1,5 @@
-"""The ostia-dev entry point (RFC-0005 §1.1): `ostia-dev = "ostia_dev.cli:app"`.
-
-`app` is an OstiaApp, so the installed command itself maps errors to exit codes (§1.4):
-an OstiaError prints its contract message and exits with its code, a usage error exits
-2, Ctrl-C exits 130, and anything else prints a one-line bug report and exits 1 (the
-traceback only with -v).
+"""The ostia-dev entry point (RFC-0005 §1.1). `app` is an OstiaApp, so the installed
+command itself maps errors to exit codes (§1.4).
 """
 
 import sys

@@ -43,7 +43,7 @@ def test_user_fields_merge_per_key(tmp_path):
         '[remote.k8s.profiles.l4.gke]\nephemeral_storage = "80Gi"\n',
     )
     gke = profiles.resolve("l4", "gke", cfg)
-    assert gke.ephemeral_storage == "80Gi"  # the provider table overrides the base field
+    assert gke.ephemeral_storage == "80Gi"
     assert gke.memory == "20Gi" and gke.cpu == "6"
     assert gke.node_selector == {"cloud.google.com/gke-accelerator": "nvidia-l4"}
     assert profiles.resolve("l4", "eks", cfg).ephemeral_storage == "60Gi"
@@ -98,8 +98,8 @@ def test_container_backend_resolves_without_a_provider(cfg):
         ("6", "24Gi", "cuda-12", (6, 6)),  # L4: 24 GiB allows 6 nvcc jobs
         ("6", "24Gi", "default", (6, 6)),
         ("8", "16Gi", "cuda-13", (4, 8)),  # capped at one nvcc job per 4 GiB
-        ("8", "16Gi", "default", (8, 8)),  # no cap without CUDA
-        ("2", "2Gi", "cuda-12", (1, 2)),  # at least one job
+        ("8", "16Gi", "default", (8, 8)),
+        ("2", "2Gi", "cuda-12", (1, 2)),
         ("1500m", "6Gi", "default", (1, 1)),
     ],
 )

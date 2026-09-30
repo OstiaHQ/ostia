@@ -49,12 +49,12 @@ def test_container_arguments():
     i = argv.index("--platform")
     assert argv[i + 1] == "linux/arm64"
     assert argv[argv.index("ostia-pixi-cache:/root/.cache/rattler") - 1] == "-v"
-    assert not any(a.endswith(":/src:ro") for a in argv)  # no worktree mount
+    assert not any(a.endswith(":/src:ro") for a in argv)
     image = next(a for a in argv if a.startswith("ghcr.io/prefix-dev/pixi"))
     assert image.startswith(DIGEST)  # pinned, was :latest
     from ostia_dev import config
 
-    assert image == config.builtin_defaults()["image"]  # the same digest as remote runs
+    assert image == config.builtin_defaults()["image"]
     assert argv[argv.index(image) + 1 :] == ["sh", "-c", script]
 
 
@@ -89,7 +89,7 @@ def test_main_returns_the_containers_exit_code(monkeypatch, tmp_path):
 
     monkeypatch.setattr(check_cuda.subprocess, "run", run)
     assert check_cuda.main(["cuda-12"]) == 7
-    assert seen["stdin"] == str(fake_tar)  # the host-built tarball is the container's stdin
+    assert seen["stdin"] == str(fake_tar)
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ def worktree(tmp_path, monkeypatch):
     git("commit", "-q", "-m", "x", cwd=repo)
     wt = tmp_path / "wt"
     git("worktree", "add", "-q", str(wt), cwd=repo)
-    (wt / "kernel.cu").write_text("__global__ void k() {}\n")  # untracked, worktree only
+    (wt / "kernel.cu").write_text("__global__ void k() {}\n")
     return wt
 
 

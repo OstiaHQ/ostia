@@ -1,9 +1,4 @@
-"""The pipeline guards (RFC-0005 §3.2), run CLI-side on the collected results (Decision 11).
-
-evaluate() turns steps.json, the junit files and what the backend saw (an OOM kill) into
-a Verdict: the test result (0 or 1), whether it was an infrastructure failure (exit 3),
-the failing step and a message. core.final_exit() combines it with teardown.
-"""
+"""The pipeline guards (RFC-0005 §3.2), evaluated CLI-side on the collected results."""
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field

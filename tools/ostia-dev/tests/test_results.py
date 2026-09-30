@@ -94,8 +94,8 @@ def test_artifacts_are_remapped_and_allowlisted(tmp_path):
 @pytest.mark.parametrize(
     "member",
     [
-        {"name": f"{BUILD}/../../../etc/junit.xml"},  # traversal
-        {"name": "/etc/junit.xml"},  # absolute
+        {"name": f"{BUILD}/../../../etc/junit.xml"},
+        {"name": "/etc/junit.xml"},
         {"name": f"{BUILD}/junit-link.xml", "type": tarfile.SYMTYPE, "linkname": "/etc/passwd"},
         {
             "name": f"{BUILD}/junit-hard.xml",
@@ -115,7 +115,7 @@ def test_unsafe_members_are_dropped_and_listed(tmp_path, member, capsys):
     assert dropped == [member["name"]]
     assert (out / "junit.xml").exists()
     assert not (tmp_path / "etc").exists()
-    assert member["name"] in capsys.readouterr().err  # the warning lists it
+    assert member["name"] in capsys.readouterr().err
     assert all(not p.is_symlink() for p in out.rglob("*"))
 
 

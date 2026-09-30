@@ -40,7 +40,7 @@ def test_failure_ref_pr_with_cache_or_env_var(cache, env_vars):
     with pytest.raises(UsageError) as e:
         core.check_ref_rules("pr/12", cache=cache, env_vars=env_vars)
     assert "RFC-0005 §4.10" in e.value.message
-    core.check_ref_rules("3f2a9c1", cache=cache, env_vars=env_vars)  # a SHA is fine
+    core.check_ref_rules("3f2a9c1", cache=cache, env_vars=env_vars)
 
 
 # §3.5, one row per case: (test_code, infra, verified, interrupted, usage) -> exit
@@ -107,7 +107,7 @@ class FakeBackend:
         self.calls: list[tuple[str, str]] = []
         self.steps = steps if steps is not None else _steps(0, 0, 0, 0)
         self.junit = junit
-        self.fail_at = fail_at  # (op, exception)
+        self.fail_at = fail_at
         self.verified = verified
 
     def _op(self, op, run):
@@ -183,7 +183,7 @@ def test_drive_runs_the_operations_in_order_and_passes(cfg, repo, tmp_path, caps
     assert summary["result"] == "passed" and summary["env"] == "default"
     assert summary["parallelism"] == {"build_jobs": 4, "test_jobs": 4}
     assert (run_dir / "junit.xml").exists() and (run_dir / "log.txt").exists()
-    assert run_dir.name in capsys.readouterr().out  # the summary line
+    assert run_dir.name in capsys.readouterr().out
 
 
 def test_drive_failed_tests_exit_1(cfg, repo, tmp_path):
@@ -270,7 +270,7 @@ def test_env_repeat_runs_once_per_env_and_the_worst_wins(cfg, repo, tmp_path):
     )
     assert code == 1
     assert [e for op, e in b.calls if op == "start"] == ["cuda-12", "cuda-13"]
-    assert len(set(runs)) == 2  # each environment is its own run with its own ID
+    assert len(set(runs)) == 2
     assert len(list((tmp_path / "results").iterdir())) == 2
 
 
@@ -321,9 +321,7 @@ def test_ref_runs_skip_the_host_lock_check_and_record_the_sha(
     assert core.drive(FakeBackend(), _spec(tmp_path, ref="abc1234"), cfg=cfg, repo=git_repo) == 0
     assert called == []
     (run_dir,) = (tmp_path / "results").iterdir()
-    assert (
-        json.loads((run_dir / "summary.json").read_text())["git_sha"] == "abc123400000"
-    )  # 12 characters
+    assert json.loads((run_dir / "summary.json").read_text())["git_sha"] == "abc123400000"
 
 
 def test_contributor_code_is_recorded(cfg, git_repo, tmp_path, fake_ref):
@@ -342,13 +340,13 @@ def test_sigterm_during_the_run_tears_down_and_exits_130(cfg, repo, tmp_path):
         b.calls.append(("stream", run.env))
         handler = signal.getsignal(signal.SIGTERM)
         assert callable(handler), "no SIGTERM handler while the run is live"
-        handler(signal.SIGTERM, None)  # what the signal would do
+        handler(signal.SIGTERM, None)
 
     b.stream = stream
     before = signal.getsignal(signal.SIGTERM)
     assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 130
     assert b.calls[-1][0] == "teardown"
-    assert signal.getsignal(signal.SIGTERM) is before  # restored afterwards
+    assert signal.getsignal(signal.SIGTERM) is before
 
 
 def test_a_second_ctrl_c_in_teardown_prints_the_cleanup_command(cfg, repo, tmp_path, capsys):
@@ -356,7 +354,7 @@ def test_a_second_ctrl_c_in_teardown_prints_the_cleanup_command(cfg, repo, tmp_p
 
     def teardown(run):
         b.calls.append(("teardown", run.env))
-        raise KeyboardInterrupt  # the second Ctrl-C
+        raise KeyboardInterrupt
 
     b.teardown = teardown
     b.cleanup_hint = lambda run: f"fake rm {run.run_id}"

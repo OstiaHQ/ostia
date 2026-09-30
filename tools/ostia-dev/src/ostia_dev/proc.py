@@ -42,7 +42,7 @@ def run(
         capture_output=capture,
         check=check,
         text=text,
-        errors="replace" if text else None,  # tool output isn't always UTF-8
+        errors="replace" if text else None,  # tool output isn't always valid UTF-8
         **kwargs,
     )
 
@@ -55,7 +55,7 @@ def stream(cmd: list[str], *, verbose: bool | None = None, **kwargs) -> subproce
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        errors="replace",  # compiler and test output isn't always UTF-8
+        errors="replace",
         bufsize=1,
         **kwargs,
     )

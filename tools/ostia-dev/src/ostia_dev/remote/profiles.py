@@ -1,9 +1,4 @@
-"""Node profiles (RFC-0005 §4.4): a node type, mapped per provider.
-
-A profile's base fields hold its resources; a provider table (`gke`, `eks`, `aks`,
-`generic`) adds the node selector, tolerations and environment for that provider and may
-override base fields. The container backend resolves a profile without a provider.
-"""
+"""Node profiles (RFC-0005 §4.4): a node type, mapped per provider."""
 
 import re
 from dataclasses import dataclass, field
@@ -31,7 +26,7 @@ class Profile:
     node_selector: dict[str, str] = field(default_factory=dict)
     tolerations: list[dict] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
-    extra: dict = field(default_factory=dict)  # fields for later backends (rdma, host_network)
+    extra: dict = field(default_factory=dict)
 
     @property
     def is_gpu(self) -> bool:
@@ -39,7 +34,6 @@ class Profile:
 
     @property
     def cc(self) -> str:
-        """The compute capability without the dot, as CMAKE_CUDA_ARCHITECTURES wants it."""
         return (self.compute_capability or "").replace(".", "")
 
 
