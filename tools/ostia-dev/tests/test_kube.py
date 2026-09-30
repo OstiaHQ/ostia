@@ -124,11 +124,29 @@ def test_every_call_passes_context_and_namespace(name, call, tail):
     assert _argv(r) == [str(KUBECTL), "--context", "gke_p_z_c", "--namespace", "ostia-test", *tail]
 
 
+def test_list_across_all_namespaces():
+    r = Runner((0, '{"kind": "List", "items": []}', ""))
+    _kube(r).list("daemonset", selector="a=b", all_namespaces=True)
+    assert _argv(r) == [
+        str(KUBECTL),
+        "--context",
+        "gke_p_z_c",
+        "get",
+        "daemonset",
+        "-l",
+        "a=b",
+        "-A",
+        "-o",
+        "json",
+    ]
+
+
 def test_cluster_scoped_calls_have_no_namespace():
-    r = Runner((0, '{"kind": "List", "items": []}', ""), (0, "{}", ""))
+    r = Runner((0, '{"kind": "List", "items": []}', ""), (0, "{}", ""), (0, "", ""))
     k = _kube(r)
     k.list("node", namespaced=False)
     k.get("namespace", "ostia-test", namespaced=False)
+    k.delete("namespace", "ostia-test", namespaced=False)
     assert all("--namespace" not in c["cmd"] for c in r.calls)
 
 

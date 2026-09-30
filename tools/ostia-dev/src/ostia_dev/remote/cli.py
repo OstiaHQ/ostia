@@ -14,7 +14,7 @@ from ostia_dev.contract import violation
 from ostia_dev.errors import UsageError
 from ostia_dev.remote.container import ContainerBackend
 from ostia_dev.remote.core import RunSpec, drive
-from ostia_dev.remote.k8s import kubectl, preflight
+from ostia_dev.remote.k8s import admin, kubectl, preflight
 from ostia_dev.remote.k8s.backend import K8sBackend
 from ostia_dev.remote.k8s.kube import Kube
 from ostia_dev.remote.profiles import parse_duration
@@ -284,3 +284,102 @@ def k8s_kubectl(
             typer.echo(f"{key} {sha}")
         return
     typer.echo(f"{kubectl.ensure()} {kubectl.VERSION}")
+
+
+Context = Annotated[str | None, typer.Option(help="kube context (required).")]
+Namespace = Annotated[str | None, typer.Option(help="Namespace. Default: the context's one.")]
+KubectlPath = Annotated[str | None, typer.Option("--kubectl", help="Another kubectl binary.")]
+
+
+def _admin_target(context, namespace, kubectl_path, cfg):
+    spec = RunSpec(
+        backend="k8s",
+        profile="cpu",
+        envs=["default"],
+        results=Path("."),
+        extra={"context": context, "namespace": namespace, "kubectl": kubectl_path},
+    )
+    return preflight.resolve(spec, cfg, kube_factory=Kube)
+
+
+@k8s_app.command("init")
+def k8s_init(
+    context: Context = None,
+    namespace: Namespace = None,
+    privileged: Annotated[
+        bool, typer.Option("--privileged", help="A PSA privileged namespace, for rdma profiles.")
+    ] = False,
+    kubectl_path: KubectlPath = None,
+) -> None:
+    """Create or complete a namespace's guardrails (an admin, once per namespace)."""
+    cfg = config.load()
+    target, kube = _admin_target(context, namespace, kubectl_path, cfg)
+    for line in admin.init(target, kube, cfg=cfg, privileged=privileged):
+        typer.echo(line)
+
+
+@k8s_app.command("verify")
+def k8s_verify(
+    context: Context = None,
+    namespace: Namespace = None,
+    profile: Annotated[str, typer.Option(help="The profile whose pod spec to probe.")] = "cpu",
+    kubectl_path: KubectlPath = None,
+) -> None:
+    """Probe the isolation from a pod with a run's exact spec (§4.6); run on every new cluster."""
+    cfg = config.load()
+    target, kube = _admin_target(context, namespace, kubectl_path, cfg)
+    raise typer.Exit(admin.verify(target, kube, cfg=cfg, profile=profile))
+
+
+@k8s_app.command("cleanup")
+def k8s_cleanup(
+    context: Context = None,
+    namespace: Namespace = None,
+    run_id: Annotated[str | None, typer.Option("--run-id", help="Only this run.")] = None,
+    all_: Annotated[
+        bool, typer.Option("--all", help="Every managed run in the namespace.")
+    ] = False,
+    delete_namespace: Annotated[
+        bool, typer.Option("--delete-namespace", help="Also the namespace, if ostia-dev made it.")
+    ] = False,
+    cache: Annotated[bool, typer.Option("--cache", help="Also the --cache volume.")] = False,
+    yes: Yes = False,
+    kubectl_path: KubectlPath = None,
+) -> None:
+    """Delete your runs (or --run-id, --all), and optionally the cache and the namespace."""
+    cfg = config.load()
+    target, kube = _admin_target(context, namespace, kubectl_path, cfg)
+    for line in admin.cleanup(
+        target,
+        kube,
+        run_id=run_id,
+        all_=all_,
+        cache=cache,
+        delete_namespace=delete_namespace,
+        yes=yes,
+    ):
+        typer.echo(line)
+
+
+@k8s_app.command("profiles")
+def k8s_profiles(
+    context: Annotated[
+        str | None, typer.Option(help="Also check each profile against this cluster's nodes.")
+    ] = None,
+    namespace: Namespace = None,
+    kubectl_path: KubectlPath = None,
+) -> None:
+    """List the profiles after merging the config, with their selectors and resources."""
+    cfg = config.load()
+    if not context:
+        typer.echo(admin.profiles(cfg))
+        return
+    ns = namespace or cfg.context(context).get("namespace") or preflight.DEFAULT_NAMESPACE
+    target, kube = _admin_target(context, ns, kubectl_path, cfg)
+    typer.echo(admin.profiles(cfg, target=target, kube=kube))
+
+
+@k8s_app.command("usage")
+def k8s_usage(results: Results = None) -> None:
+    """Node-hours and cost estimates from the local run records."""
+    typer.echo(admin.usage(results or repo_root() / "build" / "remote"))

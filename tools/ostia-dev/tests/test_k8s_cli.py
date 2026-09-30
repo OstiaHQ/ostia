@@ -168,3 +168,84 @@ def test_installed_missing_context_is_exit_2_before_any_kubectl_call(tmp_path):
     )
     assert r.returncode == 2 and "--context" in r.stderr and "Traceback" not in r.stderr
     assert not (tmp_path / ".cache" / "ostia" / "kubectl").exists()
+
+
+@pytest.fixture
+def admin_calls(monkeypatch, tmp_path):
+    from ostia_dev.remote.k8s import admin
+    from ostia_dev.remote.k8s.preflight import Target
+
+    calls = []
+    target = Target(context="c1", namespace="n1", provider="gke", kubectl=Path("/k"))
+    monkeypatch.setattr(
+        remote_cli,
+        "_admin_target",
+        lambda context, namespace, kubectl_path, cfg: (
+            calls.append(("target", context, namespace)) or (target, "KUBE")
+        ),
+    )
+    for name, ret in (
+        ("init", ["applied Namespace/n1"]),
+        ("verify", 0),
+        ("cleanup", ["nothing to delete"]),
+        ("profiles", "l4: gpu"),
+        ("usage", "c1  l4  1 runs"),
+    ):
+        monkeypatch.setattr(
+            admin, name, lambda *a, _n=name, _r=ret, **kw: calls.append((_n, a, kw)) or _r
+        )
+    monkeypatch.setenv("OSTIA_CONFIG", str(tmp_path / "none.toml"))
+    return calls
+
+
+def test_init_routes_with_privileged(admin_calls):
+    r = _invoke("init", "--context", "c1", "--namespace", "n1", "--privileged")
+    assert r.exit_code == 0, r.output
+    assert "applied Namespace/n1" in r.output
+    (name, args, kw) = admin_calls[-1]
+    assert name == "init" and kw["privileged"] is True
+
+
+def test_verify_exit_code_is_the_probes(admin_calls):
+    assert _invoke("verify", "--context", "c1", "--namespace", "n1").exit_code == 0
+    assert admin_calls[-1][2]["profile"] == "cpu"
+
+
+def test_cleanup_flags(admin_calls):
+    r = _invoke(
+        "cleanup",
+        "--context",
+        "c1",
+        "--namespace",
+        "n1",
+        "--run-id",
+        "r1",
+        "--cache",
+        "--delete-namespace",
+        "--yes",
+    )
+    assert r.exit_code == 0, r.output
+    kw = admin_calls[-1][2]
+    assert (kw["run_id"], kw["cache"], kw["delete_namespace"], kw["yes"], kw["all_"]) == (
+        "r1",
+        True,
+        True,
+        True,
+        False,
+    )
+
+
+def test_profiles_without_a_context_needs_no_cluster(admin_calls):
+    r = _invoke("profiles")
+    assert r.exit_code == 0 and "l4: gpu" in r.output
+    assert not [c for c in admin_calls if c[0] == "target"]
+
+
+def test_profiles_with_a_context(admin_calls):
+    assert _invoke("profiles", "--context", "c1").exit_code == 0
+    assert admin_calls[0][0] == "target" and admin_calls[-1][2]["kube"] == "KUBE"
+
+
+def test_usage(admin_calls, tmp_path):
+    r = _invoke("usage", "--results", str(tmp_path))
+    assert r.exit_code == 0 and "c1  l4  1 runs" in r.output

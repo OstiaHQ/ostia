@@ -257,7 +257,14 @@ class FakeKube:
         obj = self.store.get(self._key(kind, name, namespaced))
         return copy.deepcopy(obj) if obj else None
 
-    def list(self, kind: str, *, selector: str | None = None, namespaced: bool = True) -> list:
+    def list(
+        self,
+        kind: str,
+        *,
+        selector: str | None = None,
+        namespaced: bool = True,
+        all_namespaces: bool = False,
+    ) -> list:
         self._record("list", kind, selector)
         self._check("list", kind)
         kind = kind.lower()
@@ -308,7 +315,13 @@ class FakeKube:
         return copy.deepcopy(obj)
 
     def delete(
-        self, kind: str, name: str | None = None, *, selector: str | None = None, wait: bool = False
+        self,
+        kind: str,
+        name: str | None = None,
+        *,
+        selector: str | None = None,
+        wait: bool = False,
+        namespaced: bool = True,
     ) -> None:
         self._record("delete", kind, name or selector)
         self._check("delete", kind + "s")

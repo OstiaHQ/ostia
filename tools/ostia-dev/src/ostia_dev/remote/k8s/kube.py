@@ -154,9 +154,18 @@ class Kube:
         )
         return doc or None
 
-    def list(self, kind: str, *, selector: str | None = None, namespaced: bool = True) -> list:
+    def list(
+        self,
+        kind: str,
+        *,
+        selector: str | None = None,
+        namespaced: bool = True,
+        all_namespaces: bool = False,
+    ) -> list:
         sel = ["-l", selector] if selector else []
-        return self._json(["get", kind, *sel, "-o", "json"], namespaced=namespaced).get("items", [])
+        every = ["-A"] if all_namespaces else []
+        args = ["get", kind, *sel, *every, "-o", "json"]
+        return self._json(args, namespaced=namespaced and not all_namespaces).get("items", [])
 
     def apply(self, obj: dict) -> dict:
         return self._json(["apply", "-f", "-", "-o", "json"], input=json.dumps(obj))
@@ -170,7 +179,13 @@ class Kube:
         )
 
     def delete(
-        self, kind: str, name: str | None = None, *, selector: str | None = None, wait: bool = False
+        self,
+        kind: str,
+        name: str | None = None,
+        *,
+        selector: str | None = None,
+        wait: bool = False,
+        namespaced: bool = True,
     ) -> None:
         target = [name] if name else ["-l", selector or ""]
         self._run(
@@ -181,7 +196,8 @@ class Kube:
                 "--ignore-not-found",
                 f"--wait={'true' if wait else 'false'}",
                 "--cascade=background",
-            ]
+            ],
+            namespaced=namespaced,
         )
 
     def events(self) -> list[dict]:
