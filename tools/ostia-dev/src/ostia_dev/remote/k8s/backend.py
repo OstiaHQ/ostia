@@ -1,0 +1,435 @@
+"""The `k8s` backend's single-pod lifecycle (RFC-0005 §4.2, §4.5, §4.8).
+
+CLI (Mac)                               pod (supervisor.sh)
+gc: delete this owner's expired Jobs
+create Job (suspend) -> Secret (owned) -> unsuspend
+poll every 3 s (run_status + events)    wait for .ostia/ready
+exec -i tar -x, count files, touch ready -> install, build, command
+logs -f --timestamps, resumed, deduped  <- output
+exec tar -c control files, artifacts
+touch collected (not when kept)         -> exit with the command's code
+delete Job (cascades), poll until gone
+"""
+
+import datetime
+import fnmatch
+import io
+import json
+import sys
+import tarfile
+from pathlib import Path
+
+from ostia_dev.clock import Clock
+from ostia_dev.config import Config
+from ostia_dev.contract import violation
+from ostia_dev.errors import InfraError, UsageError
+from ostia_dev.remote import results, suites
+from ostia_dev.remote.container import supervisor_script
+from ostia_dev.remote.core import SECRET_KEYS, Run, owner_id
+from ostia_dev.remote.k8s import manifests, preflight
+from ostia_dev.remote.k8s.kube import LostConnection
+from ostia_dev.remote.k8s.preflight import Target
+
+FINISHED = "[ostia] finished with exit"
+POLL = 3
+LOST_FOR_GOOD = 120
+TEARDOWN_WAIT = 60
+PULL_ERRORS = ("ErrImagePull", "ImagePullBackOff", "InvalidImageName")
+CACHE_ERRORS = ("volume node affinity conflict", "Multi-Attach error", "had volume")
+
+
+def _secret_keys(env_vars: dict[str, str]) -> set[str]:
+    return {k for k in env_vars if any(fnmatch.fnmatchcase(k.upper(), p) for p in SECRET_KEYS)}
+
+
+def _parse_stamp(text: str) -> datetime.datetime | None:
+    try:
+        return datetime.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.UTC)
+    except (TypeError, ValueError):
+        return None
+
+
+class K8sBackend:
+    name = "k8s"
+
+    def __init__(
+        self, *, cfg: Config, target: Target, kube, clock: Clock | None = None, err=None
+    ) -> None:
+        self.cfg = cfg
+        self.target = target
+        self.kube = kube
+        self.clock = clock or Clock()
+        self.err = err or sys.stderr
+        self.notes: list[str] = []
+
+    def _say(self, text: str) -> None:
+        print(f"[ostia] {text}", file=self.err, flush=True)
+
+    def _infra(
+        self,
+        run: Run,
+        problem: str,
+        details: list[str],
+        fix: str,
+        *,
+        step: str | None,
+        see: str = "RFC-0005 §4.5",
+    ) -> InfraError:
+        return InfraError(
+            violation(
+                problem,
+                [f"run: {run.run_id}", *details],
+                "an infrastructure failure leaves the test result unknown",
+                fix,
+                see,
+            ),
+            step=step,
+        )
+
+    def prepare(self, run: Run) -> None:
+        self.notes = preflight.check(self.target, self.kube, run.profile, yes=run.spec.yes)
+        run.state.update(
+            job=manifests.job_name(run.run_id),
+            keep=run.windows.get("keep", 0),
+            cache=bool(run.spec.extra.get("cache")),
+            secret_keys=_secret_keys(run.env_vars) if run.spec.allow_secret else set(),
+        )
+
+    def gc(self, run: Run) -> list[str]:
+        now = self.clock.now()
+        removed = []
+        jobs = self.kube.list(
+            "job", selector=f"ostia.dev/managed=true,ostia.dev/owner={owner_id()}"
+        )
+        for job in jobs:
+            expires = _parse_stamp(job["metadata"].get("annotations", {}).get("ostia.dev/expires"))
+            if expires and expires < now:
+                self.kube.delete("job", job["metadata"]["name"])
+                removed.append(job["metadata"]["name"])
+        return removed
+
+    def start(self, run: Run) -> None:
+        state = run.state
+        ns = self.target.namespace
+        if state["cache"] and not self.kube.get("persistentvolumeclaim", manifests.CACHE_PVC):
+            size = self.cfg.context(self.target.context).get("cache_size", "100Gi")
+            self.kube.apply(manifests.pvc(ns, size, owner_id()))
+        secret = f"{state['job']}-env" if state["secret_keys"] else None
+        job = manifests.job(
+            run,
+            namespace=ns,
+            script=supervisor_script(),
+            owner=owner_id(),
+            now=self.clock.now(),
+            keep=state["keep"],
+            cache=state["cache"],
+            secret=secret,
+            secret_keys=state["secret_keys"],
+        )
+        created = self.kube.apply(job)
+        state["job_uid"] = created["metadata"]["uid"]
+        state["created"] = True
+        if secret:
+            values = {k: run.env_vars[k] for k in state["secret_keys"]}
+            ref = manifests.owner_reference(created)
+            self.kube.apply(manifests.secret(run.run_id, values, ref, owner_id()))
+        self.kube.patch("job", state["job"], {"spec": {"suspend": False}})
+        self._wait_running(run)
+
+    def _pod(self, items: list[dict]) -> dict | None:
+        pods = [i for i in items if i.get("kind") == "Pod"]
+        return pods[-1] if pods else None
+
+    def _wait_running(self, run: Run) -> None:
+        t0 = self.clock.monotonic()
+        limit = run.windows["schedule_timeout"]
+        last_scheduling, shown = None, set()
+        while True:
+            items = self.kube.run_status(run.run_id).get("items", [])
+            uids = {run.state["job_uid"], *(i["metadata"]["uid"] for i in items)}
+            events = [e for e in self.kube.events() if e["involvedObject"].get("uid") in uids]
+            for e in events:
+                key = (e["reason"], e["message"])
+                if key not in shown:
+                    shown.add(key)
+                    self._say(
+                        f"{round(self.clock.monotonic() - t0)}s {e['reason']}: {e['message']}"
+                    )
+                if e["reason"] == "FailedCreate":
+                    raise UsageError(
+                        violation(
+                            "the cluster refused to create the run's pod",
+                            [e["message"]],
+                            "admission (quota, Pod Security, webhooks) runs before a pod exists",
+                            "fix what the message names, or raise the namespace's quota with init",
+                            "RFC-0005 §4.2",
+                        ),
+                        step="start",
+                    )
+                if e["reason"] == "FailedScheduling":
+                    last_scheduling = e["message"]
+                    if run.state["cache"] and any(c in e["message"] for c in CACHE_ERRORS):
+                        raise self._infra(
+                            run,
+                            "the --cache volume can't be used on this node",
+                            [e["message"], f"volume: {manifests.CACHE_PVC}"],
+                            "rerun without --cache, or remove the volume with "
+                            "ostia-dev remote k8s cleanup --cache",
+                            step="start",
+                            see="RFC-0005 §4.7",
+                        )
+                if any(p in e["message"] for p in PULL_ERRORS):
+                    raise self._infra(
+                        run,
+                        f"the image could not be pulled: {run.image}",
+                        [e["message"]],
+                        "check the image and the node's egress",
+                        step="start",
+                    )
+            pod = self._pod(items)
+            if pod:
+                phase = pod.get("status", {}).get("phase")
+                for cs in pod.get("status", {}).get("containerStatuses", []):
+                    reason = cs.get("state", {}).get("waiting", {}).get("reason", "")
+                    if reason in PULL_ERRORS:
+                        raise self._infra(
+                            run,
+                            f"the image could not be pulled: {run.image}",
+                            [reason],
+                            "check the image",
+                            step="start",
+                        )
+                if phase == "Running":
+                    run.state["pod"] = pod["metadata"]["name"]
+                    run.node = pod["spec"].get("nodeName")
+                    run.phases["node"] = round(self.clock.monotonic() - t0)
+                    return
+                if phase in ("Succeeded", "Failed"):
+                    self._terminal(run, pod, items, step="start")
+            if self.clock.monotonic() - t0 >= limit:
+                raise self._infra(
+                    run,
+                    f"no node took the pod within --schedule-timeout ({limit // 60} min)",
+                    [f"last FailedScheduling: {last_scheduling or '(none)'}"],
+                    f"check [remote.k8s.profiles.{run.profile.name}] (node_selector, "
+                    "tolerations, resources), or raise --schedule-timeout",
+                    step="start",
+                )
+            self.clock.sleep(POLL)
+
+    def upload(self, run: Run) -> None:
+        t0 = self.clock.monotonic()
+        pod = run.state["pod"]
+        with run.tarball.path.open("rb") as f:
+            r = self.kube.exec_in(pod, ["tar", "-x", "-C", suites.WORK], f, check=False)
+        if r.returncode != 0:
+            raise self._upload_failed(run, f"tar -x exited {r.returncode}")
+        count = self.kube.exec_out(
+            pod,
+            [
+                "sh",
+                "-c",
+                f"find {suites.WORK} -type f ! -path '{suites.WORK}/.ostia/*' "
+                f"! -path '{suites.WORK}/home/*' ! -path '{suites.WORK}/cache/*' | wc -l",
+            ],
+        )
+        got = (count.stdout or b"").decode().strip()
+        if got != str(run.tarball.file_count):
+            raise self._upload_failed(
+                run, f"{got or '?'} files arrived, the tarball has {run.tarball.file_count}"
+            )
+        self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/ready"])
+        run.phases["upload"] = round(self.clock.monotonic() - t0)
+
+    def _upload_failed(self, run: Run, detail: str) -> InfraError:
+        return self._infra(
+            run,
+            "the upload into the pod failed",
+            [detail],
+            "a dropped connection, or /w is full: raise ephemeral_storage in "
+            f"[remote.k8s.profiles.{run.profile.name}], then rerun",
+            step="upload",
+            see="RFC-0005 §4.10",
+        )
+
+    def stream(self, run: Run) -> None:
+        last_ts, at_last, lost_since = None, 0, None
+        run.state["last_step"] = None
+        while True:
+            skip = at_last
+            try:
+                for raw in self.kube.logs_follow(run.state["pod"], since_time=last_ts):
+                    ts, _, line = raw.partition(" ")
+                    if last_ts and ts < last_ts:
+                        continue
+                    if ts == last_ts and skip:
+                        skip -= 1
+                        continue
+                    if ts != last_ts:
+                        last_ts, at_last = ts, 0
+                    at_last += 1
+                    lost_since = None
+                    print(line, flush=True)
+                    if line.startswith("[ostia] step ") and " (" in line:
+                        run.state["last_step"] = line.split()[2]
+                    if line.startswith(FINISHED):
+                        return
+            except LostConnection:
+                lost_since = lost_since if lost_since is not None else self.clock.monotonic()
+                if self.clock.monotonic() - lost_since >= LOST_FOR_GOOD:
+                    raise self._infra(
+                        run,
+                        "lost the connection to the cluster for good",
+                        [f"for {LOST_FOR_GOOD}s"],
+                        "the run ends by itself; " + self.cleanup_hint(run),
+                        step=run.state["last_step"],
+                        see="RFC-0005 §4.8",
+                    ) from None
+                self.clock.sleep(POLL)
+                continue
+            items = self.kube.run_status(run.run_id).get("items", [])
+            pod = self._pod(items)
+            if pod is None or pod["status"].get("phase") not in ("Running", "Pending"):
+                self._terminal(run, pod, items, step=run.state["last_step"])
+            self.clock.sleep(1)
+
+    def _terminal(self, run: Run, pod: dict | None, items: list[dict], *, step) -> None:
+        profile = f"[remote.k8s.profiles.{run.profile.name}]"
+        job = next((i for i in items if i.get("kind") == "Job"), {})
+        conds = {c.get("reason") for c in job.get("status", {}).get("conditions", [])}
+        if "DeadlineExceeded" in conds:
+            raise self._infra(
+                run,
+                f"the Job's deadline passed during step {step}",
+                [],
+                "raise --timeout, or shorten the run",
+                step=step,
+                see="RFC-0005 §4.8",
+            )
+        status = (pod or {}).get("status", {})
+        for cs in status.get("containerStatuses", []):
+            if cs.get("state", {}).get("terminated", {}).get("reason") == "OOMKilled":
+                run.oom = True
+                raise self._infra(
+                    run,
+                    f"step {step} ran out of memory (OOMKilled)",
+                    [f"memory limit: {run.profile.memory}"],
+                    f"raise memory in {profile}, or lower the build parallelism",
+                    step=step,
+                    see="RFC-0005 §3.2",
+                )
+        if status.get("reason") == "Evicted":
+            raise self._infra(
+                run,
+                "the pod was evicted",
+                [status.get("message", "")],
+                f"raise ephemeral_storage in {profile}",
+                step=step,
+            )
+        for c in status.get("conditions", []):
+            if c.get("type") == "DisruptionTarget":
+                raise self._infra(
+                    run,
+                    f"the node was preempted or went away ({c.get('reason')})",
+                    [c.get("message", "")],
+                    "rerun the same command",
+                    step=step,
+                )
+        raise self._infra(
+            run,
+            "the pod ended before the run finished",
+            [f"phase: {status.get('phase', 'gone')}"],
+            "rerun; if it repeats, look at kubectl get events",
+            step=step,
+        )
+
+    def _exec_tar(self, run: Run, script: str, path: Path) -> None:
+        with path.open("wb") as f:
+            r = self.kube.exec_out(run.state["pod"], ["sh", "-c", script], stdout=f)
+        if r.returncode != 0:
+            raise self._infra(
+                run,
+                "could not copy the results out of the pod",
+                [f"exit {r.returncode}"],
+                "rerun with -v",
+                step="collect",
+                see="RFC-0005 §3.4",
+            )
+
+    def collect(self, run: Run, workdir: Path) -> tuple[Path, Path]:
+        control, artifacts = workdir / "control.tar", workdir / "artifacts.tar"
+        build_rel = run.plan.build_dir.removeprefix(suites.WORK + "/")
+        self._exec_tar(run, results.control_tar_script(), control)
+        self._exec_tar(run, results.artifact_tar_script(build_rel), artifacts)
+        if run.state["keep"] and self._failed(control):
+            run.state["kept"] = True
+            end = self.clock.now() + datetime.timedelta(seconds=run.state["keep"])
+            self._say(
+                f"kept for debugging until {end:%H:%M:%S} UTC: kubectl --context "
+                f"{self.target.context} --namespace {self.target.namespace} exec -it "
+                f"{run.state['pod']} -- sh   (touch /w/.ostia/collected, Ctrl-C or "
+                f"{self.cleanup_hint(run)} ends it)"
+            )
+        else:
+            self.kube.exec_out(run.state["pod"], ["touch", f"{suites.WORK}/.ostia/collected"])
+        return control, artifacts
+
+    @staticmethod
+    def _failed(control: Path) -> bool:
+        try:
+            with tarfile.open(control) as t:
+                member = next(m for m in t.getmembers() if m.name.endswith("steps.json"))
+                steps = json.load(io.BytesIO(t.extractfile(member).read()))
+        except (StopIteration, tarfile.TarError, ValueError):
+            return True
+        return steps.get("state") != "done" or any(
+            s["code"] != 0 and s["kind"] != "report" for s in steps.get("steps", [])
+        )
+
+    def _wait_kept(self, run: Run) -> None:
+        end = self.clock.monotonic() + run.state["keep"]
+        try:
+            while self.clock.monotonic() < end:
+                pod = self._pod(self.kube.run_status(run.run_id).get("items", []))
+                if not pod or pod["status"].get("phase") not in ("Running", "Pending"):
+                    return
+                self.clock.sleep(POLL)
+        except KeyboardInterrupt:
+            run.state["interrupted"] = True
+
+    def teardown(self, run: Run) -> bool:
+        if not run.state.get("created"):
+            return True
+        if run.state.get("kept"):
+            self._wait_kept(run)
+        try:
+            self.kube.delete("job", run.state["job"])
+            deadline = self.clock.monotonic() + TEARDOWN_WAIT
+            while True:
+                if not self.kube.run_status(run.run_id).get("items"):
+                    return True
+                if self.clock.monotonic() >= deadline:
+                    return False
+                self.clock.sleep(1)
+        except (LostConnection, InfraError, UsageError):
+            return False
+
+    def describe(self, run: Run) -> dict:
+        price = self.cfg.context(self.target.context).get("prices", {}).get(run.profile.name)
+        return {
+            "context": self.target.context,
+            "namespace": self.target.namespace,
+            "provider": self.target.provider,
+            "pod": run.state.get("pod"),
+            "allow_unguarded": self.target.allow_unguarded,
+            "notes": self.notes,
+            "price": price,
+            "cost_estimate": None,
+            "kept": bool(run.state.get("kept")),
+        }
+
+    def cleanup_hint(self, run: Run) -> str:
+        return (
+            f"ostia-dev remote k8s cleanup --context {self.target.context} --namespace "
+            f"{self.target.namespace} --run-id {run.run_id}"
+        )

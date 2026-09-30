@@ -382,6 +382,10 @@ class FakeKube:
         code, out = 0, b""
         if (hit := self._scripted(argv)) is not None:
             code, out = hit
+        elif argv[0] == "touch":
+            f = self.pod_file(pod, argv[1])
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.touch()
         elif argv[:2] == ["sh", "-c"] and argv[2].startswith("find"):
             w = self.root / pod / "w"
             n = sum(

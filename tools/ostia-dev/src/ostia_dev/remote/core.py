@@ -200,6 +200,9 @@ def _windows(cfg: Config, spec: RunSpec) -> dict[str, int]:
     w = {k: parse_duration(v) for k, v in cfg.windows.items()}
     if spec.timeout:
         w["timeout"] = parse_duration(spec.timeout)
+    if spec.extra.get("schedule_timeout"):
+        w["schedule_timeout"] = parse_duration(spec.extra["schedule_timeout"])
+    w["keep"] = parse_duration(spec.extra["keep"]) if spec.extra.get("keep") else 0
     return w
 
 
@@ -338,6 +341,7 @@ def _pipeline(backend: Backend, run: Run, workdir: Path) -> int:
             verified = backend.teardown(run)
         except KeyboardInterrupt:  # a second Ctrl-C: delete requested, not verified
             interrupted, verified = True, False
+        interrupted = interrupted or bool(run.state.get("interrupted"))
     test_code = verdict.test_code if verdict else 0
     code = final_exit(test_code, infra, verified, interrupted, usage=usage)
     failing = verdict.failing_step if verdict else failing
@@ -393,6 +397,8 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
         "bench_results": str(bench) if bench else None,
         **backend.describe(run),
     }
+    if summary.get("price") is not None:
+        summary["cost_estimate"] = round(summary["node_hours"] * summary["price"], 4)
     results.write_summary(run.results_dir, summary)
     if message and code != errors.OK:
         print(message, file=sys.stderr)
