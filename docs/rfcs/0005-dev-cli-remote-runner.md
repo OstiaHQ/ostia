@@ -27,7 +27,7 @@ pixi run ostia-dev remote k8s --context gcp-us-central1-intuigence --profile l4 
 
 creates a pod on an L4 node of that GKE cluster, builds Ostia from the local working tree (uncommitted changes included), runs the GPU tests, prints the results, exits with the test result and deletes the pod.
 
-The remote runner replaces the automated GPU CI of RFC-0001 §4.2 and §4.3. That decision, and what it does to RFC-0001's "Done when" items, is recorded in ADR-0014 ([#22](https://github.com/OstiaHQ/ostia/pull/22), merged after this RFC).
+The remote runner replaces the automated GPU CI of RFC-0001 §4.2 and §4.3. That decision, and what it does to RFC-0001's "Done when" items, is recorded in [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).
 
 ## Motivation
 

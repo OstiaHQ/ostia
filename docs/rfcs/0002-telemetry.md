@@ -5,7 +5,7 @@ status: Accepted
 authors: [ShAlireza]
 components: [telemetry]
 created: 2026-09-26
-updated: 2026-09-27
+updated: 2026-09-29
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/10
@@ -366,7 +366,7 @@ At `trace` level it adds `trace_dropped` and ring fill level.
 | `trace`, tracing off | ≤ 2% vs `off` | One relaxed flag load per event point (§6); no ring memory allocated |
 | `trace`, tracing on, 1% sampling | ≤ 10% vs `off` | Fixed 32-byte records and a release store per event (§5); unsampled roots pay only the sampled-bit check |
 
-**The overhead gate's workload** (RFC-0001 §6.6) is `telemetry/bench/instrumented_loop`, run on the GPU CI L4 (or the quiet box):
+**The overhead gate's workload** (RFC-0001 §6.6) is `telemetry/bench/instrumented_loop`, run on the GPU CI L4 (or the quiet box) *(update: an L4 node with `ostia-dev remote k8s --suite overhead-aa`, since [ADR-0014](../adr/0014-on-demand-remote-test-runs.md) replaced GPU CI)*:
 - **Host part:** a loop that copies chunks of 64 KiB to 4 MiB between pinned buffers. Per chunk it performs two counter adds with one attribute, one histogram record and one begin/end trace-event pair, for an event density of about one event per 10 µs of work.
 - **GPU part:** a kernel that updates two device counters per warp.
 - **Exporter:** OTLP to a local collector every 1 s. GPU counters are on.
