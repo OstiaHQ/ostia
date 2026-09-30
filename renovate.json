@@ -27,6 +27,55 @@
       ],
       "datasourceTemplate": "github-tags",
       "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "The remote-run image in ostia-dev's profiles.toml (RFC-0005 §4.5), pinned by digest",
+      "managerFilePatterns": [
+        "/(^|/)tools/ostia-dev/src/ostia_dev/remote/profiles\\.toml$/"
+      ],
+      "matchStrings": [
+        "image = \"(?<depName>ghcr\\.io/prefix-dev/pixi):(?<currentValue>[0-9.]+-noble)@(?<currentDigest>sha256:[0-9a-f]{64})\""
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "The pixi version setup-pixi installs in CI (RFC-0001 §4.1)",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "pixi-version: v(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "prefix-dev/pixi",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "The minimum pixi version in pixi.toml",
+      "managerFilePatterns": [
+        "/(^|/)pixi\\.toml$/"
+      ],
+      "matchStrings": [
+        "requires-pixi = \">=(?<currentValue>\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "prefix-dev/pixi",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+)",
+      "versioningTemplate": "loose"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "The pixi image, CI's pixi and requires-pixi move together (RFC-0005 §4.5)",
+      "matchDepNames": [
+        "ghcr.io/prefix-dev/pixi",
+        "prefix-dev/pixi"
+      ],
+      "groupName": "pixi"
     }
   ]
 }

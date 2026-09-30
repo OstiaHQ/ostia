@@ -1,0 +1,7 @@
+#!/bin/sh
+# nvidia-smi stub: an L4 with driver 580.95.
+case $* in
+  *compute_cap*) echo "8.9" ;;
+  *driver_version*) echo "580.95.05" ;;
+  *) echo "NVIDIA L4, 580.95.05, 8.9, 23034 MiB" ;;
+esac

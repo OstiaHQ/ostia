@@ -1,0 +1,13 @@
+#!/bin/sh
+# ctest stub: writes a one-test junit to the --output-junit path (relative to the cwd).
+junit=
+while [ $# -gt 0 ]; do
+  case $1 in
+    --output-junit) junit=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+echo "ctest stub: 1 test passed"
+if [ -n "$junit" ]; then
+  printf '<testsuite tests="1" failures="0"><testcase name="t" status="run"/></testsuite>\n' >"$junit"
+fi

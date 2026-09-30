@@ -1,0 +1,4 @@
+install	install	pixi install --locked -e default
+configure	build	pixi run --frozen -e default cmake --preset dev
+build	build	pixi run --frozen -e default cmake --build --preset dev
+test	command	pixi run --frozen -e default ctest --test-dir /w/build/default/dev -L cpu --output-on-failure --output-junit junit.xml

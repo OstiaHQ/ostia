@@ -31,6 +31,16 @@ clang-format = "19.*"
 clang-tools = "19.*"
 python-clang = "19.*" # libclang bindings for tools/ci/check_telemetry_macros.py
 pre-commit = "*"
+typer = ">=0.27,<0.28"  # ostia-dev's argument parsing (RFC-0005 §2.4)
+git = ">=2.56"          # CPM fetches inside remote pods, which cannot apt-get (RFC-0005 §2.4)
+setuptools = ">=77"     # build backend of the ostia-dev editable, without build isolation
+
+# ostia-dev, the contributor CLI, editable in every environment (RFC-0005 §1.1).
+[pypi-dependencies]
+ostia-dev = { path = "tools/ostia-dev", editable = true }
+
+[pypi-options]
+no-build-isolation = ["ostia-dev"] # setuptools comes from conda-forge and the lock
 
 [activation.env]
 OSTIA_BUILD_ROOT = "$PIXI_PROJECT_ROOT/build/$PIXI_ENVIRONMENT_NAME"
