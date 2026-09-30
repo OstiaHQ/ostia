@@ -1,0 +1,1 @@
+Error from server (Forbidden): jobs.batch is forbidden: User "dev@example.com" cannot create resource "jobs" in API group "batch" in the namespace "ostia-test"

@@ -4,31 +4,13 @@ It stands in for ostia_dev.proc (run and stream), so ContainerBackend runs uncha
 """
 
 import io
-import json
 import subprocess
 import tarfile
 from pathlib import Path
 
-JUNIT = Path(__file__).resolve().parents[1] / "fixtures" / "junit"
+from fakes.common import artifact_files, control_files, tar_bytes
+
 FINISHED = "[ostia] finished with exit 0; waiting for the results to be collected\n"
-
-
-def _steps(plan: str) -> dict:
-    steps = []
-    for line in plan.splitlines():
-        name, kind, _ = line.split("\t", 2)
-        steps.append({"name": name, "kind": kind, "code": 0, "seconds": 1, "result": "ok"})
-    return {"schema": 1, "state": "done", "code_wait": "ok", "exit": 0, "steps": steps}
-
-
-def _tar(files: dict[str, bytes]) -> bytes:
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w") as t:
-        for name, data in files.items():
-            info = tarfile.TarInfo(name)
-            info.size = len(data)
-            t.addfile(info, io.BytesIO(data))
-    return buf.getvalue()
 
 
 class _Stream:
@@ -104,7 +86,7 @@ class FakeEngine:
         elif sub == "cp":
             name = cmd[2].split(":")[0]
             files = {f".ostia/{k}": v for k, v in self._control_files(name).items()}
-            return self._write(cmd, kw, _tar(files))
+            return self._write(cmd, kw, tar_bytes(files))
         elif sub == "inspect":
             name = cmd[-1]
             c = self.containers.get(name)
@@ -135,23 +117,16 @@ class FakeEngine:
         return subprocess.CompletedProcess(cmd, rc, None, "")
 
     def _control_files(self, name) -> dict[str, bytes]:
-        steps = _steps(self.containers[name]["env"]["OSTIA_PLAN"])
-        for s in steps["steps"]:
-            if s["name"] in self.step_codes:
-                s["code"] = self.step_codes[s["name"]]
-                s["result"] = "failed"
-        return {"steps.json": json.dumps(steps).encode(), "log.txt": b"".join(
-            line.encode() for line in self.log_lines)}  # fmt: skip
+        env = self.containers[name]["env"]
+        return control_files(env["OSTIA_PLAN"], self.step_codes, self.log_lines)
 
     def _control(self, name) -> bytes:
-        return _tar(self._control_files(name))
+        return tar_bytes(self._control_files(name))
 
     def _artifacts(self, name) -> bytes:
-        build = self.containers[name]["env"]["OSTIA_BUILD_DIR"].removeprefix("/w/")
-        files = {f"{build}/ostia-summary.txt": b"architectures: x\n"}
-        if self.junit:
-            files[f"{build}/junit.xml"] = (JUNIT / self.junit).read_bytes()
-        return _tar(files)
+        return tar_bytes(
+            artifact_files(self.containers[name]["env"]["OSTIA_BUILD_DIR"], self.junit)
+        )
 
     def container(self) -> dict:
         (c,) = self.containers.values()
