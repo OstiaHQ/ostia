@@ -21,10 +21,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--ranks", type=int, default=2)
     parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--tls", default="tcp,self", help="UCX_TLS")
+    parser.add_argument(
+        "--expect", default="tcp/" + LOOPBACK, help="lane rank 1's endpoint must use"
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    env = dict(os.environ, UCX_TLS="tcp,self", UCX_NET_DEVICES=LOOPBACK)
+    env = dict(os.environ, UCX_TLS=args.tls, UCX_NET_DEVICES=LOOPBACK)
     print(f"UCX_TLS={env['UCX_TLS']} UCX_NET_DEVICES={env['UCX_NET_DEVICES']}", flush=True)
     with tempfile.TemporaryDirectory(prefix="ostia-mp-") as rendezvous:
         procs = [
@@ -49,12 +53,14 @@ def main(argv: list[str] | None = None) -> int:
             outputs.append(out)
             codes.append(p.returncode)
             print(f"--- rank {r} (exit {p.returncode})\n{out}", flush=True)
+    if all(code == 77 for code in codes):
+        return 77  # ctest SKIP_RETURN_CODE: the ranks found no CUDA device
     if any(codes):
         return 1
     evidence = outputs[1] if len(outputs) > 1 else ""
-    if "tcp/" + LOOPBACK not in evidence:
+    if args.expect not in evidence:
         print(
-            "error: no tcp lane on the loopback device in rank 1's endpoint info\n"
+            f"error: no {args.expect} lane in rank 1's endpoint info\n"
             f"  rule: the multi-process harness runs over UCX TCP loopback\n"
             f"  fix: check that UCX has the tcp transport (ucx_info -d) and a '{LOOPBACK}' device\n"
             "  see: RFC-0001 §4.1",

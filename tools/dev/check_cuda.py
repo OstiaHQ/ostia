@@ -6,8 +6,8 @@
 
 Runs a linux/arm64 container (native on Apple silicon) with podman or docker, copies
 the working tree into it (tracked and untracked, not ignored, files), and builds the
-release preset with nvcc. No GPU is needed: this is compile-only. Run it before asking
-for the ci:gpu label.
+release preset with nvcc. No GPU is needed: this is compile-only. Run it before opening
+a pull request that changes CUDA code.
 """
 
 import argparse

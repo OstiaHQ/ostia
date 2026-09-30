@@ -24,10 +24,16 @@ target_link_libraries(ostia_telemetry_c_abi PRIVATE ostia::telemetry ostia::tele
 add_test(NAME telemetry.c_abi COMMAND ostia_telemetry_c_abi)
 set_tests_properties(telemetry.c_abi PROPERTIES LABELS cpu)
 
-# CUDA compile-only check (RFC-0001 §1.2; the nvcc-12.8 and nvcc-13 CI jobs).
+# CUDA compile-only check (RFC-0001 §1.2; the nvcc-12.8 and nvcc-13 CI jobs), and the GPU
+# smoke test, label gpu, which skips without a device (§4.2) unless OSTIA_REQUIRE_GPU=1
+# (RFC-0005 §3.2).
 if(CMAKE_CUDA_COMPILER_LOADED)
   add_library(ostia_telemetry_cuda_compile OBJECT cuda_compile.cu)
   target_link_libraries(ostia_telemetry_cuda_compile PRIVATE ostia::telemetry)
+
+  add_executable(ostia_telemetry_gpu_tests gpu_smoke_test.cu)
+  target_link_libraries(ostia_telemetry_gpu_tests PRIVATE GTest::gtest_main)
+  gtest_discover_tests(ostia_telemetry_gpu_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS gpu)
 endif()
 
 # A type error inside a disabled macro still fails to compile at level off (RFC-0001 §5):

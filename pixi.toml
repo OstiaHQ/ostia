@@ -91,6 +91,7 @@ OSTIA_ENABLE_CUDA = "ON"
 cuda-version = "12.8.*"
 cuda-nvcc = "12.8.*"
 cuda-cudart-dev = "12.8.*"
+cuda-sanitizer-api = "12.8.*" # compute-sanitizer for remote runs' sanitizer suite (RFC-0005 §3.3)
 ucx = "*"
 rdma-core = "*"
 
@@ -102,6 +103,7 @@ OSTIA_ENABLE_CUDA = "ON"
 cuda-version = "13.4.*"
 cuda-nvcc = "13.4.*"
 cuda-cudart-dev = "13.4.*"
+cuda-sanitizer-api = "13.4.*"
 ucx = "*"
 rdma-core = "*"
 
