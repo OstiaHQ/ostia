@@ -1,7 +1,7 @@
 ---
 number: 14
 title: Replace automated GPU CI with on-demand remote test runs
-status: Draft
+status: Accepted
 authors: [ShAlireza]
 components: [build]
 created: 2026-09-29
@@ -22,7 +22,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/22
 - The maintainer works on macOS without CUDA, and needs to test uncommitted changes on a GPU. CI runs only what is pushed.
 - An interim plan, ARC runners on a spot L4 pool of the maintainer's GKE cluster, kept automated CI and every fork-safety measure. It was dropped before anything was created.
 
-[RFC-0005](https://github.com/OstiaHQ/ostia/pull/21) designs the replacement: `ostia-dev remote k8s`, which runs Ostia's build and tests in temporary, isolated pods on any Kubernetes cluster and tears them down, and `ostia-dev remote container` for local containers.
+[RFC-0005](../rfcs/0005-dev-cli-remote-runner.md) designs the replacement: `ostia-dev remote k8s`, which runs Ostia's build and tests in temporary, isolated pods on any Kubernetes cluster and tears them down, and `ostia-dev remote container` for local containers.
 
 ## Decision
 

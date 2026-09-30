@@ -290,7 +290,7 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 
 #### 4.2 GPU jobs
 
-> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Automated GPU CI is dropped; GPU testing uses on-demand remote runs designed in [RFC-0005](https://github.com/OstiaHQ/ostia/pull/21). The rule on ctest labels and skipping GPU tests without a device (below, under "What GPU jobs run") stays in force. The text below is kept for the record.
+> **Superseded by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md).** Automated GPU CI is dropped; GPU testing uses on-demand remote runs designed in [RFC-0005](0005-dev-cli-remote-runner.md). The rule on ctest labels and skipping GPU tests without a device (below, under "What GPU jobs run") stays in force. The text below is kept for the record.
 
 **Runner.** An ephemeral AWS `g6.xlarge` (one L4, `sm_89`) per job, started by **Cirun**: it is free for public repositories and supports spot instances with fallback to on-demand. GitHub's own GPU runners were rejected: they are T4 (`sm_75`, below the architecture floor), and larger runners are not free for public repositories. RunsOn was rejected because an open-core company needs its commercial licence.
 

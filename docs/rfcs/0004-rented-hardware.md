@@ -51,7 +51,7 @@ Spend control therefore has to work through each provider's API.
 
 **Non-goals**
 
-- Everyday GPU CI, which uses Cirun in a separate AWS account (RFC-0001 §4.2). *Update: automated GPU CI was dropped by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md); GPU tests run on demand with [RFC-0005](https://github.com/OstiaHQ/ostia/pull/21)'s remote runner.*
+- Everyday GPU CI, which uses Cirun in a separate AWS account (RFC-0001 §4.2). *Update: automated GPU CI was dropped by [ADR-0014](../adr/0014-on-demand-remote-test-runs.md); GPU tests run on demand with [RFC-0005](0005-dev-cli-remote-runner.md)'s remote runner.*
 - Long-lived clusters, and anything Layer 2 will need later (scheduling, membership).
 - Running untrusted code: only maintainers run `rent`, on commits they chose.
 
