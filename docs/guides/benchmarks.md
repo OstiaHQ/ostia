@@ -106,7 +106,7 @@ The M0 gate (RFC-0001 §6.4) runs standalone reference programs from `fabric/ben
 - **Build and smoke tests.** The programs build with the tests: the CUDA ones in the `cuda-12` and `cuda-13` environments, and the UCX ones wherever UCX is installed.
   - Every program has `--smoke`, which runs a small size and checks checksums only.
   - CPU CI runs the UCX programs over TCP loopback: `pixi run -e ucx test-multiprocess`.
-  - On one L4 node, `ostia-dev remote`'s `bench-smoke` suite ([RFC-0005](../rfcs/0005-dev-cli-remote-runner.md); the tool arrives with its Rollout PR A) runs every program, with same-device copies standing in for two GPUs.
+  - On one L4 node, `ostia-dev remote`'s `bench-smoke` suite ([remote-runs.md](remote-runs.md)) runs every program, with same-device copies standing in for two GPUs.
   - `--corrupt` flips one received byte, and the checksum must catch it.
 - **Two-node programs.** Start rank 0 (the target) with `--listen PORT` and rank 1 (the source) with `--connect HOST:PORT`. On one machine, `fabric/tests/multiprocess/launcher.py --ranks 2` starts both.
 - **Calibration.** `tools/bench/oracles.py --print-command` prints the reference tool's command, with parameters matched to the recorded result. `--output` then compares that tool's output with the result.

@@ -21,7 +21,7 @@ You don't need a GPU or a cloud account for anything on this page.
 | 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 without pixi | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
 | 3 | Best effort | Other Linux distributions; building without pixi elsewhere | none |
 
-CPU jobs are in `.github/workflows/ci.yml`. There is no automated GPU CI ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md)): before a pull request that touches GPU code merges, a maintainer runs its GPU tests on a GPU node with `ostia-dev remote` ([RFC-0005](../rfcs/0005-dev-cli-remote-runner.md); the tool arrives with its Rollout PR A).
+CPU jobs are in `.github/workflows/ci.yml`. There is no automated GPU CI ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md)): before a pull request that touches GPU code merges, a maintainer runs its GPU tests on a GPU node with `ostia-dev remote` ([remote-runs.md](remote-runs.md), [RFC-0005](../rfcs/0005-dev-cli-remote-runner.md)).
 
 Tests labelled `gpu` skip with a reason when no CUDA device is present. With `OSTIA_REQUIRE_GPU=1` set, as on a remote run's GPU node, they fail instead.
 

@@ -23,7 +23,7 @@ Ostia is building its M0 foundations. Useful contributions right now are feedbac
 - Keep each pull request to one logical change. Large features land as a series of reviewable pull requests that follow their RFC.
 - Fill in the pull request template, including which RFC the change implements.
 - Add or update tests for behaviour changes, and update the docs in the same pull request.
-- A pull request that touches GPU code (ADR-0014 rule 2 lists what counts) needs a GPU run before it merges. A maintainer reviews the diff, runs the `gpu` suite on a GPU node with `ostia-dev remote` (RFC-0005; the tool arrives with its Rollout PR A), and posts the summary line. You don't need a GPU cluster: ask in a comment.
+- A pull request that touches GPU code (ADR-0014 rule 2 lists what counts) needs a GPU run before it merges. A maintainer reviews the diff, runs the `gpu` suite on a GPU node with `ostia-dev remote` ([docs/guides/remote-runs.md](docs/guides/remote-runs.md)), and posts the summary line. You don't need a GPU cluster: ask in a comment.
 - CI must pass. Every job runs a pixi task you can run locally, and its summary shows the command that reproduces it; `pixi run check` covers the required subset (RFC-0001 §4.1).
 - A maintainer reviews every pull request. Expect a first response within 5 working days. Address review comments with new commits; the pull request is squash-merged, so the history stays clean.
 
