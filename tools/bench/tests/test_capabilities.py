@@ -1,0 +1,87 @@
+from pathlib import Path
+
+import pytest
+
+from tools.bench.capabilities import SetupError, evaluate, load_setup, main
+
+SETUPS = Path(__file__).resolve().parents[3] / "infra" / "setups"
+
+SETUP = """\
+schema: 1
+name: example
+gate: [p2p_copy, dual_link]
+also_run: [topo_capture, onpath_placement]
+max_duration_hours: 2
+max_usd_per_hour: 8
+machines:
+  primary:
+    backend: skypilot
+    cloud: runpod
+    purchase: on-demand
+    nodes: 1
+    accelerators: A100-80GB-SXM:4
+    capabilities: [nvlink-p2p, cuda-ipc]
+  fallback:
+    backend: skypilot
+    cloud: lambda
+    purchase: on-demand
+    nodes: 1
+    accelerators: A100-40GB-SXM:1
+    capabilities: [cuda-ipc]
+"""
+
+
+def test_every_committed_setup_supports_its_gate_on_both_machines():
+    files = sorted(SETUPS.glob("*.yaml"))
+    assert {f.stem for f in files} == {"nvlink-node", "rdma-pair", "tcp-efa-pair"}
+    for f in files:
+        setup = load_setup(f)
+        for machine, results in evaluate(setup).items():
+            missing = [r for r in results if r.required and not r.supported]
+            assert not missing, (f.name, machine, missing)
+
+
+def test_gate_workloads_match_rfc_0001():
+    gates = {f.stem: load_setup(f)["gate"] for f in SETUPS.glob("*.yaml")}
+    assert gates == {
+        "nvlink-node": ["p2p_copy", "pipelining", "batching", "dual_link"],
+        "rdma-pair": ["rdma_put", "gdr_stream", "dual_link"],
+        "tcp-efa-pair": [],
+    }
+
+
+def test_a_missing_gate_capability_fails_and_also_run_is_unsupported(tmp_path, capsys):
+    path = tmp_path / "example.yaml"
+    path.write_text(SETUP)
+    results = {r.workload: r for r in evaluate(load_setup(path))["fallback"]}
+    assert not results["p2p_copy"].supported and results["p2p_copy"].required
+    assert "nvlink-p2p" in results["p2p_copy"].reason
+    assert not results["dual_link"].supported  # one GPU: no two NVLink paths
+    assert not results["onpath_placement"].supported and not results["onpath_placement"].required
+    assert main(["--setups", str(tmp_path)]) == 1
+    out = capsys.readouterr().out
+    assert "error: example/fallback cannot run gate workload p2p_copy" in out
+    assert "unsupported" in out
+
+
+def test_dual_link_across_nodes_needs_two_rails(tmp_path):
+    text = SETUP.replace("nodes: 1", "nodes: 2", 1).replace(
+        "capabilities: [nvlink-p2p, cuda-ipc]", "capabilities: [nvlink-p2p, gpudirect-rdma]", 1
+    )
+    path = tmp_path / "example.yaml"
+    path.write_text(text)
+    results = {r.workload: r for r in evaluate(load_setup(path))["primary"]}
+    assert not results["dual_link"].supported and "multi-rail" in results["dual_link"].reason
+
+
+def test_schema_errors(tmp_path):
+    path = tmp_path / "example.yaml"
+    path.write_text(SETUP.replace("gate: [p2p_copy, dual_link]", "gate: [p2p_kopy]"))
+    with pytest.raises(SetupError, match="unknown workload 'p2p_kopy'"):
+        load_setup(path)
+    path.write_text(SETUP.replace("schema: 1", "schema: 2"))
+    with pytest.raises(SetupError, match="schema"):
+        load_setup(path)
+    path.write_text(SETUP.replace("name: example", "name: other"))
+    with pytest.raises(SetupError, match="file name"):
+        load_setup(path)

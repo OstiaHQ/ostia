@@ -11,6 +11,7 @@ All notable changes to Ostia are documented here. The format follows [Keep a Cha
 - Layering enforcement: configure-time `DEPENDS` check, link walk, resolved-graph check and include scan, all reading `cmake/layering.json`.
 - Telemetry build levels (RFC-0001 §5): `OSTIA_TELEMETRY=off|metrics|trace|debug`, `level-*` presets, the instrumentation macros, catalog handles from `telemetry.toml`, the flavour check and the macro-argument lint; tasks `test-preset`, `test-levels`, `check-macros`.
 - Benchmark harness (RFC-0001 §6.1–§6.3, §6.6): result schema 1, the `ostia-bench` driver over nvbench, `compare.py` with bootstrap intervals and pooled baselines, the telemetry overhead mechanism with an A/A noise floor and self-test; tasks `bench` and `compare`; guide `docs/guides/benchmarks.md`.
+- M0 gate workload programs (RFC-0001 §6.4) in `fabric/bench/`: `p2p_copy`, `pipelining`, `batching`, `dual_link`, `rdma_put`, `gdr_stream` and `tcp_put`, each with `--smoke` and checksums; oracles, bounds, transport evidence and the capability profiles in `infra/setups/`.
 - CPU CI (RFC-0001 §4.1), a nightly all-levels run, and self-hosted Renovate for pixi and CPM pins (§2.4).
 - Python packages `ostia-telemetry` and `ostia-fabric` in the shared `ostia` namespace (PEP 420).
 - Guides `docs/guides/building.md` and `docs/guides/adding-a-component.md`; `THIRD_PARTY_NOTICES`.

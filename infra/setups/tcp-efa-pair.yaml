@@ -1,0 +1,25 @@
+# Reference setup tcp-efa-pair (RFC-0004 §2): informational only, no gate workloads.
+# EFA is measured only if `fi_info -p efa` reports it on the machine.
+schema: 1
+name: tcp-efa-pair
+gate: []
+also_run: [tcp_put, topo_capture]
+max_duration_hours: 2
+max_usd_per_hour: 5 # aggregate for the whole setup, all nodes
+machines:
+  primary:
+    backend: skypilot
+    cloud: aws
+    instance_type: g6.8xlarge
+    purchase: on-demand
+    nodes: 2
+    accelerators: L4:1
+    capabilities: [tcp, efa]
+  fallback:
+    backend: skypilot
+    cloud: aws
+    instance_type: g6.4xlarge
+    purchase: on-demand
+    nodes: 2
+    accelerators: L4:1
+    capabilities: [tcp]

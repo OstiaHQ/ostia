@@ -1,0 +1,26 @@
+# Reference setup nvlink-node (RFC-0004 §2): one node with NVLink GPUs.
+# Checked by tools/bench/capabilities.py; rented by `pixi run rent` (RFC-0004, Rollout PR 7).
+schema: 1
+name: nvlink-node
+gate: [p2p_copy, pipelining, batching, dual_link] # RFC-0001 §6.4: a missing capability fails the gate
+also_run: [onpath_placement, topo_capture] # may be reported as unsupported
+max_duration_hours: 4
+max_usd_per_hour: 8 # aggregate for the whole setup, all nodes
+machines:
+  primary:
+    backend: skypilot
+    cloud: runpod
+    region: any-secure-cloud
+    purchase: on-demand
+    nodes: 1
+    accelerators: A100-80GB-SXM:4
+    capabilities: [nvlink-p2p, cuda-ipc]
+  fallback:
+    backend: skypilot
+    cloud: lambda
+    region: us-east-1
+    purchase: on-demand
+    nodes: 1
+    accelerators: A100-40GB-SXM:8
+    capabilities: [nvlink-p2p, cuda-ipc]
+    max_usd_per_hour: 20
