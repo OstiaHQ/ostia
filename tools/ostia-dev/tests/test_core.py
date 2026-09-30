@@ -364,3 +364,10 @@ def test_a_second_ctrl_c_in_teardown_prints_the_cleanup_command(cfg, repo, tmp_p
     (run_dir,) = (tmp_path / "results").iterdir()
     s = json.loads((run_dir / "summary.json").read_text())
     assert s["teardown"] == "unverified" and s["cleanup"].startswith("fake rm ")
+
+
+def test_supervisor_env_carries_the_git_sha(tmp_path):
+    from fakes.runs import make_run
+
+    run = make_run(tmp_path, "cpu", None)
+    assert run.supervisor_env()["OSTIA_GIT_SHA"] == "3f2a9c1+dirty"

@@ -80,6 +80,7 @@ class Run:
             "CMAKE_BUILD_PARALLEL_LEVEL": str(self.plan.build_jobs),
             "CTEST_PARALLEL_LEVEL": str(self.plan.test_jobs),
             "CTEST_NO_TESTS_ACTION": "error",
+            "OSTIA_GIT_SHA": self.git_sha,
         }
         if self.profile.is_gpu:
             env["OSTIA_REQUIRE_GPU"] = "1"

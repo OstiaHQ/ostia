@@ -68,6 +68,8 @@ spec:
           value: '6'
         - name: CTEST_NO_TESTS_ACTION
           value: error
+        - name: OSTIA_GIT_SHA
+          value: 3f2a9c1+dirty
         - name: OSTIA_REQUIRE_GPU
           value: '1'
         resources:
