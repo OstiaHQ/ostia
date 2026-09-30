@@ -1,0 +1,78 @@
+# Remote runs (RFC-0005 Testing): the ostia-dev remote pipeline end to end without a GPU.
+# container-backend runs the real pipeline in a docker container. Path-filtered on pull
+# requests, so it is not a required check; it also runs nightly and on demand.
+name: Remote
+
+on:
+  pull_request:
+    paths:
+      - tools/ostia-dev/**
+      - tools/ci/gpu_preflight.sh
+      - pixi.toml
+      - pixi.lock
+      - .github/workflows/remote.yml
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remote-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  container-backend:
+    name: container-backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: A stale pixi.lock is exit 2 before any container starts
+        run: |
+          sed -i 's/^pyyaml = "\*"$/pyyaml = "*"\nsix = "*"/' pixi.toml
+          set +e
+          pixi run --frozen ostia-dev remote container --engine docker --env default --suite cpu
+          code=$?
+          set -e
+          git checkout pixi.toml
+          test "$code" -eq 2
+          test -z "$(docker ps -aq --filter label=ostia.dev/managed=true)"
+      - name: pixi run ostia-dev remote container --engine docker --env default --suite cpu
+        run: pixi run ostia-dev remote container --engine docker --env default --suite cpu
+      - name: A failing command exits 1
+        run: |
+          set +e
+          pixi run ostia-dev remote container --engine docker --env default --no-build -- false
+          code=$?
+          set -e
+          test "$code" -eq 1
+      - name: Nothing is left behind
+        if: always()
+        run: test -z "$(docker ps -aq --filter label=ostia.dev/managed=true)"
+      - name: Upload the results
+        if: always()
+        # actions/upload-artifact v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: remote-container-results
+          path: build/remote/
+          if-no-files-found: warn
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### container-backend"
+            echo "Reproduce: \`pixi run ostia-dev remote container --env default --suite cpu\`"
+            echo '```'
+            for f in build/remote/*/summary.json; do
+              python3 -c "import json,sys; s=json.load(open(sys.argv[1])); print(s['run_id'], s['result'], s['exit_code'])" "$f"
+            done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
