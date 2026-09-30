@@ -12,9 +12,12 @@ exit code wins.
 
 import datetime
 import fnmatch
+import getpass
+import hashlib
 import secrets
 import shutil
 import signal
+import socket
 import sys
 import tempfile
 import time
@@ -110,6 +113,12 @@ class Backend(Protocol):
     def collect(self, run: Run, workdir: Path) -> tuple[Path, Path]: ...
     def teardown(self, run: Run) -> bool: ...
     def describe(self, run: Run) -> dict: ...
+
+
+def owner_id() -> str:
+    """ostia.dev/owner: a hash of user@host, so gc and cleanup touch only your runs (§4.8)."""
+    who = f"{getpass.getuser()}@{socket.gethostname()}"
+    return hashlib.sha256(who.encode()).hexdigest()[:12]
 
 
 def run_id(backend: str, profile: str, now: datetime.datetime, rand: str | None = None) -> str:
@@ -281,6 +290,7 @@ def _execute(backend: Backend, run: Run, workdir: Path) -> int:
     if removed:
         print(f"[ostia] removed expired runs: {', '.join(removed)}", file=sys.stderr)
     interrupted = usage = infra = False
+    failing = None
     message = ""
     verdict = None
     ctl = None
@@ -313,9 +323,9 @@ def _execute(backend: Backend, run: Run, workdir: Path) -> int:
         message = "interrupted; tearing down"
         print(f"[ostia] {message}", file=sys.stderr)
     except InfraError as e:
-        infra, message = True, e.message
+        infra, message, failing = True, e.message, e.step
     except UsageError as e:
-        usage, message = True, e.message
+        usage, message, failing = True, e.message, e.step
     finally:
         previous = signal.signal(signal.SIGTERM, _on_sigterm)
         try:
@@ -326,11 +336,14 @@ def _execute(backend: Backend, run: Run, workdir: Path) -> int:
             signal.signal(signal.SIGTERM, previous)
     test_code = verdict.test_code if verdict else 0
     code = final_exit(test_code, infra, verified, interrupted, usage=usage)
-    _finish(run, ctl, verdict, code, verified, message, dropped, time.monotonic() - t0, backend)
+    failing = verdict.failing_step if verdict else failing
+    _finish(
+        run, ctl, failing, code, verified, message, dropped, time.monotonic() - t0, backend, verdict
+    )
     return code
 
 
-def _finish(run, ctl, verdict, code, verified, message, dropped, seconds, backend) -> None:
+def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backend, verdict):
     run.results_dir.mkdir(parents=True, exist_ok=True)
     log = run.results_dir / "log.txt"
     fingerprint = run.results_dir / "fingerprint.txt"
@@ -360,7 +373,7 @@ def _finish(run, ctl, verdict, code, verified, message, dropped, seconds, backen
         "node_hours": round(seconds / 3600, 4),
         "exit_code": code,
         "result": _result(code),
-        "failing_step": verdict.failing_step if verdict else None,
+        "failing_step": failing,
         "message": message,
         "teardown": "verified" if verified else "unverified",
         "env_var_keys": sorted(run.env_vars),

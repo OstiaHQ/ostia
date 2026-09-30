@@ -36,12 +36,17 @@ class Control:
 def control_tar_script(work: str = "/w") -> str:
     """The pod-side command (sh -c) that tars the control files present."""
     names = " ".join(CONTROL)
-    return f'cd {work}/.ostia && tar -cf - -T /dev/null $(for f in {names}; do [ -e "$f" ] && echo "$f"; done)'
+    return (
+        f"cd {work}/.ostia && tar -cf - -T /dev/null "
+        f'$(for f in {names}; do [ -e "$f" ] && echo "$f"; done)'
+    )
 
 
 def artifact_tar_script(build_rel: str, work: str = "/w") -> str:
     """The pod-side command (sh -c) that tars the artifact candidates present."""
-    paths = f"{build_rel}/ostia-summary.txt {build_rel}/junit*.xml {build_rel}/Testing bench/results"
+    paths = (
+        f"{build_rel}/ostia-summary.txt {build_rel}/junit*.xml {build_rel}/Testing bench/results"
+    )
     return (
         f'cd {work} && tar -cf - -T /dev/null $(for p in {paths}; do [ -e "$p" ] && echo "$p"; '
         "done)"
@@ -65,11 +70,13 @@ def extract_control(tar_path: Path, dest: Path) -> Control:
     truncated = False
     with tarfile.open(tar_path) as t:
         for m in t.getmembers():
-            if m.name not in CONTROL or not m.isfile():
+            # `exec tar -c` gives bare names; `engine cp <c>:/w/.ostia -` prefixes .ostia/
+            name = m.name.removeprefix("./").removeprefix(".ostia/")
+            if name not in CONTROL or not m.isfile():
                 continue
             src = t.extractfile(m)
-            limit = LOG_CAP_BYTES if m.name == "log.txt" else None
-            with (dest / m.name).open("wb") as f:
+            limit = LOG_CAP_BYTES if name == "log.txt" else None
+            with (dest / name).open("wb") as f:
                 if limit is not None and m.size > limit:
                     f.write(src.read(limit))
                     f.write(b"\n[ostia] log truncated at 256 MiB; see summary.json\n")

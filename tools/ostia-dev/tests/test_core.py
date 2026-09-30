@@ -7,7 +7,6 @@ import tarfile
 from pathlib import Path
 
 import pytest
-
 from ostia_dev import config
 from ostia_dev.errors import InfraError, UsageError
 from ostia_dev.remote import core
@@ -65,8 +64,10 @@ def test_final_exit(args, code):
     assert core.final_exit(t, infra, verified, interrupted, usage=usage) == code
 
 
-@pytest.mark.parametrize(("codes", "worst"), [([0, 0], 0), ([0, 1], 1), ([4, 1], 1),
-                                              ([1, 3], 3), ([0, 4], 4), ([3, 130], 130)])
+@pytest.mark.parametrize(
+    ("codes", "worst"),
+    [([0, 0], 0), ([0, 1], 1), ([4, 1], 1), ([1, 3], 3), ([0, 4], 4), ([3, 130], 130)],
+)
 def test_worst_exit(codes, worst):
     assert core.worst(codes) == worst
 
@@ -246,7 +247,9 @@ def test_env_repeat_runs_once_per_env_and_the_worst_wins(cfg, repo, tmp_path):
         return original(run, workdir)
 
     b.collect = collect
-    code = core.drive(b, _spec(tmp_path, envs=["cuda-12", "cuda-13"], no_test=True), cfg=cfg, repo=repo)
+    code = core.drive(
+        b, _spec(tmp_path, envs=["cuda-12", "cuda-13"], no_test=True), cfg=cfg, repo=repo
+    )
     assert code == 1
     assert [e for op, e in b.calls if op == "start"] == ["cuda-12", "cuda-13"]
     assert len(set(runs)) == 2  # each environment is its own run with its own ID
@@ -300,7 +303,9 @@ def test_ref_runs_skip_the_host_lock_check_and_record_the_sha(
     assert core.drive(FakeBackend(), _spec(tmp_path, ref="abc1234"), cfg=cfg, repo=git_repo) == 0
     assert called == []
     (run_dir,) = (tmp_path / "results").iterdir()
-    assert json.loads((run_dir / "summary.json").read_text())["git_sha"] == "abc123400000"  # 12 characters
+    assert (
+        json.loads((run_dir / "summary.json").read_text())["git_sha"] == "abc123400000"
+    )  # 12 characters
 
 
 def test_contributor_code_is_recorded(cfg, git_repo, tmp_path, fake_ref):

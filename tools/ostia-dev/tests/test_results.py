@@ -6,7 +6,6 @@ import json
 import tarfile
 
 import pytest
-
 from ostia_dev.errors import InfraError
 from ostia_dev.remote import results
 
@@ -49,7 +48,9 @@ def test_control_files_are_extracted_without_a_cap(tmp_path, monkeypatch):
 
 def test_log_is_truncated_at_the_log_cap(tmp_path, monkeypatch):
     monkeypatch.setattr(results, "LOG_CAP_BYTES", 10)
-    tar = _tar(tmp_path / "c.tar", [_file("steps.json", STEPS.encode()), _file("log.txt", b"b" * 50)])
+    tar = _tar(
+        tmp_path / "c.tar", [_file("steps.json", STEPS.encode()), _file("log.txt", b"b" * 50)]
+    )
     ctl = results.extract_control(tar, tmp_path / "out")
     assert ctl.log_truncated is True
     assert (tmp_path / "out" / "log.txt").read_bytes().startswith(b"b" * 10)
@@ -96,7 +97,11 @@ def test_artifacts_are_remapped_and_allowlisted(tmp_path):
         {"name": f"{BUILD}/../../../etc/junit.xml"},  # traversal
         {"name": "/etc/junit.xml"},  # absolute
         {"name": f"{BUILD}/junit-link.xml", "type": tarfile.SYMTYPE, "linkname": "/etc/passwd"},
-        {"name": f"{BUILD}/junit-hard.xml", "type": tarfile.LNKTYPE, "linkname": f"{BUILD}/junit.xml"},
+        {
+            "name": f"{BUILD}/junit-hard.xml",
+            "type": tarfile.LNKTYPE,
+            "linkname": f"{BUILD}/junit.xml",
+        },
         {"name": f"{BUILD}/junit-dev.xml", "type": tarfile.CHRTYPE, "devmajor": 1, "devminor": 3},
         {"name": f"{BUILD}/Testing/fifo", "type": tarfile.FIFOTYPE},
     ],
@@ -181,17 +186,27 @@ def test_no_tip_when_install_and_build_are_small():
 
 def test_container_summary_has_no_gpu_and_no_cache_tip():
     s = _summary(
-        backend="container", run_id="container-cpu-x", profile="cpu", gpu=None, suite=None, env="default"
+        backend="container",
+        run_id="container-cpu-x",
+        profile="cpu",
+        gpu=None,
+        suite=None,
+        env="default",
     )
     lines = results.summary_lines(s)
-    assert lines[0] == "container-cpu-x  passed  cpu  sha 3f2a9c1+dirty(tree 9ab3…)  env default  18m12s"
+    assert (
+        lines[0]
+        == "container-cpu-x  passed  cpu  sha 3f2a9c1+dirty(tree 9ab3…)  env default  18m12s"
+    )
     assert not any("--cache" in line for line in lines)
 
 
 def test_report_steps_are_shown():
     s = _summary(reports={"aa": {"code": 1, "noise_floor": "±0.812%"}})
-    assert any(line == "  report aa: noise floor ±0.812% (exit 1, never fails the run)"
-               for line in results.summary_lines(s))
+    assert any(
+        line == "  report aa: noise floor ±0.812% (exit 1, never fails the run)"
+        for line in results.summary_lines(s)
+    )
 
 
 def test_noise_floor_is_parsed_from_the_log():

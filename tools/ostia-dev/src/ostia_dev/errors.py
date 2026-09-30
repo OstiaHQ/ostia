@@ -15,9 +15,10 @@ INTERRUPTED = 130  # Ctrl-C
 class OstiaError(Exception):
     code = USAGE
 
-    def __init__(self, message: str, code: int | None = None) -> None:
+    def __init__(self, message: str, code: int | None = None, *, step: str | None = None) -> None:
         super().__init__(message)
         self.message = message
+        self.step = step  # the pipeline step it happened in, for summary.json
         if code is not None:
             self.code = code
 

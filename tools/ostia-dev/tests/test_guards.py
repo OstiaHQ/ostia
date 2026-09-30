@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-
 from ostia_dev.remote import guards
 
 JUNIT = Path(__file__).parent / "fixtures" / "junit"
@@ -16,8 +15,7 @@ def _steps(*steps, state="done", code_wait="ok"):
         "code_wait": code_wait,
         "exit": 0,
         "steps": [
-            {"name": n, "kind": k, "code": c, "seconds": 1, "result": r}
-            for n, k, c, r in steps
+            {"name": n, "kind": k, "code": c, "seconds": 1, "result": r} for n, k, c, r in steps
         ],
     }
 
@@ -86,7 +84,9 @@ def test_terminated_is_infra():
 
 
 def test_failure_out_of_memory_kill():
-    v = _eval(_steps(OK[0], ("build", "build", 137, "failed")), oom=True, memory="24Gi", profile="l4")
+    v = _eval(
+        _steps(OK[0], ("build", "build", 137, "failed")), oom=True, memory="24Gi", profile="l4"
+    )
     assert v.infra and v.failing_step == "build"
     assert "24Gi" in v.message and "profiles.l4" in v.message and "memory" in v.message
 
@@ -109,9 +109,13 @@ def test_no_test_runs_need_no_junit():
 
 
 def test_expected_summary_line_missing_is_infra():
-    v = _eval(_steps(*OK), ["pass.xml"], gpu=True,
-              expect_summary="architectures: native (dev preset, GPU detected (8.9))",
-              summary_text="architectures: 80-real;90-real;100 (dev preset, no GPU detected: release list)\n")
+    v = _eval(
+        _steps(*OK),
+        ["pass.xml"],
+        gpu=True,
+        expect_summary="architectures: native (dev preset, GPU detected (8.9))",
+        summary_text="architectures: 80-real;90-real;100 (dev preset, no GPU detected)\n",
+    )
     assert v.infra and "native" in v.message
 
 

@@ -87,7 +87,9 @@ def evaluate(
         if s["code"] == 0 or s["kind"] == "report":
             continue
         if s["kind"] in ("preflight", "install"):
-            return done(_infra(s["name"], f"{s['kind']} step {s['name']} failed (exit {s['code']})"))
+            return done(
+                _infra(s["name"], f"{s['kind']} step {s['name']} failed (exit {s['code']})")
+            )
         return done(Verdict(1, False, s["name"], f"step {s['name']} failed (exit {s['code']})"))
     if [s["name"] for s in ran] != planned:
         missing = [n for n in planned if n not in {s["name"] for s in ran}]

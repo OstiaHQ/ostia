@@ -10,6 +10,7 @@ import sys
 import time
 import traceback
 from importlib.metadata import version
+from typing import Annotated
 
 import typer
 
@@ -67,12 +68,13 @@ def _version(value: bool) -> None:
 
 @app.callback()
 def main(
-    show_version: bool = typer.Option(
-        False, "--version", callback=_version, is_eager=True, help="Print the version."
-    ),
-    verbose: bool = typer.Option(
-        False, "-v", "--verbose", help="Print every external command it runs."
-    ),
+    show_version: Annotated[
+        bool,
+        typer.Option("--version", callback=_version, is_eager=True, help="Print the version."),
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("-v", "--verbose", help="Print every external command it runs.")
+    ] = False,
 ) -> None:
     """Ostia's contributor CLI (RFC-0005)."""
     if verbose:
@@ -81,9 +83,9 @@ def main(
 
 @app.command("_selftest", hidden=True)
 def _selftest(
-    code: int = typer.Option(0, help="Raise an OstiaError with this exit code."),
-    crash: bool = typer.Option(False, help="Raise an unexpected exception."),
-    sleep: float = typer.Option(0.0, help="Sleep this many seconds (for the SIGINT test)."),
+    code: Annotated[int, typer.Option(help="Raise an OstiaError with this exit code.")] = 0,
+    crash: Annotated[bool, typer.Option(help="Raise an unexpected exception.")] = False,
+    sleep: Annotated[float, typer.Option(help="Sleep this many seconds (SIGINT test).")] = 0.0,
 ) -> None:
     """Test hook for the entry point's error mapping (tests/test_errors.py)."""
     if code:
