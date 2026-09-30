@@ -20,7 +20,9 @@ def _isolated_git(tmp_path_factory, monkeypatch):
     """No global or system git config (signing, hooks, templates) leaks into the tests."""
     home = tmp_path_factory.mktemp("gitconfig")
     cfg = home / "config"
-    cfg.write_text("[user]\n\tname = Test\n\temail = test@example.com\n[init]\n\tdefaultBranch = main\n")
+    cfg.write_text(
+        "[user]\n\tname = Test\n\temail = test@example.com\n[init]\n\tdefaultBranch = main\n"
+    )
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(cfg))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
 

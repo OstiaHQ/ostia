@@ -5,7 +5,6 @@ import tarfile
 
 import pytest
 from conftest import git
-
 from ostia_dev.errors import UsageError
 from ostia_dev.remote import tarball
 

@@ -54,7 +54,7 @@ class Tarball:
 
 def _git_error(root: Path, what: str, err: str) -> UsageError:
     return UsageError(
-            violation(
+        violation(
             f"git {what} failed in {root}",
             err.strip().splitlines()[:5],
             "the upload is built from git on the host (RFC-0005 §4.10)",
@@ -142,8 +142,10 @@ def _from_worktree(root: Path, out_dir: Path | None) -> Tarball:
         sizes[f] = len(data)
         count += 1
         if f in untracked and len(data) > WARN_BYTES:
-            print(f"warning: uploading a large untracked file: {f} "
-                  f"({len(data) / 1024**2:.0f} MB)", file=sys.stderr)
+            print(
+                f"warning: uploading a large untracked file: {f} ({len(data) / 1024**2:.0f} MB)",
+                file=sys.stderr,
+            )
         entries.append((_info(f, size=len(data), executable=os.access(p, os.X_OK)), data))
     total = sum(sizes.values())
     if total > MAX_BYTES:
@@ -213,4 +215,3 @@ def worktree_sha(root: Path) -> str:
     sha = _git(root, "rev-parse", "--short", "HEAD").strip()
     dirty = proc.run(["git", "-C", str(root), "status", "--porcelain"]).stdout.strip()
     return f"{sha}+dirty" if dirty else sha
-
