@@ -2,9 +2,8 @@
 
 from importlib.metadata import version
 
-from typer.testing import CliRunner
-
 from ostia_dev.cli import app
+from typer.testing import CliRunner
 
 
 def test_help_lists_remote():
