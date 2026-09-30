@@ -1,0 +1,9 @@
+# The official kubectl that remote k8s runs use (RFC-0005 §4.1), checked against these
+# sha256 sums before first use. Renovate bumps the version; its post-upgrade task
+# `pixi run ostia-dev remote k8s kubectl --update-shas` refills the sums.
+version = "v1.36.5"
+
+[sha256]
+linux-amd64 = "33bc88a24c3b09cf55bfd59e6ca977881b61fc3f25ab65bc80c65b430248648e"
+linux-arm64 = "88fc1aca8fd0c1b44fe379f67c39bd6858bdfc50241dc55775f84d0f5b31da3a"
+darwin-arm64 = "c5850a4a6b9469b26cce47c1ab456285f58e308283dcdf72b4ddda3db49b0ec0"

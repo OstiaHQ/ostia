@@ -85,7 +85,7 @@ schema = 1
 [remote.k8s.contexts.gcp-us-central1-intuigence]
 provider = "gke"                # gke | eks | aks | generic
 namespace = "ostia-test"        # default for this context; --namespace overrides it
-kubectl = "/usr/local/bin/kubectl"   # optional; defaults to the pixi-pinned kubectl
+kubectl = "/usr/local/bin/kubectl"   # optional; defaults to the pinned kubectl (§4.1)
 
 [remote.k8s.profiles.l4.gke]    # override one built-in field
 ephemeral_storage = "80Gi"
@@ -178,7 +178,7 @@ This RFC is the approval that `docs/README.md` requires.
 | Dependency | Licence | Purpose | Source | Environments |
 | --- | --- | --- | --- | --- |
 | typer 0.27 (with rich, shellingham, annotated-doc, colorama) *(update: Rollout PR A; click is vendored inside typer and no longer a separate dependency)* | MIT AND BSD-3-Clause; MIT; ISC; MIT; BSD-3-Clause | Argument parsing, help, completion | conda-forge | all |
-| kubectl (`kubernetes-client`) | Apache-2.0 | Talking to clusters (§4.1) | conda-forge, pinned | all |
+| kubectl, official release binary *(update: Rollout PR A; not conda-forge's `kubernetes-client`, which was 1.34 on linux-64 and osx-arm64 and 1.24 on linux-aarch64, outside the version-skew policy for 1.36–1.37 servers)* | Apache-2.0 | Talking to clusters (§4.1) | dl.k8s.io, a pinned version and per-platform sha256, downloaded and verified by ostia-dev on first use | all |
 | git | GPL-2.0 (tool only, not linked) | CPM fetches source dependencies by `GIT_TAG` inside pods, which run as non-root and cannot install packages (§4.5) | conda-forge | all |
 | setuptools *(update: Rollout PR A)* | MIT | Build only: the build backend of the `ostia-dev` editable, installed from conda-forge and used without build isolation, so nothing comes from PyPI at install time | conda-forge | all |
 
@@ -226,7 +226,7 @@ Common flags for every backend:
 | `--cache` | off | Mount the download cache (§4.7) |
 | `--keep-on-failure[=N]` | off (30 min when given) | Keep a failed pod for debugging (§4.8) |
 | `--allow-unguarded` | off | Run in a namespace without guardrails (§4.3) |
-| `--kubectl PATH` | the pixi-pinned kubectl | Another kubectl binary (§4.1) |
+| `--kubectl PATH` | the pinned kubectl (§4.1) | Another kubectl binary (§4.1) |
 
 `container` only: `--gpus` (pass the host's NVIDIA GPUs through, §5) and `--engine podman|docker` (default: whichever is found first). *Update (Rollout PR A): `container` also takes `--profile` (default `cpu`). `--gpus` needs a GPU profile, for example `--profile l4` on an L4 workstation, which supplies the compute capability, the GPU preflight and `OSTIA_REQUIRE_GPU`; a GPU profile without `--gpus` is an exit 2. The run ID is `container-<profile>-…`.*
 
@@ -305,7 +305,7 @@ The test result wins: a failed run whose teardown also can't be verified exits 1
 
 #### 4.1 Talking to the cluster
 
-- The backend drives a pinned `kubectl` as a subprocess with generated manifests (`apply -f -`, `wait`, `logs -f`, `exec -i`, `delete`). It uses the developer's kubeconfig and credential plugins unchanged, and has kubectl's proven tar-over-exec path. There is no Python Kubernetes client. All calls go through one thin `Kube` wrapper, which is what the unit tests replace (Testing).
+- The backend drives a pinned `kubectl` *(update: Rollout PR A: the official release binary, v1.36.5 at first, downloaded to `~/.cache/ostia/kubectl/<version>/` and checked against the sha256 table in `ostia_dev/remote/k8s/kubectl.toml`; Renovate bumps it)* as a subprocess with generated manifests (`apply -f -`, `wait`, `logs -f`, `exec -i`, `delete`). It uses the developer's kubeconfig and credential plugins unchanged, and has kubectl's proven tar-over-exec path. There is no Python Kubernetes client. All calls go through one thin `Kube` wrapper, which is what the unit tests replace (Testing).
 - `--context` is required on every run. The tool never falls back to kubectl's current context, so a run can't land on the wrong cluster.
 - kubectl errors are mapped, not passed through raw: `Forbidden` names the missing verb and resource and the Role that grants it (§4.3); a missing or expired credential plugin names the plugin and its login command for the provider. Both are exit 2.
 - Preflight reads `kubectl version -o json`. If client and server are more than one minor version apart (outside Kubernetes' version-skew policy), it prints a warning naming both versions and the fix: a newer pin, or `--kubectl PATH` / `kubectl = "…"` in the config.

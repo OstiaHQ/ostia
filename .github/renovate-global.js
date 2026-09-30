@@ -9,4 +9,6 @@ module.exports = {
   requireConfig: "required",
   binarySource: "install",
   allowedUnsafeExecutions: ["pixi"],
+  // The kubectl bump refills its sha256 table (RFC-0005 §4.1).
+  allowedCommands: ["^pixi run ostia-dev remote k8s kubectl --update-shas$"],
 };
