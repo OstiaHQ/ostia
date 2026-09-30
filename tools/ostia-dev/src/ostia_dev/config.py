@@ -98,7 +98,7 @@ def load(path: Path | None = None, *, builtins: dict | None = None) -> Config:
     )
 
 
-def _basic(s: str) -> str:
+def basic_string(s: str) -> str:
     """A TOML basic string: quotes, backslashes and control characters escaped."""
     out = []
     for ch in s:
@@ -117,7 +117,7 @@ def _value(v: object) -> str:
     if isinstance(v, int | float):
         return repr(v)
     if isinstance(v, str):
-        return _basic(v)
+        return basic_string(v)
     raise ValueError(f"append_table writes scalar values only, not {type(v).__name__}")
 
 
@@ -153,7 +153,7 @@ def append_table(path: Path, table: tuple[str, ...], values: dict[str, object]) 
     if start is None:
         if rows and not rows[-1].endswith("\n"):
             rows[-1] += "\n"
-        header = "[" + ".".join(_basic(s) for s in table) + "]\n"
+        header = "[" + ".".join(basic_string(s) for s in table) + "]\n"
         rows += ["\n", header, *lines]
     else:
         end = next(
