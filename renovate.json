@@ -78,6 +78,18 @@
       ],
       "depNameTemplate": "kubernetes/kubernetes",
       "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "The kind node image of remote.yml's kind job (RFC-0005 Testing)",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/workflows/remote\\.yml$/"
+      ],
+      "matchStrings": [
+        "KIND_NODE: (?<depName>kindest/node):(?<currentValue>v[0-9.]+)@(?<currentDigest>sha256:[0-9a-f]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     }
   ],
   "packageRules": [

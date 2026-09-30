@@ -1,0 +1,22 @@
+# The kind job's ostia-dev config (remote.yml): a 4-CPU runner, and windows short enough
+# that a killed CLI's run ends by itself within the job.
+schema = 1
+
+[remote.windows]
+code_wait = "60s"
+collect = "30s"
+ttl = "20s"
+margin = "2m"
+schedule_timeout = "5m"
+
+[remote.k8s.contexts.kind-ostia]
+provider = "generic"
+namespace = "ostia-test"
+
+[remote.k8s.profiles.cpu]
+cpu = "2"
+memory = "4Gi"
+ephemeral_storage = "10Gi"
+
+[remote.k8s.profiles.cpu.generic]
+node_selector = { "kubernetes.io/os" = "linux" }
