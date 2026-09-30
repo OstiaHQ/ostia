@@ -5,3 +5,6 @@
 /bench/results/
 __pycache__/
 *.egg-info/
+# Local secrets: never committed, never uploaded to remote runs (RFC-0005 §4.10).
+.env
+.env.*
