@@ -270,3 +270,23 @@ def test_role_rules_match_rfc_4_3_plus_secrets():
 def test_dump_writes_block_scalars_for_multiline_strings():
     text = manifests.dump([{"a": "one\ntwo\n"}])
     assert "a: |" in text and yaml.safe_load(text) == {"a": "one\ntwo\n"}
+
+
+def test_dns_is_kube_dns_only_without_nodelocal():
+    (egress,) = [o for o in manifests.guardrails("n") if o["metadata"]["name"] == "ostia-egress"]
+    dns = egress["spec"]["egress"][0]
+    assert dns["to"] == [
+        {
+            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}},
+            "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}},
+        }
+    ]
+
+
+def test_dns_goes_anywhere_with_nodelocal_but_https_stays_blocked():
+    objs = manifests.guardrails("n", nodelocal_dns=True)
+    (egress,) = [o for o in objs if o["metadata"]["name"] == "ostia-egress"]
+    dns, https = egress["spec"]["egress"]
+    assert "to" not in dns and sorted(p["protocol"] for p in dns["ports"]) == ["TCP", "UDP"]
+    assert {p["port"] for p in dns["ports"]} == {53}
+    assert "169.254.0.0/16" in https["to"][0]["ipBlock"]["except"]

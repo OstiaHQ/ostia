@@ -22,8 +22,9 @@ PROBE = r"""set -u
 mkdir -p "$HOME"
 say() { echo "$1 $2 $3"; }
 c() { pixi exec --spec curl curl -sS -o /dev/null --max-time 5 "$@" 2>/dev/null; }
-if ! pixi exec --spec curl curl --version >/dev/null 2>&1; then
-  say FAIL curl "pixi exec curl failed: HTTPS to conda-forge is blocked, so no network check ran"
+if ! err=$(pixi exec --spec curl curl --version 2>&1 >/dev/null); then
+  err=$(printf '%s' "$err" | grep -v '^ *$' | tail -n 1)
+  say FAIL curl "pixi exec curl failed (DNS or HTTPS to conda-forge blocked), no check ran: $err"
   echo "[ostia] probe done"; exit 1
 fi
 say PASS curl "pixi exec curl works"

@@ -17,7 +17,6 @@ PRIVATE_RANGES = [
     "100.64.0.0/10",
     "169.254.0.0/16",
 ]
-NODELOCAL_DNS = "169.254.20.10/32"
 QUOTA = {
     "requests.nvidia.com/gpu": "4",
     "limits.cpu": "64",
@@ -204,14 +203,19 @@ def guardrails(
 ) -> list[dict]:
     level = "privileged" if privileged else "restricted"
     managed = {"ostia.dev/managed": "true"}
-    dns_to = [
-        {
-            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}},
-            "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}},
-        }
-    ]
-    if nodelocal_dns:
-        dns_to.append({"ipBlock": {"cidr": NODELOCAL_DNS}})
+    dns = {"ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]}
+    if not nodelocal_dns:
+        dns["to"] = [
+            {
+                "namespaceSelector": {
+                    "matchLabels": {"kubernetes.io/metadata.name": "kube-system"}
+                },
+                "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}},
+            }
+        ]
+    # With NodeLocal DNSCache the answers come from a host-network pod, which neither a pod
+    # selector nor an ipBlock matches on every CNI (GKE Dataplane V2 drops about a third of
+    # the lookups), so DNS may go to any destination; HTTPS and the metadata API stay blocked.
     blocked = PRIVATE_RANGES + [c for c in blocked_cidrs if c not in PRIVATE_RANGES]
     meta = lambda name: {"name": name, "namespace": namespace, "labels": dict(managed)}  # noqa: E731
     return [
@@ -269,10 +273,7 @@ def guardrails(
                 "podSelector": {},
                 "policyTypes": ["Egress"],
                 "egress": [
-                    {
-                        "to": dns_to,
-                        "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}],
-                    },
+                    dns,
                     {
                         "to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": blocked}}],
                         "ports": [{"protocol": "TCP", "port": 443}],

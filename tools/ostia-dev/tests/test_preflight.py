@@ -275,6 +275,6 @@ def test_yes_creates_a_namespace_with_the_detected_guardrails(fake, cfg_path):
     target, kube = _resolve(fake, cfg)
     preflight.check(target, kube, profiles.resolve("l4", "gke", cfg), yes=True, cfg=cfg)
     (egress,) = [p for p in fake.list("networkpolicy") if p["metadata"]["name"] == "ostia-egress"]
-    assert {"ipBlock": {"cidr": "169.254.20.10/32"}} in egress["spec"]["egress"][0]["to"]
+    assert "to" not in egress["spec"]["egress"][0]  # DNS to any destination with NodeLocal
     assert "34.118.224.0/20" in egress["spec"]["egress"][1]["to"][0]["ipBlock"]["except"]
     assert fake.get("resourcequota", "ostia-test-quota")["spec"]["hard"]["pods"] == "3"

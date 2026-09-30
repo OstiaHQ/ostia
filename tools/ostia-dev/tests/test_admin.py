@@ -107,7 +107,9 @@ def test_init_allows_nodelocal_dns_when_it_runs(fake, target, cfg):
     )
     admin.init(target, fake, cfg=cfg)
     (egress,) = [p for p in fake.list("networkpolicy") if p["metadata"]["name"] == "ostia-egress"]
-    assert {"ipBlock": {"cidr": "169.254.20.10/32"}} in egress["spec"]["egress"][0]["to"]
+    dns = egress["spec"]["egress"][0]
+    # the node's DNS cache can't be selected on every CNI (GKE Dataplane V2), so any destination
+    assert "to" not in dns and {"protocol": "UDP", "port": 53} in dns["ports"]
 
 
 def test_init_privileged(fake, target, cfg):
@@ -308,3 +310,17 @@ def test_init_keeps_ipv4_cidrs_only(fake, target, cfg):
     (egress,) = [p for p in fake.list("networkpolicy") if p["metadata"]["name"] == "ostia-egress"]
     blocked = egress["spec"]["egress"][1]["to"][0]["ipBlock"]["except"]
     assert "34.118.224.0/20" in blocked and not [c for c in blocked if ":" in c]
+
+
+def test_verify_shows_pixis_error_when_curl_is_missing(fake, clock, target, cfg, capsys):
+    lines = [
+        "FAIL curl pixi exec curl failed: dns error: failed to lookup address",
+        "[ostia] probe done",
+    ]
+    fake.script([(3, pod_phase("Running")), (6, log(lines)), (7, pod_phase("Succeeded"))])
+    assert admin.verify(target, fake, cfg=cfg, profile="cpu", clock=clock) == 1
+    assert "dns error" in capsys.readouterr().out
+
+
+def test_the_probe_passes_pixis_error_through():
+    assert "err=$(pixi exec --spec curl curl --version 2>&1" in admin.PROBE
