@@ -5,7 +5,7 @@ status: Accepted
 authors: [ShAlireza]
 components: [build, docs]
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-09-30
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/21
@@ -177,11 +177,12 @@ This RFC is the approval that `docs/README.md` requires.
 
 | Dependency | Licence | Purpose | Source | Environments |
 | --- | --- | --- | --- | --- |
-| typer (with click, rich, shellingham) | MIT; BSD-3-Clause; MIT; ISC | Argument parsing, help, completion | conda-forge | all |
+| typer 0.27 (with rich, shellingham, annotated-doc, colorama) *(update: Rollout PR A; click is vendored inside typer and no longer a separate dependency)* | MIT AND BSD-3-Clause; MIT; ISC; MIT; BSD-3-Clause | Argument parsing, help, completion | conda-forge | all |
 | kubectl (`kubernetes-client`) | Apache-2.0 | Talking to clusters (§4.1) | conda-forge, pinned | all |
 | git | GPL-2.0 (tool only, not linked) | CPM fetches source dependencies by `GIT_TAG` inside pods, which run as non-root and cannot install packages (§4.5) | conda-forge | all |
+| setuptools *(update: Rollout PR A)* | MIT | Build only: the build backend of the `ostia-dev` editable, installed from conda-forge and used without build isolation, so nothing comes from PyPI at install time | conda-forge | all |
 
-PR A measures whether `typer-slim` (without rich) is enough; if it is, that is used instead and the table is updated in the PR. Cloud credential plugins (`gke-gcloud-auth-plugin`, `aws`, `kubelogin`) are not dependencies: kubectl uses whatever the developer's kubeconfig names, and the guide lists them per provider.
+PR A measures whether `typer-slim` (without rich) is enough; if it is, that is used instead and the table is updated in the PR. *Update (Rollout PR A): measured. `typer-slim` 0.24 is a shim that depends on `typer` itself, on conda-forge and on PyPI alike, so choosing it drops nothing; PR A uses plain `typer` (`>=0.27,<0.28`). conda-forge's `typer` depends on colorama on every platform, though typer only uses it on Windows.* Cloud credential plugins (`gke-gcloud-auth-plugin`, `aws`, `kubelogin`) are not dependencies: kubectl uses whatever the developer's kubeconfig names, and the guide lists them per provider.
 
 ### 3. Remote runs
 
@@ -227,7 +228,7 @@ Common flags for every backend:
 | `--allow-unguarded` | off | Run in a namespace without guardrails (§4.3) |
 | `--kubectl PATH` | the pixi-pinned kubectl | Another kubectl binary (§4.1) |
 
-`container` only: `--gpus` (pass the host's NVIDIA GPUs through, §5) and `--engine podman|docker` (default: whichever is found first).
+`container` only: `--gpus` (pass the host's NVIDIA GPUs through, §5) and `--engine podman|docker` (default: whichever is found first). *Update (Rollout PR A): `container` also takes `--profile` (default `cpu`). `--gpus` needs a GPU profile, for example `--profile l4` on an L4 workstation, which supplies the compute capability, the GPU preflight and `OSTIA_REQUIRE_GPU`; a GPU profile without `--gpus` is an exit 2. The run ID is `container-<profile>-…`.*
 
 #### 3.2 Pipeline
 
@@ -483,7 +484,7 @@ stateDiagram-v2
 
 - kubeconfig, tokens and cloud credentials never leave the Mac; kubectl uses them locally.
 - No environment variables are forwarded by default. `--env-var KEY=VALUE` passes one, and its key (never its value) is recorded in `summary.json`. Keys matching `*TOKEN*`, `*SECRET*`, `*KEY*` or `*PASSWORD*` are refused unless `--allow-secret` is given; allowed secret values go into a per-run Secret owned by the Job and reach the pod as environment variables from it.
-- **Upload:** the CLI builds the tarball on the Mac in `prepare`, before anything exists in the cluster. It holds `git ls-files -co --exclude-standard` minus `git ls-files -d`: tracked and untracked files, without tracked files deleted locally and never git-ignored ones such as `.env` or `build/`. That's the set `check_cuda.py` copies. The CLI warns about untracked files over 10 MB and refuses a tarball over 500 MB. The tree hash and size go into `summary.json`.
+- **Upload:** the CLI builds the tarball on the Mac in `prepare`, before anything exists in the cluster. It holds `git ls-files -co --exclude-standard` minus `git ls-files -d`: tracked and untracked files, without tracked files deleted locally and never git-ignored ones such as `.env` or `build/`. That's the set `check_cuda.py` copies. The CLI warns about untracked files over 10 MB and refuses a tarball over 500 MB. The tree hash and size go into `summary.json`. *Update (Rollout PR A): `.env` was not git-ignored in this repository, so PR A adds `.env` and `.env.*` to `.gitignore`, and the tarball also skips untracked files that look like secrets whatever the ignore rules say (`.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `id_rsa*`, `id_ed25519*`, `.netrc`, `.pypirc`, `.npmrc`, `*kubeconfig*`, `.kube/**`), with a warning listing them. Tracked files are uploaded as before.*
 - **`--ref <sha>`** runs a pushed commit instead of the working tree, and **`--ref pr/<n>`** runs a pull request's head. The CLI fetches it on the Mac (`git fetch origin <sha>` or `pull/<n>/head`) and uploads `git archive <sha>` through the same path, so the pod never clones and needs no git before pixi.
 
 **Contributor code.** A maintainer may run a contributor's pull request (ADR-0014 rule 2), but only after reviewing the diff at that SHA; the runner is not a sandbox for unreviewed code. A `--ref pr/<n>` run is treated as contributor code, and the CLI also:
@@ -683,4 +684,4 @@ Two gaps remain. Isolation on each real cluster depends on its CNI, so `verify` 
 - **`rent` as a backend:** RFC-0004's `rent` has its own lifecycle, ledger and spend limits; how much of §3's pipeline it can reuse is decided when PR 7 lands.
 - **RDMA on a real cluster:** the privileged profile (§4.12) and the evidence probe (§6) are unproven until an RDMA-capable cluster runs them.
 - **Cache trust:** whether a shared `--cache` PVC should be per developer (keyed by `ostia.dev/owner`) rather than per namespace.
-- **typer-slim:** measured in PR A (§2.4).
+- **typer-slim:** measured in PR A (§2.4). *Update: answered; it is a shim over typer, so PR A uses typer.*
