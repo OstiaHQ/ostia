@@ -27,6 +27,13 @@ def _probe_job(name: str, namespace: str, script: str, *, restricted: bool) -> N
     )
     job["metadata"]["name"] = name
     job["spec"]["suspend"] = False
+    # The kind node has 4 CPUs; the long-running server and a probe must fit beside a
+    # 2-CPU run, and resources don't change what the policies allow.
+    small = {"cpu": "250m", "memory": "512Mi", "ephemeral-storage": "2Gi"}
+    job["spec"]["template"]["spec"]["containers"][0]["resources"] = {
+        "requests": dict(small),
+        "limits": dict(small),
+    }
     if not restricted:
         job["spec"]["template"]["spec"]["serviceAccountName"] = "default"
     kubectl("apply", "-f", "-", input=json.dumps(job), namespace=namespace)
