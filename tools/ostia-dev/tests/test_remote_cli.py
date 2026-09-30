@@ -1,5 +1,7 @@
 """`ostia-dev remote container`: flags and their errors (RFC-0005 §3.1, §5)."""
 
+import re
+
 import pytest
 from ostia_dev.cli import app
 from ostia_dev.errors import UsageError
@@ -91,8 +93,10 @@ def test_verbose_turns_on_the_echo(captured):
 
 
 def test_help_lists_the_flags():
-    r = CliRunner().invoke(app, ["remote", "container", "--help"])
+    # CI terminals get Rich's colours, whose escape codes split the flag names; strip them
+    r = CliRunner().invoke(app, ["remote", "container", "--help"], env={"COLUMNS": "200"})
+    output = re.sub(r"\x1b\[[0-9;]*m", "", r.output)
     for flag in ("--env", "--preset", "--suite", "--no-build", "--no-test", "--timeout", "--ref",
                  "--env-var", "--allow-secret", "--results", "--yes", "--gpus", "--engine",
                  "--profile"):  # fmt: skip
-        assert flag in r.output, flag
+        assert flag in output, flag

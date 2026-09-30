@@ -24,6 +24,10 @@ export OSTIA_BUILD_DIR="${OSTIA_BUILD_DIR:-$W/build/${OSTIA_ENV:-default}/${OSTI
 export CTEST_NO_TESTS_ACTION="${CTEST_NO_TESTS_ACTION:-error}"
 export HOME="${HOME:-$W/home}"
 TAB=$(printf '\t')
+# util-linux setsid needs -w to pass the exit code back when it has to fork; busybox's applet
+# (which busybox-static's sh prefers over PATH) has no -w. A step is never a process group
+# leader here, so neither forks.
+if setsid -w true 2>/dev/null; then SETSID="setsid -w"; else SETSID=setsid; fi
 
 state=waiting
 code_wait=pending
@@ -132,7 +136,7 @@ while IFS="$TAB" read -r name kind cmd; do
     cd "$dir" || { echo 1 >"$S/rc"; exit 1; }
     # After the step exits, KILL what it left in its group: a leftover holding the pipe
     # would keep tee, and so the run, waiting until the watchdog.
-    { setsid -w sh -c 'echo $$ >"$0"; exec sh -c "$1"' "$S/pgid" "$cmd" </dev/null 2>&1
+    { $SETSID sh -c 'echo $$ >"$0"; exec sh -c "$1"' "$S/pgid" "$cmd" </dev/null 2>&1
       echo $? >"$S/rc"; kill_group KILL; } | tee -a "$LOG"
   ) &
   wait $!

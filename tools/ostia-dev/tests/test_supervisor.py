@@ -39,11 +39,13 @@ def shell(request) -> list[str]:
 
 
 class Run:
-    def __init__(self, shell, work: Path, plan: list[tuple[str, str, str]], **env):
+    def __init__(self, shell, work: Path, plan: list[tuple[str, str, str]], *, setsid=None, **env):
         self.work = work
         self.state = work / ".ostia"
         path = [str(HERE / "supervisor" / "stubs")]
-        if not shutil.which("setsid"):
+        if setsid:
+            path.append(str(HERE / "supervisor" / setsid))
+        elif not shutil.which("setsid"):
             path.append(str(HERE / "supervisor" / "setsid"))
         full_env = {
             **os.environ,
@@ -97,8 +99,8 @@ class Run:
             time.sleep(0.05)
 
 
-def start(shell, tmp_path, plan, *, ready=True, collected=True, **env) -> Run:
-    r = Run(shell, tmp_path / "w", plan, **env)
+def start(shell, tmp_path, plan, *, ready=True, collected=True, setsid=None, **env) -> Run:
+    r = Run(shell, tmp_path / "w", plan, setsid=setsid, **env)
     if ready:
         r.ready()
     if collected:
@@ -279,3 +281,23 @@ def test_a_background_process_left_by_a_step_does_not_hold_the_run(shell, tmp_pa
     assert [(s["name"], s["code"]) for s in r.steps["steps"]] == [("command", 0)]
     time.sleep(0.5)
     assert not _alive(marker), "the step's leftover process was not stopped"
+
+
+def test_a_setsid_without_wait_still_gives_real_codes(shell, tmp_path):
+    """busybox's setsid applet (which busybox-static's sh prefers) has no -w."""
+    marker = f"ostia-nowait-{uuid.uuid4().hex[:8]}"
+    plan = [("build", "build", "echo built; exit 0"), ("command", "command", "exit 4"),
+            ("never", "command", f"sh -c 'sleep 30; : {marker}'")]  # fmt: skip
+    r = start(shell, tmp_path, plan, setsid="setsid-no-wait")
+    assert r.wait() == 4
+    assert [(s["name"], s["code"]) for s in r.steps["steps"]] == [("build", 0), ("command", 4)]
+
+
+def test_the_watchdog_works_with_a_setsid_without_wait(shell, tmp_path):
+    marker = f"ostia-nowait-hung-{uuid.uuid4().hex[:8]}"
+    plan = [("build", "build", f"sh -c 'sleep 60; : {marker}' & wait")]
+    r = start(shell, tmp_path, plan, setsid="setsid-no-wait", OSTIA_TIMEOUT=2)
+    assert r.wait() == 3
+    assert r.steps["state"] == "timeout"
+    time.sleep(0.5)
+    assert not _alive(marker)
