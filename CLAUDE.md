@@ -31,6 +31,10 @@ Layer 1 is C++20 + CUDA with a stable C ABI and Python bindings (D7). Python pac
 - Follow the RFC rule in `docs/README.md`: new components, public API/ABI or wire-protocol changes, cross-layer contract changes, new dependencies and hot-path designs need an accepted RFC before code.
 - Record architectural decisions as ADRs in `docs/adr/`, numbered from 0013.
 
+## Comments
+
+Follow [ADR-0015](docs/adr/0015-code-comments.md). A comment says why the code is this way, states an invariant, unit or hazard, or cites an RFC or ADR section. Don't narrate steps, restate the next line, leave commented-out code or banners, or write notes about your edit ("added", "as requested"); those go in the commit message. Match the comment density of the surrounding code. `pixi run lint` (pre-commit and CI) runs `tools/ci/check_comments.py` on every file, and a `PostToolUse` hook (`.claude/settings.json`) runs it on each edit and returns the findings; revise the comments, or mark a real false positive with `comment-ok`.
+
 ## Commits and pull requests
 
 - Commit messages and pull request titles use gitmoji + Conventional Commits: `<emoji> <type>(<scope>): <summary>`, for example `✨ feat(fabric): add UCX backend`. The full table is in `CONTRIBUTING.md#commit-messages`. The squash commit takes the pull request title, so the title must follow the convention.

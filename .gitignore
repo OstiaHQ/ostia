@@ -5,6 +5,7 @@
 /bench/results/
 __pycache__/
 *.egg-info/
+/.claude/settings.local.json
 # Local secrets: never committed, never uploaded to remote runs (RFC-0005 §4.10).
 .env
 .env.*
