@@ -5,12 +5,16 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <thread>
 #include <ucp/api/ucp.h>
+#ifdef OSTIA_UCX_PUT_CUDA
+#include <cuda_runtime.h>
+#endif
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -26,6 +30,58 @@ struct Args {
 };
 
 constexpr auto kTimeout = std::chrono::seconds(60);
+constexpr int kSkip = 77; // ctest SKIP_RETURN_CODE: no CUDA device
+
+// Buffers live in GPU memory in the CUDA variant (2 processes on one GPU, RFC-0001 §4.2)
+// and in host memory otherwise.
+struct Buffer {
+    std::uint8_t* data = nullptr;
+    std::size_t size = 0;
+    std::vector<std::uint8_t> host;
+
+    explicit Buffer(std::size_t n) : size(n) {
+#ifdef OSTIA_UCX_PUT_CUDA
+        cudaMalloc(reinterpret_cast<void**>(&data), n);
+        cudaMemset(data, 0, n);
+#else
+        host.assign(n, 0);
+        data = host.data();
+#endif
+    }
+    ~Buffer() {
+#ifdef OSTIA_UCX_PUT_CUDA
+        cudaFree(data);
+#endif
+    }
+    Buffer(const Buffer&) = delete;
+    Buffer& operator=(const Buffer&) = delete;
+
+    void write(const std::vector<std::uint8_t>& from) {
+#ifdef OSTIA_UCX_PUT_CUDA
+        cudaMemcpy(data, from.data(), from.size(), cudaMemcpyHostToDevice);
+#else
+        std::memcpy(data, from.data(), from.size());
+#endif
+    }
+    std::vector<std::uint8_t> read() const {
+        std::vector<std::uint8_t> out(size);
+#ifdef OSTIA_UCX_PUT_CUDA
+        cudaMemcpy(out.data(), data, size, cudaMemcpyDeviceToHost);
+#else
+        std::memcpy(out.data(), data, size);
+#endif
+        return out;
+    }
+};
+
+bool have_device() {
+#ifdef OSTIA_UCX_PUT_CUDA
+    int n = 0;
+    return cudaGetDeviceCount(&n) == cudaSuccess && n > 0;
+#else
+    return true;
+#endif
+}
 
 std::uint8_t pattern(int rank, std::size_t i) {
     return static_cast<std::uint8_t>(rank * 31 + i * 7);
@@ -94,10 +150,10 @@ std::string get_blob(const std::string& in, std::size_t& pos) {
 
 int target(const Args& a, ucp_context_h ctx, ucp_worker_h worker, const std::string& address) {
     const std::size_t total = a.bytes * static_cast<std::size_t>(a.size - 1);
-    std::vector<std::uint8_t> buffer(total, 0);
+    Buffer buffer(total);
     ucp_mem_map_params_t mp{};
     mp.field_mask = UCP_MEM_MAP_PARAM_FIELD_ADDRESS | UCP_MEM_MAP_PARAM_FIELD_LENGTH;
-    mp.address = buffer.data();
+    mp.address = buffer.data;
     mp.length = total;
     ucp_mem_h memh = nullptr;
     if (!check(ucp_mem_map(ctx, &mp, &memh), "ucp_mem_map")) {
@@ -111,7 +167,7 @@ int target(const Args& a, ucp_context_h ctx, ucp_worker_h worker, const std::str
     std::string info;
     put_blob(info, address.data(), address.size());
     put_blob(info, rkey, rkey_len);
-    const auto base = reinterpret_cast<std::uint64_t>(buffer.data());
+    const auto base = reinterpret_cast<std::uint64_t>(buffer.data);
     info.append(reinterpret_cast<const char*>(&base), sizeof(base));
     ucp_rkey_buffer_release(rkey);
     write_file(a.dir / "rank0.info", info);
@@ -121,13 +177,14 @@ int target(const Args& a, ucp_context_h ctx, ucp_worker_h worker, const std::str
             return 1;
         }
     }
+    std::vector<std::uint8_t> received = buffer.read();
     if (a.corrupt) {
-        buffer[total / 2] ^= 0xff; // self-check: the verifier must notice this
+        received[total / 2] ^= 0xff; // self-check: the verifier must notice this
     }
     int bad = 0;
     for (int r = 1; r < a.size; ++r) {
         for (std::size_t i = 0; i < a.bytes; ++i) {
-            if (buffer[(r - 1) * a.bytes + i] != pattern(r, i)) {
+            if (received[(r - 1) * a.bytes + i] != pattern(r, i)) {
                 ++bad;
                 break;
             }
@@ -166,13 +223,15 @@ int source(const Args& a, ucp_worker_h worker) {
     if (!check(ucp_ep_rkey_unpack(ep, rkey_buf.data(), &rkey), "ucp_ep_rkey_unpack")) {
         return 1;
     }
-    std::vector<std::uint8_t> data(a.bytes);
+    std::vector<std::uint8_t> host(a.bytes);
     for (std::size_t i = 0; i < a.bytes; ++i) {
-        data[i] = pattern(a.rank, i);
+        host[i] = pattern(a.rank, i);
     }
+    Buffer data(a.bytes);
+    data.write(host);
     ucp_request_param_t rp{};
     const std::uint64_t dest = base + static_cast<std::uint64_t>(a.rank - 1) * a.bytes;
-    if (!wait_request(worker, ucp_put_nbx(ep, data.data(), a.bytes, dest, rkey, &rp),
+    if (!wait_request(worker, ucp_put_nbx(ep, data.data, a.bytes, dest, rkey, &rp),
                       "ucp_put_nbx") ||
         !wait_request(worker, ucp_ep_flush_nbx(ep, &rp), "ucp_ep_flush_nbx")) {
         return 1;
@@ -216,6 +275,17 @@ int main(int argc, char** argv) {
         std::fprintf(stderr,
                      "usage: ucx_put --rank R --size N --dir DIR [--bytes B] [--corrupt]\n");
         return 2;
+    }
+    if (!have_device()) {
+        // A remote run's GPU node sets OSTIA_REQUIRE_GPU=1: no device there is a failure
+        // (RFC-0005 §3.2). Elsewhere the test skips (RFC-0001 §4.2).
+        const char* require = std::getenv("OSTIA_REQUIRE_GPU");
+        if (require != nullptr && std::strcmp(require, "1") == 0) {
+            std::fprintf(stderr, "error: no CUDA device, and OSTIA_REQUIRE_GPU=1\n");
+            return 1;
+        }
+        std::printf("skipped: no CUDA device\n");
+        return kSkip;
     }
     ucp_params_t params{};
     params.field_mask = UCP_PARAM_FIELD_FEATURES;

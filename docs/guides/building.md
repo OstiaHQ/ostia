@@ -14,14 +14,16 @@ You don't need a GPU or a cloud account for anything on this page.
 
 ## Supported platforms
 
-| Tier | Meaning | Platforms | CI job that backs it |
+| Tier | Meaning | Platforms | What backs it |
 | --- | --- | --- | --- |
-| 1 | Built and tested on every PR; gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`, `gpu-l4` |
+| 1 | Built and tested on every PR; GPU-tested before merging GPU-affecting PRs; gate benchmarks run here | Ubuntu 24.04 x86_64 | `linux-x64-*`; `ostia-dev remote k8s --suite gpu` on an L4 node ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md) rule 2) |
 | 1 | Built and tested on every PR | macOS 15 arm64, host-only (no CUDA) | `macos-arm64-host` |
 | 2 | Built on every PR, tested where possible | Ubuntu 24.04 aarch64; Ubuntu 22.04 and Rocky 9 x86_64 without pixi | `linux-arm64-*`, `container-ubuntu2204`, `container-rocky9` |
 | 3 | Best effort | Other Linux distributions; building without pixi elsewhere | none |
 
-CPU jobs are in `.github/workflows/ci.yml`; GPU jobs arrive with RFC-0001 Rollout PR 4.
+CPU jobs are in `.github/workflows/ci.yml`. There is no automated GPU CI ([ADR-0014](../adr/0014-on-demand-remote-test-runs.md)): before a pull request that touches GPU code merges, a maintainer runs its GPU tests on a GPU node with `ostia-dev remote` ([RFC-0005](../rfcs/0005-dev-cli-remote-runner.md); the tool arrives with its Rollout PR A).
+
+Tests labelled `gpu` skip with a reason when no CUDA device is present. With `OSTIA_REQUIRE_GPU=1` set, as on a remote run's GPU node, they fail instead.
 
 ## Quick start
 
@@ -60,7 +62,7 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 | --- | --- | --- |
 | `dev` | Debug (`-O0`) | `native` when a GPU is detected, otherwise the release list |
 | `release` | RelWithDebInfo | The release list: SASS for `sm_80`, `sm_90`, `sm_100`, and PTX for `sm_100` |
-| `gpu-ci` | RelWithDebInfo | `sm_89` only (the L4 CI runner) |
+| `gpu-ci` | RelWithDebInfo | `sm_89` only (an L4); removed by RFC-0005 Rollout PR B |
 
 - A `-DCMAKE_CUDA_ARCHITECTURES=...` you pass always wins, and so does `CUDAARCHS` in a plain CMake build. The presets clear `CUDAARCHS`, because conda's `cuda-nvcc` activation exports its own default list; with a preset, pass `-DCMAKE_CUDA_ARCHITECTURES` instead. The configure summary prints the choice and the reason.
 - Architectures outside the list, such as `sm_120`, run through PTX JIT. Set `CUDA_CACHE_PATH` to a persistent directory so the JIT cost is paid once.
@@ -155,7 +157,7 @@ pixi shell                                                    # a shell with the
 
 ## Checking CUDA code on a Mac
 
-The Mac has no CUDA toolkit. `pixi run check-cuda` compiles the CUDA code with nvcc in a `linux/arm64` container, for both `cuda-12` and `cuda-13` (`pixi run check-cuda cuda-13` for one). The container runs natively on Apple silicon, and nvcc needs no GPU. It needs [podman](https://podman.io) (`brew install podman && podman machine init && podman machine start`) or Docker. Run it before asking for the `ci:gpu` label.
+The Mac has no CUDA toolkit. `pixi run check-cuda` compiles the CUDA code with nvcc in a `linux/arm64` container, for both `cuda-12` and `cuda-13` (`pixi run check-cuda cuda-13` for one). The container runs natively on Apple silicon, and nvcc needs no GPU. It needs [podman](https://podman.io) (`brew install podman && podman machine init && podman machine start`) or Docker. Run it before opening a pull request that changes CUDA code.
 
 ## Building without pixi
 

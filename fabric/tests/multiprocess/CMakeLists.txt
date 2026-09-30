@@ -26,3 +26,23 @@ set_tests_properties(
   fabric.multiprocess.detects_corruption
   PROPERTIES PASS_REGULAR_EXPRESSION "1 of 1 slices failed their checksum"
 )
+
+# Two processes on one GPU (RFC-0001 §4.2): the same harness over GPU memory, CUDA IPC
+# plus UCX loopback. Labels gpu and multiprocess; skipped (exit 77) without a device, or
+# failed with OSTIA_REQUIRE_GPU=1 (RFC-0005 §3.2).
+if(CMAKE_CUDA_COMPILER_LOADED)
+  find_package(CUDAToolkit REQUIRED)
+  add_executable(ostia_fabric_ucx_put_cuda ucx_put.cpp)
+  target_compile_definitions(ostia_fabric_ucx_put_cuda PRIVATE OSTIA_UCX_PUT_CUDA)
+  target_link_libraries(ostia_fabric_ucx_put_cuda PRIVATE ucx::ucp ucx::ucs CUDA::cudart)
+  add_test(
+    NAME fabric.multiprocess.gpu_ucx_put_2
+    COMMAND
+      ${_launch} --ranks 2 --tls cuda_ipc,cuda_copy,tcp,self --expect cuda_ipc --
+      $<TARGET_FILE:ostia_fabric_ucx_put_cuda>
+  )
+  set_tests_properties(
+    fabric.multiprocess.gpu_ucx_put_2
+    PROPERTIES LABELS "gpu;multiprocess" SKIP_RETURN_CODE 77 TIMEOUT 180
+  )
+endif()
