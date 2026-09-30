@@ -1,7 +1,7 @@
 ---
 number: 5
 title: ostia dev CLI and remote runner
-status: Draft
+status: Accepted
 authors: [ShAlireza]
 components: [build, docs]
 created: 2026-09-29
