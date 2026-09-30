@@ -1,4 +1,4 @@
-"""The shared pipeline driver and exit codes (RFC-0005 §3.1, §3.5; R13, R16)."""
+"""The shared pipeline driver and exit codes (RFC-0005 §3.1, §3.5)."""
 
 import datetime
 import io

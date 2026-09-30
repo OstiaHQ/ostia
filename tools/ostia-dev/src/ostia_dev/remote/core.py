@@ -179,7 +179,7 @@ def worst(codes: list[int]) -> int:
 
 
 def check_lock(root: Path) -> None:
-    """A stale pixi.lock is exit 2 on the host, before anything exists remotely (R16).
+    """A stale pixi.lock is exit 2 on the host, before anything exists remotely.
 
     --dry-run: plain `pixi lock --check` rewrites a stale lock as it reports it.
     """

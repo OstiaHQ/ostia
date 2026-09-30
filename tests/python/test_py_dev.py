@@ -1,4 +1,4 @@
-"""`pixi run py-dev` is idempotent (review focus 2)."""
+"""`pixi run py-dev` is idempotent (RFC-0001 §3.5)."""
 
 import subprocess
 import sys

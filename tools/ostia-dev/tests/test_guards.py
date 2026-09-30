@@ -1,4 +1,4 @@
-"""The pipeline guards, evaluated CLI-side on the collected results (RFC-0005 §3.2; D11)."""
+"""The pipeline guards, evaluated CLI-side on the collected results (RFC-0005 §3.2)."""
 
 from pathlib import Path
 

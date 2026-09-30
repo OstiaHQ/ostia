@@ -34,8 +34,6 @@ bool ok(ucs_status_t s, const char* what) {
     return true;
 }
 
-// ---- Rendezvous -------------------------------------------------------------------------
-
 void put_u64(std::string& out, std::uint64_t v) {
     out.append(reinterpret_cast<const char*>(&v), sizeof(v));
 }
@@ -214,8 +212,6 @@ class Channel {
     int fd_ = -1;
 };
 
-// ---- Memory -----------------------------------------------------------------------------
-
 // Host or CUDA memory; fill and checksum go through a host copy for CUDA memory.
 class Memory {
   public:
@@ -279,8 +275,6 @@ class Memory {
     std::uint8_t* data_ = nullptr;
     std::vector<std::uint8_t> host_;
 };
-
-// ---- UCX --------------------------------------------------------------------------------
 
 // One UCP context and worker, optionally restricted to transports and devices; on the
 // source, also the endpoint to the target and the target's rkey.
@@ -498,8 +492,6 @@ class PutStream {
     std::size_t inflight_;
     std::vector<ucs_status_ptr_t> pending_;
 };
-
-// ---- The two ranks ----------------------------------------------------------------------
 
 constexpr std::uint32_t kSeed = 5;
 

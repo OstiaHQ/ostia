@@ -1,4 +1,4 @@
-"""The upload tarball, built on the host (RFC-0005 §4.10; R15)."""
+"""The upload tarball, built on the host (RFC-0005 §4.10)."""
 
 import io
 import tarfile

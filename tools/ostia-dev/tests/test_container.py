@@ -1,4 +1,4 @@
-"""The container backend against a fake engine (RFC-0005 §5; R3, R4, R14)."""
+"""The container backend against a fake engine (RFC-0005 §5)."""
 
 import json
 

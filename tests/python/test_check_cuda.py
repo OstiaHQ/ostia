@@ -1,5 +1,5 @@
-"""The check-cuda regression contract (R9): what it keeps doing, and what its worktree fix
-changes on purpose (ADR-0014 follow-up; RFC-0005 §4.10's host-side tarball)."""
+"""The check-cuda contract: what it keeps doing, and the host-side tarball that also works
+from a git worktree (RFC-0005 §4.10)."""
 
 import shutil
 import subprocess
@@ -51,7 +51,7 @@ def test_container_arguments():
     assert argv[argv.index("ostia-pixi-cache:/root/.cache/rattler") - 1] == "-v"
     assert not any(a.endswith(":/src:ro") for a in argv)
     image = next(a for a in argv if a.startswith("ghcr.io/prefix-dev/pixi"))
-    assert image.startswith(DIGEST)  # pinned, was :latest
+    assert image.startswith(DIGEST)
     from ostia_dev import config
 
     assert image == config.builtin_defaults()["image"]
@@ -113,7 +113,7 @@ def worktree(tmp_path, monkeypatch):
 
 
 def test_the_host_tar_of_a_worktree_holds_its_files(worktree, tmp_path):
-    assert (worktree / ".git").is_file()  # the case that broke: .git is a gitdir: file
+    assert (worktree / ".git").is_file()  # a worktree's .git is a gitdir: file
     tb = check_cuda.tarball.build(Path(worktree), out_dir=tmp_path / "out")
     with tarfile.open(tb.path) as t:
         assert sorted(t.getnames()) == ["CMakePresets.json", "kernel.cu"]

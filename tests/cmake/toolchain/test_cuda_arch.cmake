@@ -45,7 +45,7 @@ user_value("" "" "90" "90") # env_cudaarchs
 user_value("" "" "" "") # nothing set
 user_value("native" "native" "" "") # Ostia chose native last time
 
-# Two configures in a row (review focus 3): a user value must survive the second one,
+# Two configures in a row: a user value must survive the second one,
 # and Ostia's own choice must be recomputed, not mistaken for a user value.
 macro(configure_twice cache env want1 want2)
   set(c "${cache}")
