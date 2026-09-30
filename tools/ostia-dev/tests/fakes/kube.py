@@ -361,7 +361,7 @@ class FakeKube:
                 return code, out
         return None
 
-    def exec_in(self, pod: str, argv: list[str], stdin) -> subprocess.CompletedProcess:
+    def exec_in(self, pod: str, argv: list[str], stdin, *, check: bool = True):
         data = stdin.read() if stdin is not None else b""
         self._record("exec_in", pod, tuple(argv), stdin_size=len(data))
         self._check("create", "pods/exec")
@@ -376,7 +376,7 @@ class FakeKube:
             f.touch()
         return subprocess.CompletedProcess(argv, 0, b"", b"")
 
-    def exec_out(self, pod: str, argv: list[str], stdout=None) -> subprocess.CompletedProcess:
+    def exec_out(self, pod: str, argv: list[str], stdout=None, *, check: bool = True):
         self._record("exec_out", pod, tuple(argv))
         self._check("create", "pods/exec")
         code, out = 0, b""

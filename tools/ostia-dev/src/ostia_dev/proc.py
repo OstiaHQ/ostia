@@ -31,11 +31,12 @@ def run(
     capture: bool = True,
     check: bool = False,
     verbose: bool | None = None,
+    binary: bool = False,
     **kwargs,
 ) -> CompletedProcess:
-    """Run a command to completion; text mode unless `input` is bytes."""
+    """Run a command to completion; text mode unless `input` is bytes or `binary`."""
     _echo(cmd, verbose)
-    text = not isinstance(input, bytes)
+    text = not (binary or isinstance(input, bytes))
     return subprocess.run(
         cmd,
         input=input,
@@ -47,13 +48,15 @@ def run(
     )
 
 
-def stream(cmd: list[str], *, verbose: bool | None = None, **kwargs) -> subprocess.Popen:
-    """Start a command whose stdout (with stderr merged) the caller reads line by line."""
+def stream(
+    cmd: list[str], *, verbose: bool | None = None, merge_stderr: bool = True, **kwargs
+) -> subprocess.Popen:
+    """Start a command whose stdout the caller reads line by line."""
     _echo(cmd, verbose)
     return subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE,
         text=True,
         errors="replace",
         bufsize=1,
