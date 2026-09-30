@@ -8,7 +8,6 @@ import sys
 import time
 
 import pytest
-
 from ostia_dev import errors
 
 EXE = shutil.which("ostia-dev")

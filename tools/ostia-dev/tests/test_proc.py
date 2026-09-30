@@ -3,7 +3,6 @@
 import sys
 
 import pytest
-
 from ostia_dev import proc
 
 

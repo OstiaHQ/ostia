@@ -1,8 +1,8 @@
 """The error-message contract is a copy of tools/ci/_contract.py until PR B (RFC-0005 §2.3)."""
 
 import pytest
-
 from ostia_dev.contract import violation
+
 from tools.ci import _contract
 
 CASES = [
