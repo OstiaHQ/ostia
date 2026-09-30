@@ -1,0 +1,15 @@
+#!/bin/sh
+# pixi stub for the supervisor tests: `install` succeeds, `run ... -e ENV <cmd>` runs <cmd>.
+case $1 in
+  install) echo "pixi stub: install $*"; exit 0 ;;
+  run) shift ;;
+  *) echo "pixi stub: unexpected $*" >&2; exit 99 ;;
+esac
+while [ $# -gt 0 ]; do
+  case $1 in
+    --frozen | --locked) shift ;;
+    -e) shift 2 ;;
+    *) break ;;
+  esac
+done
+exec "$@"

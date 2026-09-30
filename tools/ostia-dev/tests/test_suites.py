@@ -5,7 +5,6 @@ import shlex
 from pathlib import Path
 
 import pytest
-
 from ostia_dev import config
 from ostia_dev.errors import UsageError
 from ostia_dev.remote import profiles, suites

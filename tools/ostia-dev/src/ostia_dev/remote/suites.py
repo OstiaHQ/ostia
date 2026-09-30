@@ -57,7 +57,7 @@ def gpu_preflight(profile: Profile) -> list[Step]:
     cc = profile.compute_capability or ""
     fail = 'echo "  see: RFC-0005 §4.9"; exit 1'
     fingerprint = (
-        "command -v nvidia-smi >/dev/null || { echo \"error: nvidia-smi not found on PATH=$PATH\"; "
+        'command -v nvidia-smi >/dev/null || { echo "error: nvidia-smi not found on PATH=$PATH"; '
         'echo "  fix: set the profile\'s env (PATH, LD_LIBRARY_PATH) for this provider"; '
         f"{fail}; }}; "
         "sh tools/ci/gpu_preflight.sh > .ostia/fingerprint.txt; rc=$?; "
@@ -169,7 +169,9 @@ def build_plan(
         if not no_build:
             configure = ["cmake", "--preset", preset, *_arch_flags(profile, preset)]
             steps.append(Step("configure", "build", _pixi(env, configure)))
-            steps.append(Step("build", "build", _pixi(env, ["cmake", "--build", "--preset", preset])))
+            steps.append(
+                Step("build", "build", _pixi(env, ["cmake", "--build", "--preset", preset]))
+            )
         if not no_test:
             argv = command or [
                 "ctest", "--test-dir", build_dir, "--output-on-failure", "-j", str(test_jobs),

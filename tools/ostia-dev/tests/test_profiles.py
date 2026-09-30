@@ -1,7 +1,6 @@
 """Node profiles: merging, providers, parallelism (RFC-0005 §3.2, §4.4)."""
 
 import pytest
-
 from ostia_dev import config
 from ostia_dev.errors import UsageError
 from ostia_dev.remote import profiles
@@ -30,7 +29,9 @@ def test_resolve_l4_on_gke(cfg):
     assert (p.kind, p.gpus, p.compute_capability) == ("gpu", 1, "8.9")
     assert (p.cpu, p.memory, p.ephemeral_storage) == ("6", "24Gi", "60Gi")
     assert p.node_selector == {"cloud.google.com/gke-accelerator": "nvidia-l4"}
-    assert p.tolerations == [{"key": "nvidia.com/gpu", "operator": "Exists", "effect": "NoSchedule"}]
+    assert p.tolerations == [
+        {"key": "nvidia.com/gpu", "operator": "Exists", "effect": "NoSchedule"}
+    ]
     assert p.env["LD_LIBRARY_PATH"] == "/usr/local/nvidia/lib64"
     assert p.is_gpu
 
@@ -73,7 +74,8 @@ def test_generic_provider_without_node_selector_is_exit_2(cfg):
 
 def test_generic_provider_with_node_selector(tmp_path):
     cfg = _cfg_with(
-        tmp_path, '[remote.k8s.profiles.cpu.generic]\nnode_selector = { "kubernetes.io/os" = "linux" }\n'
+        tmp_path,
+        '[remote.k8s.profiles.cpu.generic]\nnode_selector = { "kubernetes.io/os" = "linux" }\n',
     )
     assert profiles.resolve("cpu", "generic", cfg).node_selector == {"kubernetes.io/os": "linux"}
 
@@ -120,6 +122,8 @@ def test_parse_duration_rejects_garbage():
         profiles.parse_duration("ten minutes")
 
 
-@pytest.mark.parametrize(("q", "b"), [("24Gi", 24 * 1024**3), ("512Mi", 512 * 1024**2), ("1G", 10**9)])
+@pytest.mark.parametrize(
+    ("q", "b"), [("24Gi", 24 * 1024**3), ("512Mi", 512 * 1024**2), ("1G", 10**9)]
+)
 def test_parse_bytes(q, b):
     assert profiles.parse_bytes(q) == b

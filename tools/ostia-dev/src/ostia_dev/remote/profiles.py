@@ -62,8 +62,11 @@ def resolve(name: str, provider: str | None, cfg: Config) -> Profile:
     fields = {**base, **table}
     kind = fields.get("kind", "gpu")
     if kind not in KINDS:
-        raise _bad(f"profile {name} has kind {kind!r}", [f"kinds: {', '.join(KINDS)}"],
-                   f"set kind in [remote.k8s.profiles.{name}]")
+        raise _bad(
+            f"profile {name} has kind {kind!r}",
+            [f"kinds: {', '.join(KINDS)}"],
+            f"set kind in [remote.k8s.profiles.{name}]",
+        )
     if provider and provider not in raw and kind != "cpu":
         raise _bad(
             f"profile {name} has no mapping for provider {provider}",
@@ -82,10 +85,21 @@ def resolve(name: str, provider: str | None, cfg: Config) -> Profile:
         selector["kubernetes.io/arch"] = arch
     for key in ("cpu", "memory", "ephemeral_storage"):
         if key not in fields:
-            raise _bad(f"profile {name} has no {key}", [],
-                       f"set {key} in [remote.k8s.profiles.{name}]")
-    known = {"kind", "cpu", "memory", "ephemeral_storage", "gpus", "compute_capability", "arch",
-             "node_selector", "tolerations", "env"}
+            raise _bad(
+                f"profile {name} has no {key}", [], f"set {key} in [remote.k8s.profiles.{name}]"
+            )
+    known = {
+        "kind",
+        "cpu",
+        "memory",
+        "ephemeral_storage",
+        "gpus",
+        "compute_capability",
+        "arch",
+        "node_selector",
+        "tolerations",
+        "env",
+    }
     return Profile(
         name=name,
         kind=kind,
@@ -105,8 +119,15 @@ def resolve(name: str, provider: str | None, cfg: Config) -> Profile:
 
 _QUANTITY = re.compile(r"^([0-9.]+)([A-Za-z]*)$")
 _UNITS = {
-    "": 1, "k": 10**3, "M": 10**6, "G": 10**9, "T": 10**12,
-    "Ki": 1024, "Mi": 1024**2, "Gi": GIB, "Ti": 1024**4,
+    "": 1,
+    "k": 10**3,
+    "M": 10**6,
+    "G": 10**9,
+    "T": 10**12,
+    "Ki": 1024,
+    "Mi": 1024**2,
+    "Gi": GIB,
+    "Ti": 1024**4,
 }
 
 
