@@ -134,8 +134,7 @@ def test_teardown_on_test_failure(engine, cfg, repo, tmp_path):
 
 def test_teardown_on_an_exception(engine, cfg, repo, tmp_path):
     engine.raise_in["stream"] = RuntimeError("bug")
-    with pytest.raises(RuntimeError):
-        _drive(engine, cfg, repo, tmp_path)
+    assert _drive(engine, cfg, repo, tmp_path) == 3
     assert engine.container()["removed"]
 
 
@@ -145,10 +144,13 @@ def test_teardown_on_ctrl_c(engine, cfg, repo, tmp_path):
     assert engine.container()["removed"]
 
 
-def test_unverified_teardown_is_4(engine, cfg, repo, tmp_path, monkeypatch):
+def test_unverified_teardown_is_4_and_prints_the_cleanup(engine, cfg, repo, tmp_path, monkeypatch,
+                                                         capsys):  # fmt: skip
     monkeypatch.setattr(container.time, "sleep", lambda s: None)
     engine.keep_after_rm = True
     assert _drive(engine, cfg, repo, tmp_path) == 4
+    name = engine.container()["argv"][engine.container()["argv"].index("--name") + 1]
+    assert f"podman rm -f -v {name}" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("fail", ["tar-x", "count"])

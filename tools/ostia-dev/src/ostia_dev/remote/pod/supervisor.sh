@@ -130,8 +130,10 @@ while IFS="$TAB" read -r name kind cmd; do
   running="$name $kind $start"
   (
     cd "$dir" || { echo 1 >"$S/rc"; exit 1; }
+    # After the step exits, KILL what it left in its group: a leftover holding the pipe
+    # would keep tee, and so the run, waiting until the watchdog.
     { setsid -w sh -c 'echo $$ >"$0"; exec sh -c "$1"' "$S/pgid" "$cmd" </dev/null 2>&1
-      echo $? >"$S/rc"; } | tee -a "$LOG"
+      echo $? >"$S/rc"; kill_group KILL; } | tee -a "$LOG"
   ) &
   wait $!
   running=

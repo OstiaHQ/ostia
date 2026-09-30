@@ -38,11 +38,14 @@ jobs:
         run: |
           sed -i 's/^pyyaml = "\*"$/pyyaml = "*"\nsix = "*"/' pixi.toml
           set +e
-          pixi run --frozen ostia-dev remote container --engine docker --env default --suite cpu
+          out=$(pixi run --frozen ostia-dev -v remote container --engine docker --env default --suite cpu 2>&1)
           code=$?
           set -e
           git checkout pixi.toml
+          echo "$out"
           test "$code" -eq 2
+          echo "$out" | grep -q 'error: pixi.lock is out of date with pixi.toml'
+          if echo "$out" | grep -qE '^\+ .*docker (run|create)'; then exit 1; fi
           test -z "$(docker ps -aq --filter label=ostia.dev/managed=true)"
       - name: pixi run ostia-dev remote container --engine docker --env default --suite cpu
         run: pixi run ostia-dev remote container --engine docker --env default --suite cpu

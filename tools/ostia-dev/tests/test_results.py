@@ -219,3 +219,14 @@ def test_write_summary(tmp_path):
     s = _summary()
     path = results.write_summary(tmp_path, s)
     assert json.loads(path.read_text()) == s
+
+
+def test_a_remapped_traversal_is_dropped(tmp_path):
+    """data_filter checks the original name; the remapped one must not escape either."""
+    escape = f"{BUILD}/Testing/../../../../outside/pre-commit"
+    tar = _tar(tmp_path / "a.tar", [_file(f"{BUILD}/Testing/x"), _file(escape, b"#!/bin/sh\n")])
+    out = tmp_path / "res" / "run"
+    dropped = results.extract_artifacts(tar, out, BUILD)
+    assert dropped == [escape]
+    assert not any(p.name == "pre-commit" for p in tmp_path.rglob("*"))
+    assert (out / "Testing" / "x").exists()

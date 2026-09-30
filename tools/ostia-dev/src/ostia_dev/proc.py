@@ -35,12 +35,14 @@ def run(
 ) -> CompletedProcess:
     """Run a command to completion; text mode unless `input` is bytes."""
     _echo(cmd, verbose)
+    text = not isinstance(input, bytes)
     return subprocess.run(
         cmd,
         input=input,
         capture_output=capture,
         check=check,
-        text=not isinstance(input, bytes),
+        text=text,
+        errors="replace" if text else None,  # tool output isn't always UTF-8
         **kwargs,
     )
 
@@ -49,5 +51,11 @@ def stream(cmd: list[str], *, verbose: bool | None = None, **kwargs) -> subproce
     """Start a command whose stdout (with stderr merged) the caller reads line by line."""
     _echo(cmd, verbose)
     return subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, **kwargs
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",  # compiler and test output isn't always UTF-8
+        bufsize=1,
+        **kwargs,
     )

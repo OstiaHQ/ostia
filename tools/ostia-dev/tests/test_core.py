@@ -149,6 +149,9 @@ class FakeBackend:
     def describe(self, run):
         return {"engine": "fake"}
 
+    def cleanup_hint(self, run):
+        return f"fake cleanup {run.run_id}"
+
 
 @pytest.fixture
 def cfg(tmp_path):
@@ -208,11 +211,26 @@ def test_teardown_runs_after_ctrl_c(cfg, repo, tmp_path, op):
     assert b.calls[-1][0] == "teardown"
 
 
-def test_teardown_runs_after_an_unexpected_exception(cfg, repo, tmp_path):
+def test_an_unexpected_exception_is_exit_3_with_a_summary(cfg, repo, tmp_path):
     b = FakeBackend(fail_at=("stream", RuntimeError("bug")))
-    with pytest.raises(RuntimeError):
-        core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo)
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 3
     assert b.calls[-1][0] == "teardown"
+    (run_dir,) = (tmp_path / "results").iterdir()
+    s = json.loads((run_dir / "summary.json").read_text())
+    assert s["exit_code"] == 3 and "RuntimeError: bug" in s["message"]
+
+
+def test_a_truncated_results_tar_is_exit_3(cfg, repo, tmp_path):
+    b = FakeBackend()
+    original = b.collect
+
+    def collect(run, workdir):
+        control, artifacts = original(run, workdir)
+        artifacts.write_bytes(artifacts.read_bytes()[:700])  # cut inside a member
+        return control, artifacts
+
+    b.collect = collect
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 3
 
 
 def test_unverified_teardown_after_a_pass_is_4(cfg, repo, tmp_path, capsys):
@@ -313,3 +331,38 @@ def test_contributor_code_is_recorded(cfg, git_repo, tmp_path, fake_ref):
     (run_dir,) = (tmp_path / "results").iterdir()
     s = json.loads((run_dir / "summary.json").read_text())
     assert (s["code"], s["pr"]) == ("contributor", 12)
+
+
+def test_sigterm_during_the_run_tears_down_and_exits_130(cfg, repo, tmp_path):
+    import signal
+
+    b = FakeBackend()
+
+    def stream(run):
+        b.calls.append(("stream", run.env))
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler), "no SIGTERM handler while the run is live"
+        handler(signal.SIGTERM, None)  # what the signal would do
+
+    b.stream = stream
+    before = signal.getsignal(signal.SIGTERM)
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 130
+    assert b.calls[-1][0] == "teardown"
+    assert signal.getsignal(signal.SIGTERM) is before  # restored afterwards
+
+
+def test_a_second_ctrl_c_in_teardown_prints_the_cleanup_command(cfg, repo, tmp_path, capsys):
+    b = FakeBackend(fail_at=("stream", KeyboardInterrupt()))
+
+    def teardown(run):
+        b.calls.append(("teardown", run.env))
+        raise KeyboardInterrupt  # the second Ctrl-C
+
+    b.teardown = teardown
+    b.cleanup_hint = lambda run: f"fake rm {run.run_id}"
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 130
+    err = capsys.readouterr().err
+    assert "fake rm container-cpu-" in err
+    (run_dir,) = (tmp_path / "results").iterdir()
+    s = json.loads((run_dir / "summary.json").read_text())
+    assert s["teardown"] == "unverified" and s["cleanup"].startswith("fake rm ")

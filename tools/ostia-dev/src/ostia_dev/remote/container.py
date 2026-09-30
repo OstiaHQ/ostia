@@ -276,9 +276,10 @@ class ContainerBackend:
             if self._run("inspect", name).returncode != 0:
                 return True
             time.sleep(0.5)
-        print(f"warning: container {name} is still there; remove it with: "
-              f"{self.kind} rm -f -v {name}", file=sys.stderr)  # fmt: skip
         return False
+
+    def cleanup_hint(self, run: Run) -> str:
+        return f"{self.kind or 'podman'} rm -f -v {run.state.get('name', 'ostia-' + run.run_id)}"
 
     def describe(self, run: Run) -> dict:
         return {"engine": self.kind, "image": run.image, "gpus": self.gpus}

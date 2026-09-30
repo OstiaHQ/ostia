@@ -8,13 +8,14 @@ filter: tarfile.data_filter first, then no links, only allowlisted paths, and a 
 """
 
 import json
+import os
 import re
 import shutil
 import sys
 import tarfile
 from dataclasses import dataclass
 from fnmatch import fnmatch
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from ostia_dev.contract import violation
 from ostia_dev.errors import InfraError
@@ -111,6 +112,7 @@ def _target(name: str, build_rel: str) -> str | None:
 def extract_artifacts(tar_path: Path, dest: Path, build_rel: str) -> list[str]:
     """Extract the allowlisted artifacts; returns (and warns about) every dropped member."""
     dest.mkdir(parents=True, exist_ok=True)
+    root = os.path.realpath(dest) + os.sep
     dropped: list[str] = []
     total = 0
 
@@ -131,7 +133,13 @@ def extract_artifacts(tar_path: Path, dest: Path, build_rel: str) -> list[str]:
             dropped.append(name)
             return None
         target = _target(name, build_rel)
-        if target is None or total + member.size > CAP_BYTES:
+        # data_filter checked the original name; the remapped one must stay inside too
+        if (
+            target is None
+            or ".." in PurePosixPath(target).parts
+            or not os.path.realpath(os.path.join(path, target)).startswith(root)
+            or total + member.size > CAP_BYTES
+        ):
             dropped.append(name)
             return None
         total += member.size

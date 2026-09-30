@@ -21,6 +21,7 @@ import socket
 import sys
 import tempfile
 import time
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -113,6 +114,7 @@ class Backend(Protocol):
     def collect(self, run: Run, workdir: Path) -> tuple[Path, Path]: ...
     def teardown(self, run: Run) -> bool: ...
     def describe(self, run: Run) -> dict: ...
+    def cleanup_hint(self, run: Run) -> str: ...
 
 
 def owner_id() -> str:
@@ -285,6 +287,15 @@ def run_one(backend: Backend, spec: RunSpec, env: str, cfg: Config, repo: Path) 
 
 
 def _execute(backend: Backend, run: Run, workdir: Path) -> int:
+    """SIGTERM acts like Ctrl-C for the whole run, so a killed CLI still tears down."""
+    previous = signal.signal(signal.SIGTERM, _on_sigterm)
+    try:
+        return _pipeline(backend, run, workdir)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
+def _pipeline(backend: Backend, run: Run, workdir: Path) -> int:
     t0 = time.monotonic()
     removed = backend.gc(run)
     if removed:
@@ -326,14 +337,22 @@ def _execute(backend: Backend, run: Run, workdir: Path) -> int:
         infra, message, failing = True, e.message, e.step
     except UsageError as e:
         usage, message, failing = True, e.message, e.step
+    except Exception as e:  # a bug or an unreadable result: the test result is unknown
+        if proc.verbose():
+            traceback.print_exc()
+        infra = True
+        message = violation(
+            f"the run hit an unexpected error: {type(e).__name__}: {e}",
+            [],
+            "an error ostia-dev did not expect leaves the test result unknown (exit 3)",
+            "rerun with -v for the traceback; if it repeats, report it with that output",
+            "RFC-0005 §3.5",
+        )
     finally:
-        previous = signal.signal(signal.SIGTERM, _on_sigterm)
         try:
             verified = backend.teardown(run)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # a second Ctrl-C: delete requested, not verified
             interrupted, verified = True, False
-        finally:
-            signal.signal(signal.SIGTERM, previous)
     test_code = verdict.test_code if verdict else 0
     code = final_exit(test_code, infra, verified, interrupted, usage=usage)
     failing = verdict.failing_step if verdict else failing
@@ -352,6 +371,7 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
         floor = results.parse_noise_floor(log.read_text(errors="replace")) if log.exists() else None
         reports[name] = {"code": rc, "noise_floor": floor}
     bench = results.copy_bench_results(run.results_dir, run.repo, run.run_id)
+    cleanup = None if verified else backend.cleanup_hint(run)
     ref = run.spec.ref or ""
     summary = {
         "schema": 1,
@@ -376,6 +396,7 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
         "failing_step": failing,
         "message": message,
         "teardown": "verified" if verified else "unverified",
+        "cleanup": cleanup,
         "env_var_keys": sorted(run.env_vars),
         "parallelism": {"build_jobs": run.plan.build_jobs, "test_jobs": run.plan.test_jobs},
         "code": "contributor" if ref.startswith("pr/") else "local",
@@ -390,6 +411,9 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
     results.write_summary(run.results_dir, summary)
     if message and code != errors.OK:
         print(message, file=sys.stderr)
+    if cleanup:
+        print(f"warning: teardown not verified; objects may remain. Remove them with: {cleanup}",
+              file=sys.stderr)  # fmt: skip
     print("\n".join(results.summary_lines(summary)))
     print(f"results: {run.results_dir}")
 

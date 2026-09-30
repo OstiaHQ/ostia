@@ -49,3 +49,14 @@ def test_stream_yields_lines(capsys):
     assert [line.rstrip("\n") for line in p.stdout] == ["one", "two"]
     assert p.wait() == 0
     assert capsys.readouterr().err.startswith("+ ")
+
+
+def test_stream_survives_bytes_that_are_not_utf8():
+    p = proc.stream([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xff\\n')"])
+    assert [line.rstrip("\n") for line in p.stdout] == ["ok \ufffd"]
+    p.wait()
+
+
+def test_run_survives_bytes_that_are_not_utf8():
+    r = proc.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xfe')"])
+    assert r.stdout == "\ufffd"

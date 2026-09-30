@@ -268,3 +268,14 @@ def test_quoted_commands_run_as_written(shell, tmp_path):
     r = start(shell, tmp_path, [("command", "command", shlex.join(argv))])
     assert r.wait() == 0
     assert (r.state / "args").read_text() == "a b|$HOME|it's|"
+
+
+def test_a_background_process_left_by_a_step_does_not_hold_the_run(shell, tmp_path):
+    marker = f"ostia-stray-{uuid.uuid4().hex[:8]}"
+    plan = [("command", "command", f"sh -c 'sleep 30; : {marker}' & echo started")]
+    r = start(shell, tmp_path, plan)
+    assert r.wait(timeout=20) == 0
+    assert r.seconds < 10
+    assert [(s["name"], s["code"]) for s in r.steps["steps"]] == [("command", 0)]
+    time.sleep(0.5)
+    assert not _alive(marker), "the step's leftover process was not stopped"
