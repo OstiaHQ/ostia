@@ -1,10 +1,9 @@
-"""Tests for tools/bench/schema.py (RFC-0001 §6.2)."""
+"""Tests for tools/ostia-dev/src/ostia_dev/bench/schema.py (RFC-0001 §6.2)."""
 
 import copy
 
 import pytest
-
-from tools.bench.schema import SchemaError, compat_key, validate
+from ostia_dev.bench.schema import SchemaError, compat_key, validate
 
 RECORD = {
     "schema": 1,

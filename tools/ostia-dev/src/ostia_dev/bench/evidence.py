@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Evidence of the transport a gate workload actually used (RFC-0001 §6.4).
 
-    evidence.py bench/results/<run id>/evidence/<workload>.json
-    evidence.py --probe ib|nvlink [--probe ...]     # before a gate run (RFC-0005 §6)
+    ostia-dev bench evidence bench/results/<run id>/evidence/<workload>.json
+    ostia-dev bench evidence --probe ib|nvlink [--probe ...]     # before a gate run (RFC-0005 §6)
 
 A gate run that cannot show it used the capability it tests fails instead of passing.
 `ostia_bench.py run --evidence` writes one evidence file per workload:
@@ -177,7 +177,9 @@ def check(ev: dict) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev bench evidence", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("files", nargs="*", type=Path)
     parser.add_argument("--probe", action="append", choices=["ib", "nvlink"], default=[])
     args = parser.parse_args(argv)

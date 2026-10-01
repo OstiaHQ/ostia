@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """The telemetry overhead mechanism (RFC-0001 §6.6).
 
-    overhead.py --off <cmd> --level <cmd>     # the gate: level against off, same box
-    overhead.py --aa <cmd>                    # A/A noise floor: off against off
-    overhead.py --self-test <cmd>             # 3% injected must fail, 0% must pass
+    ostia-dev bench overhead --off <cmd> --level <cmd>     # the gate: level against off, same box
+    ostia-dev bench overhead --aa <cmd>                    # A/A noise floor: off against off
+    ostia-dev bench overhead --self-test <cmd>             # 3% injected must fail, 0% must pass
 
 Each command prints one duration in seconds as its last output line. Runs are paired
 and interleaved (off, level, then level, off, ...), at least 20 pairs. For each pair the
@@ -122,7 +122,9 @@ def _report(label: str, d: Decision) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev bench overhead", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--off")
     parser.add_argument("--level")
     parser.add_argument("--aa", metavar="CMD")

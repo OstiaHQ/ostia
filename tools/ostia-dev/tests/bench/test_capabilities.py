@@ -1,10 +1,9 @@
 from pathlib import Path
 
 import pytest
+from ostia_dev.bench.capabilities import SetupError, evaluate, load_setup, main
 
-from tools.bench.capabilities import SetupError, evaluate, load_setup, main
-
-SETUPS = Path(__file__).resolve().parents[3] / "infra" / "setups"
+SETUPS = Path(__file__).resolve().parents[4] / "infra" / "setups"
 
 SETUP = """\
 schema: 1

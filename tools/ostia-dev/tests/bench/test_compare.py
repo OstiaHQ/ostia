@@ -1,13 +1,13 @@
-"""Tests for tools/bench/compare.py (RFC-0001 §6.3)."""
+"""Tests for tools/ostia-dev/src/ostia_dev/bench/compare.py (RFC-0001 §6.3)."""
 
 import copy
 import json
 import random
 
 import pytest
+from ostia_dev.bench.compare import compare_case, compare_runs, main, pool_baseline
 
-from tools.bench.compare import compare_case, compare_runs, main, pool_baseline
-from tools.bench.tests.test_schema import RECORD
+from .test_schema import RECORD
 
 
 def noisy(mean, n=20, sd=0.2, seed=1):

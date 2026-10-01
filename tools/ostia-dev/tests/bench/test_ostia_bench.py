@@ -1,12 +1,11 @@
-"""Tests for tools/bench/ostia_bench.py (RFC-0001 §6.1)."""
+"""Tests for tools/ostia-dev/src/ostia_dev/bench/ostia_bench.py (RFC-0001 §6.1)."""
 
 import json
 from pathlib import Path
 
 import pytest
-
-from tools.bench.ostia_bench import from_nvbench, main, provenance_and_compat
-from tools.bench.schema import validate
+from ostia_dev.bench.ostia_bench import from_nvbench, main, provenance_and_compat
+from ostia_dev.bench.schema import validate
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "nvbench_noop.json"
 UNMEASURED = FIXTURE.with_name("nvbench_unmeasured.json")
@@ -76,7 +75,7 @@ def test_evidence_is_recorded_next_to_the_results(tmp_path):
 
 
 def test_provenance_prefers_ostia_git_sha(monkeypatch):
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     calls = []
     real = ob._run
@@ -90,7 +89,7 @@ def test_provenance_prefers_ostia_git_sha(monkeypatch):
 def test_provenance_without_the_variable_is_unchanged(monkeypatch):
     import subprocess
 
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     monkeypatch.delenv("OSTIA_GIT_SHA", raising=False)
     prov, _ = provenance_and_compat("r1", None)
@@ -176,7 +175,7 @@ def launched(monkeypatch):
     """Records the program command the driver runs; git and nvidia-smi look absent."""
     import subprocess
 
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     calls = []
 
@@ -205,7 +204,7 @@ def test_launcher_argv_without_ranks(launched, tmp_path):
 def test_launcher_argv_with_ranks(launched, tmp_path):
     import sys
 
-    from tools.bench.ostia_bench import ROOT
+    from ostia_dev.bench.ostia_bench import ROOT
 
     assert _ostia_run(tmp_path, "--ranks", "2") == 0
     [(cmd, _)] = launched
@@ -235,7 +234,7 @@ PEER = {"OSTIA_SIZE": "2", "OSTIA_PEER_HOST": "j-0.j", "OSTIA_PORT": "29400"}
 
 @pytest.fixture
 def rank(monkeypatch):
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     monkeypatch.setattr(ob, "_barrier", lambda r, host, port: None)
 
@@ -254,7 +253,7 @@ def dns(monkeypatch):
     """A resolver that fails `failures` times; sleep advances a fake clock."""
     import socket
 
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     state = {"failures": 0, "t": 0.0, "sleeps": 0, "lookups": 0}
 
@@ -330,7 +329,7 @@ def test_remote_refuses_ranks_and_nvbench(launched, rank, tmp_path, capsys):
 
 
 def test_remote_rank0_writes_no_evidence(launched, rank, dns, tmp_path, monkeypatch):
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     monkeypatch.setattr(ob.evidence, "snapshot", lambda: {"nic": {}, "nvlink": {}})
     rank(0)
@@ -346,7 +345,7 @@ def test_a_second_run_with_the_same_run_id_appends(launched, tmp_path):
 
 
 def test_remote_ranks_meet_on_the_next_port_first(launched, monkeypatch, dns, tmp_path):
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     met = []
     monkeypatch.setattr(ob, "_barrier", lambda r, host, port: met.append((r, host, port)))
@@ -360,7 +359,7 @@ def test_barrier_between_two_real_drivers():
     import socket
     import threading
 
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -374,7 +373,7 @@ def test_barrier_between_two_real_drivers():
 
 
 def test_barrier_times_out_with_a_clear_error(monkeypatch):
-    import tools.bench.ostia_bench as ob
+    import ostia_dev.bench.ostia_bench as ob
 
     monkeypatch.setattr(ob, "BARRIER_WAIT", 1)
     with pytest.raises(ob.BenchError) as e:

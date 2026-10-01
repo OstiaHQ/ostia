@@ -1,8 +1,7 @@
 import json
 
 import pytest
-
-from tools.bench.oracles import ORACLES, OracleError, agree, main
+from ostia_dev.bench.oracles import ORACLES, OracleError, agree, main
 
 MIB = 1 << 20
 

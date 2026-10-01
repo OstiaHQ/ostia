@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounds of the M0 gate workloads (RFC-0001 §6.4).
 
-    bounds.py results.jsonl [--ceiling GB/s]
+    ostia-dev bench bounds results.jsonl [--ceiling GB/s]
 
 Each gate workload other than the calibrations must reach at least 90% of its bound,
 computed from measurements of the same run:
@@ -24,7 +24,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.bench.schema import SchemaError, load
+from ostia_dev.bench.schema import SchemaError, load
 
 TARGET = 0.90
 MIB = 1 << 20
@@ -142,7 +142,9 @@ def check(records: list[dict], ceiling: float | None = None) -> list[Check]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev bench bounds", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("results", type=Path)
     parser.add_argument("--ceiling", type=float, help="batching ceiling B in GB/s")
     args = parser.parse_args(argv)

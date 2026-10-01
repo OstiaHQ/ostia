@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reference tools for the calibration workloads (RFC-0001 §6.4).
 
-    oracles.py --results results.jsonl --oracle nvbandwidth --print-command
-    oracles.py --results results.jsonl --oracle nvbandwidth --output nvbandwidth.txt
+    ostia-dev bench oracles --results results.jsonl --oracle nvbandwidth --print-command
+    ostia-dev bench oracles --results results.jsonl --oracle nvbandwidth --output nvbandwidth.txt
 
 A calibration workload passes when its median is within 5% of its reference tool, run
 with matched parameters: `p2p_copy` against `nvbandwidth`; `rdma_put` against
@@ -26,7 +26,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.bench.schema import SchemaError, load
+from ostia_dev.bench.schema import SchemaError, load
 
 TOLERANCE = 0.05
 MIB = 1 << 20
@@ -144,7 +144,9 @@ ORACLES: dict[str, dict[str, Oracle]] = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev bench oracles", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--oracle", required=True)
     parser.add_argument("--bench", help="calibration workload (default: the only one in the file)")

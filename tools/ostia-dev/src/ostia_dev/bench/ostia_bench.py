@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """The Ostia benchmark driver (RFC-0001 §6.1).
 
-    ostia_bench.py run --bench <binary> [--format nvbench|ostia] [--runs 10] [--ranks N | --remote]
-                       [--tls UCX_TLS] [--evidence] [--needs-gpu]
-                       [--build-dir build/cuda-12/release] [--run-id ID] [-- <program args>]
-    ostia_bench.py convert --run-id ID <nvbench.json>...
-    ostia_bench.py median-seconds --bench <nvbench binary>
+    ostia-dev bench run --bench <binary> [--format nvbench|ostia] [--runs 10]
+                        [--ranks N | --remote] [--tls UCX_TLS] [--evidence] [--needs-gpu]
+                        [--build-dir build/cuda-12/release] [--run-id ID] [-- <program args>]
+    ostia-dev bench convert --run-id ID <nvbench.json>...
+    ostia-dev bench median-seconds --bench <nvbench binary>
 
 `run` executes a benchmark binary --runs times, in-process ones (nvbench) directly and
 multi-process ones through fabric/tests/multiprocess/launcher.py (--ranks), and writes
-schema-1 records (tools/bench/schema.py) to bench/results/<run id>/results.jsonl. One
+schema-1 records (ostia_dev/bench/schema.py) to bench/results/<run id>/results.jsonl. One
 nvbench invocation gives one sample per state: its cold mean GPU time, or its global
 memory bandwidth when nvbench reports one. `ostia` format binaries print schema-1
 records without provenance and compat, which the driver fills in. `--evidence` records
-the transport the run used (tools/bench/evidence.py) in
+the transport the run used (ostia_dev/bench/evidence.py) in
 bench/results/<run id>/evidence/<workload>.json, which gate comparisons require (§6.4).
 `--remote` runs one rank of a two-pod run (RFC-0005 §4.11): rank 0 gets --listen and
 rank 1 --connect, from the pod's OSTIA_RANK, OSTIA_SIZE, OSTIA_PEER_HOST and OSTIA_PORT.
-`median-seconds` prints one duration for tools/bench/overhead.py.
+`median-seconds` prints one duration for `ostia-dev bench overhead`.
 """
 
 import argparse
@@ -38,10 +38,10 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.bench import evidence
-from tools.bench.schema import validate
+from ostia_dev.bench import evidence
+from ostia_dev.bench.schema import validate
+from ostia_dev.paths import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 TIME = "nv/cold/time/gpu/mean"
 BANDWIDTH = "nv/cold/bw/global/bytes_per_second"
 
@@ -299,7 +299,7 @@ def _needs_gpu_error() -> int:
         "error: this benchmark needs a CUDA GPU, and nvidia-smi found none\n"
         "  rule: GPU benchmarks run on a GPU node, with ostia-dev remote (RFC-0005)\n"
         "  fix: run it there or on a rented setup (RFC-0004), or compile only with "
-        "pixi run check-cuda\n"
+        "pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile\n"
         "  see: RFC-0001 §6.1",
         file=sys.stderr,
     )
@@ -307,7 +307,7 @@ def _needs_gpu_error() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="ostia-dev bench", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run")
     run.add_argument("--bench", required=True)

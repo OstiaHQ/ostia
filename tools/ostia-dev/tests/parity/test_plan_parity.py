@@ -54,7 +54,7 @@ CASES = [
 ]
 # The plan task whose commands make a row pass; LANDED lists the tasks done so far.
 TASK_OF = {"docs-index": 5, "bench": 6, "compare": 6}
-LANDED = {4, 5}
+LANDED = {4, 5, 6}
 
 
 def _command(part: str) -> list[str]:

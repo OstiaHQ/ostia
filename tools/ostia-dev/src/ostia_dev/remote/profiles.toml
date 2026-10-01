@@ -115,7 +115,7 @@ preset = "release"
 steps = [
   { name = "configure", kind = "build", run = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON", "-DCMAKE_CUDA_ARCHITECTURES={cc}-real"] },
   { name = "build", kind = "build", run = ["cmake", "--build", "--preset", "release"] },
-  { name = "bench-driver", kind = "command", run = ["python", "{source_dir}/tools/bench/ostia_bench.py", "run", "--needs-gpu", "--runs", "3", "--bench", "{build_dir}/telemetry/bench/ostia_telemetry_bench_noop", "--build-dir", "{build_dir}", "--out", "{source_dir}/bench/results", "--run-id", "{run_id}"] },
+  { name = "bench-driver", kind = "command", run = ["ostia-dev", "bench", "run", "--needs-gpu", "--runs", "3", "--bench", "{build_dir}/telemetry/bench/ostia_telemetry_bench_noop", "--build-dir", "{build_dir}", "--out", "{source_dir}/bench/results", "--run-id", "{run_id}"] },
   { name = "bench-programs", kind = "command", run = ["ctest", "--test-dir", "{build_dir}", "-R", "^fabric\\.bench\\.", "--output-on-failure", "--output-junit", "junit.xml"] },
 ]
 
@@ -125,9 +125,9 @@ preset = "release"
 steps = [
   { name = "configure", kind = "build", run = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON", "-DCMAKE_CUDA_ARCHITECTURES={cc}-real"] },
   { name = "build", kind = "build", run = ["cmake", "--build", "--preset", "release"] },
-  { name = "self-test", kind = "command", run = ["python", "{source_dir}/tools/bench/overhead.py", "--target", "{profile}", "--self-test", "python {source_dir}/tools/bench/ostia_bench.py median-seconds --bench {build_dir}/telemetry/bench/ostia_telemetry_bench_noop"] },
+  { name = "self-test", kind = "command", run = ["ostia-dev", "bench", "overhead", "--target", "{profile}", "--self-test", "ostia-dev bench median-seconds --bench {build_dir}/telemetry/bench/ostia_telemetry_bench_noop"] },
   # A report step never affects the exit code
-  { name = "aa", kind = "report", run = ["python", "{source_dir}/tools/bench/overhead.py", "--target", "{profile}", "--aa", "python {source_dir}/tools/bench/ostia_bench.py median-seconds --bench {build_dir}/telemetry/bench/ostia_telemetry_bench_noop"] },
+  { name = "aa", kind = "report", run = ["ostia-dev", "bench", "overhead", "--target", "{profile}", "--aa", "ostia-dev bench median-seconds --bench {build_dir}/telemetry/bench/ostia_telemetry_bench_noop"] },
 ]
 
 [suites.cpu]

@@ -1,8 +1,7 @@
 import json
 
 import pytest
-
-from tools.bench.bounds import (
+from ostia_dev.bench.bounds import (
     BoundsError,
     batching_bound,
     check,

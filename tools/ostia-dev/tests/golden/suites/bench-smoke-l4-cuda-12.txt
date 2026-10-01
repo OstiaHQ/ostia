@@ -4,5 +4,5 @@ libcuda	preflight	sh -c 'if ldconfig -p 2>/dev/null | grep -q '"'"'libcuda[.]so[
 install	install	pixi install --locked -e cuda-12
 configure	build	pixi run --frozen -e cuda-12 cmake --preset release -DOSTIA_BUILD_BENCH=ON -DCMAKE_CUDA_ARCHITECTURES=89-real
 build	build	pixi run --frozen -e cuda-12 cmake --build --preset release
-bench-driver	command	pixi run --frozen -e cuda-12 python /w/tools/bench/ostia_bench.py run --needs-gpu --runs 3 --bench /w/build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop --build-dir /w/build/cuda-12/release --out /w/bench/results --run-id k8s-l4-20261002-141501-a1b2c3
+bench-driver	command	pixi run --frozen -e cuda-12 ostia-dev bench run --needs-gpu --runs 3 --bench /w/build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop --build-dir /w/build/cuda-12/release --out /w/bench/results --run-id k8s-l4-20261002-141501-a1b2c3
 bench-programs	command	pixi run --frozen -e cuda-12 ctest --test-dir /w/build/cuda-12/release -R '^fabric\.bench\.' --output-on-failure --output-junit junit.xml

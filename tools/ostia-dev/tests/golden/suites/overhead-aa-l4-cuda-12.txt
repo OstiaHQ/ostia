@@ -4,5 +4,5 @@ libcuda	preflight	sh -c 'if ldconfig -p 2>/dev/null | grep -q '"'"'libcuda[.]so[
 install	install	pixi install --locked -e cuda-12
 configure	build	pixi run --frozen -e cuda-12 cmake --preset release -DOSTIA_BUILD_BENCH=ON -DCMAKE_CUDA_ARCHITECTURES=89-real
 build	build	pixi run --frozen -e cuda-12 cmake --build --preset release
-self-test	command	pixi run --frozen -e cuda-12 python /w/tools/bench/overhead.py --target l4 --self-test 'python /w/tools/bench/ostia_bench.py median-seconds --bench /w/build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop'
-aa	report	pixi run --frozen -e cuda-12 python /w/tools/bench/overhead.py --target l4 --aa 'python /w/tools/bench/ostia_bench.py median-seconds --bench /w/build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop'
+self-test	command	pixi run --frozen -e cuda-12 ostia-dev bench overhead --target l4 --self-test 'ostia-dev bench median-seconds --bench /w/build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop'
+aa	report	pixi run --frozen -e cuda-12 ostia-dev bench overhead --target l4 --aa 'ostia-dev bench median-seconds --bench /w/build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop'

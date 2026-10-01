@@ -164,5 +164,5 @@ fmt = { cmd = "ostia-dev fmt", description = "Apply clang-format, ruff and gerse
 docs-index = { cmd = "ostia-dev docs index", description = "Regenerate the RFC/ADR index in docs/README.md" }
 check-cuda = { cmd = "python tools/dev/check_cuda.py", description = "Compile the CUDA code with nvcc in a linux/arm64 container (no GPU needed)" }
 docs-as-test = { cmd = "ostia-dev check docs-as-test", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
-bench = { cmd = "python tools/bench/ostia_bench.py", description = "Run a benchmark and record schema-1 results (docs/guides/benchmarks.md)" }
-compare = { cmd = "python tools/bench/compare.py", description = "Compare benchmark results with a baseline (RFC-0001 §6.3)" }
+bench = { cmd = "ostia-dev bench", description = "Run a benchmark and record schema-1 results (docs/guides/benchmarks.md)" }
+compare = { cmd = "ostia-dev bench compare", description = "Compare benchmark results with a baseline (RFC-0001 §6.3)" }

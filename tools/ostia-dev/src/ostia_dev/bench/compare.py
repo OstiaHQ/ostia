@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Compare benchmark results with a baseline (RFC-0001 §6.3).
 
-    compare.py --baseline bench/baselines/<setup>.json --candidate results.jsonl \\
+    ostia-dev bench compare --baseline bench/baselines/<setup>.json --candidate results.jsonl \\
         [--manifest cases.json] [--require-pass] [--evidence-dir <run>/evidence]
-    compare.py --write-baseline bench/baselines/<setup>.json --setup <setup> run1.jsonl run2.jsonl
+    ostia-dev bench compare --write-baseline bench/baselines/<setup>.json --setup <setup> \\
+        run1.jsonl run2.jsonl
 
 Outcomes per case:
 - `pass`: the change is below the threshold with 95% confidence;
@@ -31,8 +32,8 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.bench import evidence
-from tools.bench.schema import COMPAT, SchemaError, case_key, compat_key, load, validate
+from ostia_dev.bench import evidence
+from ostia_dev.bench.schema import COMPAT, SchemaError, case_key, compat_key, load, validate
 
 THRESHOLD = 0.05
 MIN_SAMPLES = 10
@@ -177,7 +178,9 @@ def _summary(results: list[CaseResult]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev bench compare", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--manifest", type=Path, help="JSON list of expected {bench, params}")

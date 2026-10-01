@@ -1,8 +1,7 @@
 import json
 
 import pytest
-
-from tools.bench.evidence import (
+from ostia_dev.bench.evidence import (
     build,
     check,
     ib_counters,
@@ -140,14 +139,14 @@ def _nvsmi(code, out):
 
 
 def test_probe_ib_ok(tmp_path):
-    from tools.bench.evidence import probe
+    from ostia_dev.bench.evidence import probe
 
     _sysfs(tmp_path, {("mlx5_0", 1): (400, 800)})
     assert probe(["ib"], ib_root=tmp_path) == []
 
 
 def test_probe_ib_missing(tmp_path):
-    from tools.bench.evidence import probe
+    from ostia_dev.bench.evidence import probe
 
     [problem] = probe(["ib"], ib_root=tmp_path / "none")
     assert "InfiniBand" in problem and "port_xmit_data" in problem
@@ -157,8 +156,7 @@ def test_probe_ib_unreadable(tmp_path):
     import os
 
     import pytest
-
-    from tools.bench.evidence import probe
+    from ostia_dev.bench.evidence import probe
 
     if os.geteuid() == 0:
         pytest.skip("root reads files whatever their mode")
@@ -172,21 +170,21 @@ def test_probe_ib_unreadable(tmp_path):
 
 
 def test_probe_nvlink_ok():
-    from tools.bench.evidence import probe
+    from ostia_dev.bench.evidence import probe
 
     assert probe(["nvlink"], run=_nvsmi(0, NVLINK)) == []
 
 
 @pytest.mark.parametrize(("code", "out"), [(0, "GPU 0: NVIDIA L4\n"), (6, ""), (None, "")])
 def test_probe_nvlink_no_links(code, out):
-    from tools.bench.evidence import probe
+    from ostia_dev.bench.evidence import probe
 
     [problem] = probe(["nvlink"], run=_nvsmi(code, out))
     assert "NVLink" in problem
 
 
 def test_probe_cli_exit_codes(tmp_path, capsys, monkeypatch):
-    import tools.bench.evidence as ev
+    import ostia_dev.bench.evidence as ev
 
     monkeypatch.setattr(ev, "IB_ROOT", tmp_path / "none")
     assert main(["--probe", "ib"]) == 1

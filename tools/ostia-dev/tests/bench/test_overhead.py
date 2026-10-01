@@ -1,10 +1,9 @@
-"""Tests for tools/bench/overhead.py (RFC-0001 §6.6)."""
+"""Tests for tools/ostia-dev/src/ostia_dev/bench/overhead.py (RFC-0001 §6.6)."""
 
 import random
 
 import pytest
-
-from tools.bench.overhead import _command, decide, measure, noise_floor, self_test
+from ostia_dev.bench.overhead import _command, decide, measure, noise_floor, self_test
 
 
 def pairs(overhead, n=40, sd=0.002, seed=3):

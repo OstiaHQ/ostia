@@ -34,7 +34,7 @@ def validate(record: dict) -> None:
     if version not in SUPPORTED:
         raise SchemaError(
             f"schema version {version} is not supported by this tool "
-            f"(supported: {', '.join(map(str, SUPPORTED))}); update tools/bench or re-record"
+            f"(supported: {', '.join(map(str, SUPPORTED))}); update ostia-dev bench or re-record"
         )
     for f in REQUIRED:
         if f not in record:

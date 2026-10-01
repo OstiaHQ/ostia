@@ -11,6 +11,7 @@ from typing import Annotated
 import typer
 
 from ostia_dev import errors, proc
+from ostia_dev.bench import cli as bench_cli
 from ostia_dev.ci import cli as ci_cli
 from ostia_dev.contract import violation
 from ostia_dev.dev import cli as dev_cli
@@ -59,6 +60,7 @@ app = OstiaApp(
 dev_cli.register(app)
 ci_cli.register(app)
 docs_cli.register(app)
+bench_cli.register(app)
 app.add_typer(remote_app, name="remote")
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Capability profiles of the reference setups (RFC-0001 §6.4, RFC-0004 §1).
 
-    capabilities.py [--setups infra/setups]
+    ostia-dev bench capabilities [--setups infra/setups]
 
 Each setup file (`infra/setups/<setup>.yaml`, the format of RFC-0004 §1) names its gate
 workloads, its also-run workloads, and a primary and a fallback machine with their
@@ -21,7 +21,8 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
+from ostia_dev.paths import ROOT
+
 SCHEMA = 1
 
 
@@ -140,7 +141,9 @@ def evaluate(setup: dict) -> dict[str, list[Result]]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev bench capabilities", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--setups", type=Path, default=ROOT / "infra" / "setups")
     args = parser.parse_args(argv)
     failed = 0

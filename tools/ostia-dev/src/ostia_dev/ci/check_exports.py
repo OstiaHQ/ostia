@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the dynamic symbols a library exports (RFC-0001 §5).
 
-    check_exports.py --lib build/default/dev/telemetry/libostia-telemetry.dylib \\
+    ostia-dev check exports --lib build/default/dev/telemetry/libostia-telemetry.dylib \\
         --expected telemetry/abi/exports.txt --level 3 --nm nm
 
 Every telemetry flavour exports exactly the C ABI listed in telemetry/abi/exports.txt,
