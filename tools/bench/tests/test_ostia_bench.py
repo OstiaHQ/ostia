@@ -165,3 +165,66 @@ def test_nvbench_crash_shows_its_output(tmp_path, capsys):
     assert main(["median-seconds", "--bench", str(prog)]) == 1
     err = capsys.readouterr().err
     assert "exited 3" in err and "no CUDA-capable device" in err
+
+
+RECORD = '{"bench": "tcp_put", "params": {"bytes": 16777216}, "unit": "GB/s", '
+RECORD += '"higher_is_better": true, "samples": [1.0, 1.1, 1.2]}'
+
+
+@pytest.fixture
+def launched(monkeypatch):
+    """Records the program command the driver runs; git and nvidia-smi look absent."""
+    import subprocess
+
+    import tools.bench.ostia_bench as ob
+
+    calls = []
+
+    def fake_run(cmd, **kw):
+        if cmd[0] in ("git", "nvidia-smi"):
+            raise FileNotFoundError(cmd[0])
+        calls.append((cmd, kw.get("env") or {}))
+        return subprocess.CompletedProcess(cmd, 0, stdout=RECORD + "\n", stderr="")
+
+    monkeypatch.setattr(ob.subprocess, "run", fake_run)
+    return calls
+
+
+def _ostia_run(tmp_path, *flags):
+    argv = ["run", "--format", "ostia", "--bench", "/b/tcp_put", "--runs", "3", "--run-id", "t"]
+    return main([*argv, "--out", str(tmp_path), *flags, "--", "--smoke"])
+
+
+def test_launcher_argv_without_ranks(launched, tmp_path):
+    assert _ostia_run(tmp_path) == 0
+    [(cmd, env)] = launched
+    assert cmd == ["/b/tcp_put", "--smoke"]
+    assert env["OSTIA_BENCH_RUNS"] == "3"
+
+
+def test_launcher_argv_with_ranks(launched, tmp_path):
+    import sys
+
+    from tools.bench.ostia_bench import ROOT
+
+    assert _ostia_run(tmp_path, "--ranks", "2") == 0
+    [(cmd, _)] = launched
+    launcher = str(ROOT / "fabric" / "tests" / "multiprocess" / "launcher.py")
+    assert cmd == [sys.executable, launcher, "--ranks", "2", "--", "/b/tcp_put", "--smoke"]
+
+
+def test_launcher_argv_with_ranks_and_tls(launched, tmp_path):
+    assert _ostia_run(tmp_path, "--ranks", "2", "--tls", "cuda_ipc,tcp,self") == 0
+    [(cmd, _)] = launched
+    assert cmd[2:9] == ["--ranks", "2", "--tls", "cuda_ipc,tcp,self", "--expect", "", "--"]
+    assert cmd[9:] == ["/b/tcp_put", "--smoke"]
+
+
+def test_launcher_records_get_provenance(launched, tmp_path):
+    assert _ostia_run(tmp_path, "--ranks", "2") == 0
+    [record] = [
+        json.loads(line) for line in (tmp_path / "t" / "results.jsonl").read_text().splitlines()
+    ]
+    assert record["schema"] == 1 and record["provenance"]["run_id"] == "t"
+    assert set(record["compat"]) >= {"gpu", "driver", "deps"}
+    validate(record)
