@@ -1,0 +1,24 @@
+{
+  "meta": {"version": {"json": {"major": 1, "minor": 0, "patch": 0}}},
+  "devices": [{"id": 0, "name": "NVIDIA L4", "sm_version": 890}],
+  "benchmarks": [
+    {
+      "name": "noop_kernel",
+      "index": 0,
+      "states": [
+        {
+          "name": "Device=0 Iterations=262144",
+          "device": 0,
+          "is_skipped": false,
+          "axis_values": [
+            {"name": "Iterations", "type": "int64", "value": "262144"}
+          ],
+          "summaries": [
+            {"tag": "nv/batch/time/gpu/mean", "name": "Batch GPU",
+             "data": [{"name": "value", "type": "float64", "value": "4.038454e-03"}]}
+          ]
+        }
+      ]
+    }
+  ]
+}
