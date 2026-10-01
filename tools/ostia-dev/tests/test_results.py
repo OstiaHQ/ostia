@@ -132,17 +132,6 @@ def test_the_size_cap_drops_what_is_past_it(tmp_path, monkeypatch):
     assert (out / "junit-a.xml").exists() and (out / "junit-c.xml").exists()
 
 
-def test_bench_results_are_copied_for_compare(tmp_path):
-    out = tmp_path / "out"
-    (out / "bench" / "results" / "rid").mkdir(parents=True)
-    (out / "bench" / "results" / "rid" / "results.jsonl").write_text("{}\n")
-    repo = tmp_path / "repo"
-    copied = results.copy_bench_results(out, repo, "rid")
-    assert copied == repo / "bench" / "results" / "rid"
-    assert (copied / "results.jsonl").read_text() == "{}\n"
-    assert results.copy_bench_results(tmp_path / "none", repo, "rid") is None
-
-
 def _summary(**over):
     s = {
         "run_id": "k8s-l4-20261002-141501-a1b2c3",
@@ -230,3 +219,41 @@ def test_a_remapped_traversal_is_dropped(tmp_path):
     assert dropped == [escape]
     assert not any(p.name == "pre-commit" for p in tmp_path.rglob("*"))
     assert (out / "Testing" / "x").exists()
+
+
+def _bench_file(results_dir, sub, name, text):
+    f = results_dir / sub / "bench" / "results" / "rid" / name
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text)
+
+
+def test_merge_bench_results_disjoint(tmp_path):
+    out, repo = tmp_path / "out", tmp_path / "repo"
+    _bench_file(out, "rank-1", "results.jsonl", "{}\n")
+    _bench_file(out, "rank-1", "evidence/tcp_put.json", "{}")
+    dst = results.merge_bench_results(out, ["rank-0", "rank-1"], "rid", repo)
+    assert dst == repo / "bench" / "results" / "rid"
+    assert (dst / "results.jsonl").read_text() == "{}\n"
+    assert (dst / "evidence" / "tcp_put.json").exists()
+
+
+def test_merge_bench_results_flat_is_the_old_copy(tmp_path):
+    out, repo = tmp_path / "out", tmp_path / "repo"
+    _bench_file(out, "", "results.jsonl", "{}\n")
+    assert results.merge_bench_results(out, [""], "rid", repo) == repo / "bench/results/rid"
+    assert results.merge_bench_results(tmp_path / "none", [""], "rid", repo) is None
+
+
+def test_merge_bench_results_clash_is_infra(tmp_path):
+    out, repo = tmp_path / "out", tmp_path / "repo"
+    _bench_file(out, "rank-0", "results.jsonl", "a\n")
+    _bench_file(out, "rank-1", "results.jsonl", "b\n")
+    with pytest.raises(InfraError) as e:
+        results.merge_bench_results(out, ["rank-0", "rank-1"], "rid", repo)
+    assert "rank-0 and rank-1 both wrote" in e.value.message
+
+
+def test_host_network_summary_warning():
+    lines = results.summary_lines(_summary(backend="k8s", host_network=True))
+    assert any("host network" in line and "cloud identity" in line for line in lines)
+    assert not any("host network" in line for line in results.summary_lines(_summary()))

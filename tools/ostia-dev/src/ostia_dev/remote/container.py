@@ -14,7 +14,7 @@ from ostia_dev import proc
 from ostia_dev.contract import violation
 from ostia_dev.errors import InfraError, UsageError
 from ostia_dev.remote import results, suites
-from ostia_dev.remote.core import Run, owner_id
+from ostia_dev.remote.core import Collected, Run, owner_id
 
 CACHE_VOLUME = "ostia-pixi-cache"
 # Outside HOME: a mount under /w/home would make the engine create HOME owned by root.
@@ -219,7 +219,7 @@ class ContainerBackend:
         run.state["running"] = bool(state) and state[0] == "true"
         run.oom = len(state) > 1 and state[1] == "true"
 
-    def collect(self, run: Run, workdir: Path) -> tuple[Path, Path]:
+    def collect(self, run: Run, workdir: Path) -> list[Collected]:
         control, artifacts = workdir / "control.tar", workdir / "artifacts.tar"
         name = run.state["name"]
         build_rel = run.plan.build_dir.removeprefix(suites.WORK + "/")
@@ -233,7 +233,7 @@ class ContainerBackend:
             self._to_file(control, "cp", f"{name}:{suites.WORK}/.ostia", "-")
             with tarfile.open(artifacts, "w"):
                 pass
-        return control, artifacts
+        return [Collected("", control, artifacts)]
 
     def _to_file(self, path: Path, *args: str) -> None:
         with path.open("wb") as f:

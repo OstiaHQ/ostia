@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from tools.bench.evidence import (
     build,
     check,
@@ -124,3 +126,72 @@ def test_cli(tmp_path, capsys):
     assert main([str(path)]) == 1
     assert "error: tcp_put" in capsys.readouterr().out
     assert main([str(tmp_path / "missing.json")]) == 1
+
+
+def _nvsmi(code, out):
+    import subprocess
+
+    def run(cmd, **kw):
+        if code is None:
+            raise FileNotFoundError(cmd[0])
+        return subprocess.CompletedProcess(cmd, code, stdout=out, stderr="")
+
+    return run
+
+
+def test_probe_ib_ok(tmp_path):
+    from tools.bench.evidence import probe
+
+    _sysfs(tmp_path, {("mlx5_0", 1): (400, 800)})
+    assert probe(["ib"], ib_root=tmp_path) == []
+
+
+def test_probe_ib_missing(tmp_path):
+    from tools.bench.evidence import probe
+
+    [problem] = probe(["ib"], ib_root=tmp_path / "none")
+    assert "InfiniBand" in problem and "port_xmit_data" in problem
+
+
+def test_probe_ib_unreadable(tmp_path):
+    import os
+
+    import pytest
+
+    from tools.bench.evidence import probe
+
+    if os.geteuid() == 0:
+        pytest.skip("root reads files whatever their mode")
+    _sysfs(tmp_path, {("mlx5_0", 1): (400, 800)})
+    f = next(tmp_path.glob("*/ports/*/counters/port_xmit_data"))
+    f.chmod(0)
+    try:
+        assert probe(["ib"], ib_root=tmp_path) != []
+    finally:
+        f.chmod(0o644)
+
+
+def test_probe_nvlink_ok():
+    from tools.bench.evidence import probe
+
+    assert probe(["nvlink"], run=_nvsmi(0, NVLINK)) == []
+
+
+@pytest.mark.parametrize(("code", "out"), [(0, "GPU 0: NVIDIA L4\n"), (6, ""), (None, "")])
+def test_probe_nvlink_no_links(code, out):
+    from tools.bench.evidence import probe
+
+    [problem] = probe(["nvlink"], run=_nvsmi(code, out))
+    assert "NVLink" in problem
+
+
+def test_probe_cli_exit_codes(tmp_path, capsys, monkeypatch):
+    import tools.bench.evidence as ev
+
+    monkeypatch.setattr(ev, "IB_ROOT", tmp_path / "none")
+    assert main(["--probe", "ib"]) == 1
+    out = capsys.readouterr().out
+    assert "evidence counters unreadable" in out and "fails closed" in out and "RFC-0005 §6" in out
+    _sysfs(tmp_path / "sys", {("mlx5_0", 1): (1, 2)})
+    monkeypatch.setattr(ev, "IB_ROOT", tmp_path / "sys")
+    assert main(["--probe", "ib"]) == 0

@@ -218,3 +218,100 @@ def test_logs_follow_yields_timestamped_lines_and_drops(kube, clock):
 def test_fixture_shapes_load():
     for f in sorted(FIXTURES.glob("*.json")):
         assert "kind" in json.loads(f.read_text()), f.name
+
+
+INDEX = "batch.kubernetes.io/job-completion-index"
+
+
+def _indexed_job(name="ostia-r2", run_id="r2"):
+    job = _job(name=name, suspend=False, run_id=run_id)
+    job["spec"].update(completionMode="Indexed", completions=2, parallelism=2)
+    job["spec"]["template"]["spec"]["subdomain"] = name
+    env = job["spec"]["template"]["spec"]["containers"][0]["env"]
+    env.append(
+        {
+            "name": "OSTIA_RANK",
+            "valueFrom": {"fieldRef": {"fieldPath": f"metadata.annotations['{INDEX}']"}},
+        }
+    )
+    return job
+
+
+@pytest.fixture
+def two(tmp_path):
+    clock = FakeClock()
+    kube = FakeKube(clock, root=tmp_path / "pods")
+    kube.apply(_indexed_job())
+    pods = sorted(kube.list("pod"), key=lambda p: p["metadata"]["annotations"][INDEX])
+    return kube, clock, [p["metadata"]["name"] for p in pods]
+
+
+def test_indexed_job_creates_two_named_pods(two):
+    kube, _, names = two
+    pods = {p["metadata"]["name"]: p for p in kube.list("pod")}
+    for i, name in enumerate(names):
+        assert name.startswith(f"ostia-r2-{i}-")
+        meta, spec = pods[name]["metadata"], pods[name]["spec"]
+        assert meta["annotations"][INDEX] == str(i) and meta["labels"][INDEX] == str(i)
+        assert spec["hostname"] == f"ostia-r2-{i}" and spec["subdomain"] == "ostia-r2"
+
+
+def test_plain_job_keeps_one_pod(tmp_path):
+    kube = FakeKube(FakeClock(), root=tmp_path / "pods")
+    kube.apply(_job(suspend=False))
+    [pod] = kube.list("pod")
+    assert INDEX not in pod["metadata"].get("annotations", {})
+
+
+def test_pod_phase_by_index(two):
+    kube, clock, names = two
+    kube.script([(1, pod_phase("Running", index=1)), (2, pod_phase("Running"))])
+    clock.sleep(1)
+    phases = {p["metadata"]["name"]: p["status"]["phase"] for p in kube.list("pod")}
+    assert phases == {names[0]: "Pending", names[1]: "Running"}
+    clock.sleep(1)
+    nodes = {p["metadata"]["name"]: p["spec"]["nodeName"] for p in kube.list("pod")}
+    assert nodes == {names[0]: "node-1", names[1]: "node-2"}
+
+
+def test_per_pod_logs_and_codes(two):
+    kube, clock, names = two
+    kube.rank_step_codes = {1: {"install": 7}}
+    kube.script([(1, log(["zero"], index=0)), (1, log(["one"], index=1))])
+    clock.sleep(1)
+    for i, name in enumerate(names):
+        buf = io.BytesIO()
+        kube.exec_out(name, ["sh", "-c", "cd /w/.ostia && tar -cf - ."], stdout=buf)
+        import tarfile
+
+        with tarfile.open(fileobj=io.BytesIO(buf.getvalue())) as t:
+            steps = json.loads(t.extractfile("steps.json").read())
+            log_text = t.extractfile("log.txt").read().decode()
+        assert steps["steps"][0]["code"] == (7 if i else 0)
+        assert log_text == ("one\n" if i else "zero\n")
+
+
+def test_logs_follow_selector_interleaves_with_prefix(two):
+    kube, clock, names = two
+    kube.script(
+        [
+            (0, pod_phase("Running")),
+            (1, log(["b0"], index=1)),
+            (1, log(["a0"], index=0)),
+            (2, log(["a1"], index=0)),
+            (3, pod_phase("Succeeded")),
+        ]
+    )
+    clock.sleep(2)
+    lines = list(kube.logs_follow(selector="ostia.dev/run-id=r2", prefix=True))
+    bodies = [(line.split(" ")[0], line.split(" ", 2)[2]) for line in lines]
+    assert bodies == [
+        (f"[pod/{names[0]}/supervisor]", "a0"),
+        (f"[pod/{names[1]}/supervisor]", "b0"),
+        (f"[pod/{names[0]}/supervisor]", "a1"),
+    ]
+
+
+def test_field_ref_env_resolves_rank(two):
+    kube, _, names = two
+    assert [kube._env(n, "OSTIA_RANK") for n in names] == ["0", "1"]

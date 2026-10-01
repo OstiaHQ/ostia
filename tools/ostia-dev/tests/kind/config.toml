@@ -20,3 +20,13 @@ ephemeral_storage = "10Gi"
 
 [remote.k8s.profiles.cpu.generic]
 node_selector = { "kubernetes.io/os" = "linux" }
+
+# Two of these fit on the one kind node beside the policy tests' server.
+[remote.k8s.profiles.cpu-small]
+kind = "cpu"
+cpu = "500m"
+memory = "1Gi"
+ephemeral_storage = "4Gi"
+
+[remote.k8s.profiles.cpu-small.generic]
+node_selector = { "kubernetes.io/os" = "linux" }

@@ -207,6 +207,13 @@ class Kube:
         """The Job and its pods in one call (R13: at most two calls per status tick)."""
         return self._json(["get", "job,pods", "-l", f"ostia.dev/run-id={run_id}", "-o", "json"])
 
+    def logs(self, *, selector: str, since_time: str | None = None) -> list[str]:
+        """Every pod's lines so far, each prefixed [pod/<name>/<container>]; --tail=-1 because
+        a selector otherwise gets only the last 10 lines per pod."""
+        since = [f"--since-time={since_time}"] if since_time else []
+        args = ["logs", "-l", selector, "--prefix", "--timestamps", "--tail=-1", *since]
+        return (self._run(args).stdout or "").splitlines()
+
     def logs_follow(self, pod: str, *, since_time: str | None = None):
         since = [f"--since-time={since_time}"] if since_time else []
         p = self.runner.stream(

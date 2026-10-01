@@ -45,6 +45,10 @@ class Config:
     def context(self, name: str) -> dict:
         return self.remote("k8s", "contexts").get(name, {})
 
+    def machine(self, name: str) -> dict:
+        """A setup file's logical k8s machine, mapped to a cluster (RFC-0005 §6)."""
+        return self.remote("k8s", "machines").get(name, {})
+
 
 def merge(base: dict, over: dict) -> dict:
     """Per-key merge: tables merge recursively, anything else (lists too) is replaced."""

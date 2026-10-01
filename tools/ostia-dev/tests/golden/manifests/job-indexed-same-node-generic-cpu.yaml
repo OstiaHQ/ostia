@@ -1,0 +1,109 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ostia-k8s-l4-20261002-141501-a1b2c3
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+    ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+    ostia.dev/owner: 0123456789ab
+  annotations:
+    ostia.dev/expires: '2026-10-02T16:20:01Z'
+spec:
+  suspend: true
+  backoffLimit: 0
+  activeDeadlineSeconds: 7500
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        ostia.dev/managed: 'true'
+        ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+        ostia.dev/owner: 0123456789ab
+    spec:
+      restartPolicy: Never
+      serviceAccountName: ostia-test-runner
+      automountServiceAccountToken: false
+      shareProcessNamespace: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: supervisor
+        image: ghcr.io/prefix-dev/pixi:0.81.0-noble@sha256:788ae451641666e2d1f79d3dbe35392dfc7e9b394b16a3acb75c347f3badb2ab
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # ostia-supervisor (golden stand-in)
+          exit 0
+        - ostia-supervisor
+        env:
+        - name: OSTIA_WORK
+          value: /w
+        - name: OSTIA_PLAN
+          value: "install\tinstall\tpixi install --locked -e default\nconfigure\tbuild\tpixi run --frozen -e default cmake --preset dev\nbuild\tbuild\tpixi run --frozen -e default cmake --build --preset dev\ncommand\tcommand\tpixi run --frozen -e default ctest --test-dir /w/build/default/dev --output-on-failure -j 4 --output-junit junit.xml"
+        - name: OSTIA_ENV
+          value: default
+        - name: OSTIA_PRESET
+          value: dev
+        - name: OSTIA_BUILD_DIR
+          value: /w/build/default/dev
+        - name: OSTIA_CODE_WAIT
+          value: '1200'
+        - name: OSTIA_COLLECT_WINDOW
+          value: '600'
+        - name: OSTIA_TIMEOUT
+          value: '3600'
+        - name: HOME
+          value: /w/home
+        - name: CMAKE_BUILD_PARALLEL_LEVEL
+          value: '4'
+        - name: CTEST_PARALLEL_LEVEL
+          value: '4'
+        - name: CTEST_NO_TESTS_ACTION
+          value: error
+        - name: OSTIA_GIT_SHA
+          value: 3f2a9c1+dirty
+        - name: OSTIA_RANK
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+        - name: OSTIA_SIZE
+          value: '2'
+        - name: OSTIA_PORT
+          value: '29400'
+        - name: OSTIA_PEER_HOST
+          value: ostia-k8s-l4-20261002-141501-a1b2c3-0.ostia-k8s-l4-20261002-141501-a1b2c3
+        resources:
+          requests:
+            cpu: '4'
+            memory: 16Gi
+            ephemeral-storage: 20Gi
+          limits:
+            cpu: '4'
+            memory: 16Gi
+            ephemeral-storage: 20Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+        volumeMounts:
+        - name: work
+          mountPath: /w
+      volumes:
+      - name: work
+        emptyDir:
+          sizeLimit: 20Gi
+      nodeSelector:
+        kubernetes.io/os: linux
+      subdomain: ostia-k8s-l4-20261002-141501-a1b2c3
+  completionMode: Indexed
+  completions: 2
+  parallelism: 2

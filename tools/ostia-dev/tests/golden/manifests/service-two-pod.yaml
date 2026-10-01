@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ostia-k8s-l4-20261002-141501-a1b2c3
+  labels:
+    ostia.dev/managed: 'true'
+    ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+    ostia.dev/owner: 0123456789ab
+  ownerReferences:
+  - apiVersion: batch/v1
+    kind: Job
+    name: ostia-k8s-l4-20261002-141501-a1b2c3
+    uid: 11111111-2222-3333-4444-555555555555
+    controller: true
+    blockOwnerDeletion: true
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+  ports:
+  - name: rendezvous
+    port: 29400
+    protocol: TCP

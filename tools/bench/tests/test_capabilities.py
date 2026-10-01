@@ -85,3 +85,97 @@ def test_schema_errors(tmp_path):
     path.write_text(SETUP.replace("name: example", "name: other"))
     with pytest.raises(SetupError, match="file name"):
         load_setup(path)
+
+
+# Today's results for the committed setups; adding the k8s machine type must not move them.
+SNAPSHOT = [
+    ("nvlink-node", "fallback", "batching", True, True, ""),
+    ("nvlink-node", "fallback", "dual_link", True, True, ""),
+    ("nvlink-node", "fallback", "onpath_placement", False, True, ""),
+    ("nvlink-node", "fallback", "p2p_copy", True, True, ""),
+    ("nvlink-node", "fallback", "pipelining", True, True, ""),
+    ("nvlink-node", "fallback", "topo_capture", False, True, ""),
+    ("nvlink-node", "primary", "batching", True, True, ""),
+    ("nvlink-node", "primary", "dual_link", True, True, ""),
+    ("nvlink-node", "primary", "onpath_placement", False, True, ""),
+    ("nvlink-node", "primary", "p2p_copy", True, True, ""),
+    ("nvlink-node", "primary", "pipelining", True, True, ""),
+    ("nvlink-node", "primary", "topo_capture", False, True, ""),
+    ("rdma-pair", "fallback", "dual_link", True, True, ""),
+    ("rdma-pair", "fallback", "gdr_stream", True, True, ""),
+    ("rdma-pair", "fallback", "rdma_put", True, True, ""),
+    ("rdma-pair", "fallback", "topo_capture", False, True, ""),
+    ("rdma-pair", "primary", "dual_link", True, True, ""),
+    ("rdma-pair", "primary", "gdr_stream", True, True, ""),
+    ("rdma-pair", "primary", "rdma_put", True, True, ""),
+    ("rdma-pair", "primary", "topo_capture", False, True, ""),
+    ("tcp-efa-pair", "fallback", "tcp_put", False, True, ""),
+    ("tcp-efa-pair", "fallback", "topo_capture", False, True, ""),
+    ("tcp-efa-pair", "primary", "tcp_put", False, True, ""),
+    ("tcp-efa-pair", "primary", "topo_capture", False, True, ""),
+]
+
+
+def test_evaluate_snapshot_of_committed_setups():
+    rows = [
+        (path.stem, machine, r.workload, r.required, r.supported, r.reason)
+        for path in sorted(SETUPS.glob("*.yaml"))
+        for machine, results in evaluate(load_setup(path)).items()
+        for r in results
+    ]
+    assert sorted(rows) == SNAPSHOT
+
+
+K8S_FALLBACK = """\
+  fallback:
+    backend: k8s
+    machine: rdma-a100x2
+    pods: 2
+    accelerators: A100-80GB-SXM:1
+    capabilities: [gpudirect-rdma, multi-rail, tcp]
+"""
+
+
+def _with_k8s_fallback(tmp_path, fallback=K8S_FALLBACK, gate="[rdma_put, tcp_put]"):
+    primary = SETUP.split("  fallback:\n")[0].replace(
+        "gate: [p2p_copy, dual_link]", f"gate: {gate}"
+    )
+    path = tmp_path / "example.yaml"
+    path.write_text(primary + fallback)
+    return path
+
+
+def test_unknown_backend(tmp_path):
+    path = tmp_path / "example.yaml"
+    path.write_text(
+        SETUP.replace("backend: skypilot\n    cloud: lambda", "backend: slurm\n    cloud: lambda")
+    )
+    with pytest.raises(SetupError, match="backend 'slurm'.*skypilot, azure, k8s"):
+        load_setup(path)
+
+
+@pytest.mark.parametrize("drop", ["machine", "pods", "accelerators", "capabilities"])
+def test_k8s_machine_requires_its_fields(tmp_path, drop):
+    fallback = "".join(
+        line + "\n" for line in K8S_FALLBACK.splitlines() if not line.strip().startswith(drop + ":")
+    )
+    with pytest.raises(SetupError, match=f"missing {drop}"):
+        load_setup(_with_k8s_fallback(tmp_path, fallback))
+
+
+@pytest.mark.parametrize("extra", ["purchase: on-demand", "cloud: aws", "nodes: 2"])
+def test_k8s_machine_rejects_rented_fields(tmp_path, extra):
+    with pytest.raises(SetupError, match=extra.split(":")[0]):
+        load_setup(_with_k8s_fallback(tmp_path, K8S_FALLBACK + f"    {extra}\n"))
+
+
+def test_k8s_machine_pods_is_one_or_two(tmp_path):
+    with pytest.raises(SetupError, match="pods must be 1 or 2"):
+        load_setup(_with_k8s_fallback(tmp_path, K8S_FALLBACK.replace("pods: 2", "pods: 3")))
+
+
+def test_k8s_machine_nodes_from_pods(tmp_path):
+    setup = load_setup(_with_k8s_fallback(tmp_path))
+    assert setup["machines"]["fallback"]["nodes"] == 2
+    fallback = {r.workload: r for r in evaluate(setup)["fallback"]}
+    assert fallback["rdma_put"].supported and fallback["tcp_put"].supported

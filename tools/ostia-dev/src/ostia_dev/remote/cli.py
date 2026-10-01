@@ -74,6 +74,29 @@ def repo_root() -> Path:
     return Path(r.stdout.strip())
 
 
+def _check_pods(pods: int, same_node: bool) -> None:
+    if pods not in (1, 2):
+        raise UsageError(
+            violation(
+                f"--pods {pods} is not supported",
+                [],
+                "a run has one pod, or two on different nodes for the two-node programs",
+                "use --pods 1 or --pods 2",
+                "RFC-0005 §4.11",
+            )
+        )
+    if same_node and pods != 2:
+        raise UsageError(
+            violation(
+                "--same-node was given without --pods 2",
+                [],
+                "--same-node relaxes the anti-affinity of a two-pod run",
+                "add --pods 2, or drop --same-node",
+                "RFC-0005 §4.11",
+            )
+        )
+
+
 def _check_flags(preset: str | None, suite: str | None, *durations: str | None) -> None:
     if preset and suite:
         raise UsageError(
@@ -223,6 +246,12 @@ def k8s_run(
     allow_unguarded: Annotated[
         bool, typer.Option("--allow-unguarded", help="Run in a namespace without guardrails.")
     ] = False,
+    pods: Annotated[
+        int, typer.Option("--pods", help="1, or 2 for a two-node run with rank env vars (§4.11).")
+    ] = 1,
+    same_node: Annotated[
+        bool, typer.Option("--same-node", help="Let both pods of --pods 2 share a node.")
+    ] = False,
     kubectl_path: Annotated[
         str | None, typer.Option("--kubectl", help="Another kubectl binary.")
     ] = None,
@@ -241,6 +270,7 @@ def k8s_run(
             )
         )
     _check_flags(preset, suite, timeout, schedule_timeout, keep_on_failure)
+    _check_pods(pods, same_node)
     cfg = config.load()
     repo = repo_root()
     spec = RunSpec(
@@ -267,6 +297,8 @@ def k8s_run(
             "allow_unguarded": allow_unguarded,
             "kubectl": kubectl_path,
             "keep": keep_on_failure,
+            "pods": pods,
+            "same_node": same_node,
         },
     )
     raise typer.Exit(run_k8s(spec, cfg, repo))
@@ -383,3 +415,41 @@ def k8s_profiles(
 def k8s_usage(results: Results = None) -> None:
     """Node-hours and cost estimates from the local run records."""
     typer.echo(admin.usage(results or repo_root() / "build" / "remote"))
+
+
+@app.command("gate")
+def gate_cmd(
+    setup: Annotated[
+        str, typer.Argument(help="A setup name (infra/setups/<name>.yaml) or a path.")
+    ],
+    fallback: Annotated[
+        bool, typer.Option("--fallback", help="Use the setup's fallback machine.")
+    ] = False,
+    baseline: Annotated[
+        Path | None, typer.Option(help="Compare against this baseline file with compare.py.")
+    ] = None,
+    results: Results = None,
+    yes: Yes = False,
+    kubectl_path: KubectlPath = None,
+    verbose: Verbose = False,
+) -> None:
+    """Run a setup's gate workloads on its k8s machine (RFC-0005 §6; partial)."""
+    from ostia_dev.remote.k8s import gate
+
+    repo = repo_root()
+    path = Path(setup)
+    if not path.suffix:
+        path = repo / "infra" / "setups" / f"{setup}.yaml"
+    code = gate.gate(
+        path,
+        cfg=config.load(),
+        repo=repo,
+        run=run_k8s,
+        fallback=fallback,
+        baseline=baseline,
+        results=results,
+        yes=yes,
+        kubectl=kubectl_path,
+        verbose=verbose,
+    )
+    raise typer.Exit(code)

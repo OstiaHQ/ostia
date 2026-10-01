@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ostia-k8s-l4-20261002-141501-a1b2c3-peers
+  labels:
+    ostia.dev/managed: 'true'
+    ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+    ostia.dev/owner: 0123456789ab
+  ownerReferences:
+  - apiVersion: batch/v1
+    kind: Job
+    name: ostia-k8s-l4-20261002-141501-a1b2c3
+    uid: 11111111-2222-3333-4444-555555555555
+    controller: true
+    blockOwnerDeletion: true
+spec:
+  podSelector:
+    matchLabels:
+      ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3

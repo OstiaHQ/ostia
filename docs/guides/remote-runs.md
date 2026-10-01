@@ -113,6 +113,67 @@ A cache-off first run of `--suite gpu` downloads the whole environment and may t
   ```
   A crashed CLI's run still ends by itself: the pod exits after its windows, the Job's deadline and TTL remove it, and your next run removes anything of yours that expired.
 
+### Two-pod runs
+
+The two-node benchmark programs (`rdma_put`, `gdr_stream`, `tcp_put`, `dual_link --mode rails`) need two pods on two nodes:
+
+```bash
+pixi run ostia-dev remote k8s --context <ctx> --profile l4 --pods 2 -- \
+  python tools/bench/ostia_bench.py run --remote --format ostia \
+  --bench build/cuda-12/release/fabric/bench/ostia_fabric_bench_tcp_put
+```
+
+- Both pods run the same command. Each gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST` (rank 0's name) and `OSTIA_PORT` (29400). `ostia_bench.py run --remote` turns them into `--listen` on rank 0 and `--connect` on rank 1. Before each program the two drivers meet on port 29401 and start it together, waiting up to 30 minutes for the slower pod's build.
+- The pods land on different nodes; `--same-node` lets them share one.
+- In a guarded namespace, a per-run network policy lets the two pods reach each other on any port, and nothing else.
+- The code is uploaded once both pods run, so one may wait for a scale-up. The output shows each line as `[rank 0]` or `[rank 1]`. If either pod fails, the run fails and both are removed.
+- Results land in `rank-0/` and `rank-1/` inside the run's directory.
+
+### Gate runs on a k8s machine
+
+A setup file (`infra/setups/<setup>.yaml`) may declare a k8s machine, as its primary or its fallback:
+
+```yaml
+  fallback:
+    backend: k8s
+    machine: nvlink-a100x4     # a logical name
+    pods: 1                    # 2 for the two-node setups
+    accelerators: A100-80GB-SXM:4
+    capabilities: [nvlink-p2p, cuda-ipc]
+```
+
+Your config says where that machine is:
+
+```toml
+[remote.k8s.machines.nvlink-a100x4]
+context = "<ctx>"
+namespace = "ostia-gate"
+profile = "a100x4"             # a profile with at least the declared GPUs
+```
+
+`pixi run ostia-dev remote gate nvlink-node --fallback` then checks the capabilities and the mapping, probes that the evidence counters are readable, runs every gate workload through the benchmark driver with `--evidence`, and checks that each workload left records and evidence. `--baseline <file>` also compares the results with `compare.py --require-pass`. RDMA workloads need a profile of kind `rdma` (below).
+
+The gate is partial for now: RFC-0004's active capability probes, RFC-0003's topology captures and `rent`'s fallback handover come with RFC-0004 PR 7 and RFC-0003 PR 6. The command says so when it runs.
+
+### RDMA profiles
+
+Two-node RDMA needs RDMA devices, a raised memlock limit and `IPC_LOCK`, which the restricted namespace forbids. A profile of `kind = "rdma"` runs only in a namespace made with `init --privileged`:
+
+```toml
+[remote.k8s.profiles.ib]
+kind = "rdma"
+gpus = 1
+compute_capability = "8.0"
+cpu = "16"
+memory = "64Gi"
+ephemeral_storage = "100Gi"
+rdma_resources = { "rdma/rdma_shared_device_a" = "1" }
+rdma_nics = "mlx5_0:1,mlx5_1:1"   # the node's two NIC ports, for dual_link's rails in a gate
+# host_network = true          # only if the cluster needs it; see below
+```
+
+Its pods run as root with `IPC_LOCK`, request the `rdma/*` resources, and use the pod network. `host_network = true` puts the pod on the node's network: it then has the node's cloud identity and no network policy applies, and the summary says so on every such run. No RDMA cluster has run this yet.
+
 ## Results and exit codes
 
 Each run's results land in `build/remote/<run-id>/`:
@@ -127,7 +188,7 @@ build/remote/container-cpu-20261002-141501-a1b2c3/
   Testing/            # ctest's own output
 ```
 
-Benchmark output is also copied to `bench/results/<run-id>/`, where `compare.py` looks for it. At the end the CLI prints one summary line, which is what you paste into a pull request:
+Two-pod runs have the same files in `rank-0/` and `rank-1/`, with `summary.json` at the top. Benchmark output is also copied to `bench/results/<run-id>/`, where `compare.py` looks for it. At the end the CLI prints one summary line, which is what you paste into a pull request:
 
 ```text
 container-cpu-20261002-141501-a1b2c3  passed  cpu  sha 3f2a9c1+dirty(tree 9ab3…)  suite cpu  41s

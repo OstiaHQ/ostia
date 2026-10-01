@@ -146,12 +146,29 @@ def extract_artifacts(tar_path: Path, dest: Path, build_rel: str) -> list[str]:
     return dropped
 
 
-def copy_bench_results(results_dir: Path, repo: Path, run_id: str) -> Path | None:
-    src = results_dir / "bench" / "results" / run_id
-    if not src.is_dir():
+def merge_bench_results(
+    results_dir: Path, subdirs: list[str], run_id: str, repo: Path
+) -> Path | None:
+    """Copies each rank's bench/results/<run id>/ to the repo for compare.py (§3.4). Only the
+    source rank writes records (§4.11), so the same file from two ranks is a bug, not a merge."""
+    found: dict[Path, tuple[str, bytes]] = {}
+    for sub in subdirs:
+        src = results_dir / sub / "bench" / "results" / run_id
+        for f in sorted(p for p in src.rglob("*") if p.is_file()) if src.is_dir() else []:
+            rel, data = f.relative_to(src), f.read_bytes()
+            if rel in found and found[rel][1] != data:
+                raise InfraError(
+                    f"error: {found[rel][0]} and {sub} both wrote bench/results/{run_id}/{rel}\n"
+                    "  rule: only the source rank of a two-pod run writes benchmark records\n"
+                    "  see: RFC-0005 §4.11"
+                )
+            found[rel] = (sub, data)
+    if not found:
         return None
     dst = repo / "bench" / "results" / run_id
-    shutil.copytree(src, dst, dirs_exist_ok=True)
+    for rel, (_, data) in found.items():
+        (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+        (dst / rel).write_bytes(data)
     return dst
 
 
@@ -203,6 +220,11 @@ def summary_lines(s: dict) -> list[str]:
     for name, rep in sorted(s.get("reports", {}).items()):
         floor = f"noise floor {rep['noise_floor']}" if rep.get("noise_floor") else "reported"
         lines.append(f"  report {name}: {floor} (exit {rep['code']}, never fails the run)")
+    if s.get("host_network"):
+        lines.append(
+            "  warning: host network: the pod had the node's cloud identity and no "
+            "NetworkPolicy applied (RFC-0005 §4.12)"
+        )
     heavy = by_group.get("install", 0) + by_group.get("build", 0)
     if s["backend"] == "k8s" and s["seconds"] and heavy / s["seconds"] >= 0.5:
         lines.append(
