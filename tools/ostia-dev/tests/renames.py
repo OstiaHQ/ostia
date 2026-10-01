@@ -1,7 +1,7 @@
 """Every old pixi task and tool path with its ostia-dev replacement (RFC-0005 §2.2, §2.3).
 
-The single source for the parity suite's normalisation, the CHANGELOG check and the scan
-that keeps old names from coming back. Each new command is the argv after `ostia-dev`.
+The single source for the CHANGELOG check and the scan that keeps old names from coming
+back. Each new command is the argv after `ostia-dev`.
 """
 
 import re
@@ -79,40 +79,7 @@ SCRIPTS: dict[str, tuple[list[str], str]] = {
     "tools/bench/schema-v1.json": ([], "ostia_dev/bench/schema-v1.json"),
 }
 
-SRC = "tools/ostia-dev/src/"
-
-
-def module(script: str) -> str:
-    """`tools/ci/lint.py` → `ostia_dev.ci.lint`."""
-    return SCRIPTS[script][1].removesuffix(".py").replace("/", ".")
-
 
 def task_pattern(task: str) -> re.Pattern:
     """`pixi run [-e ENV] [--frozen] <task>`, not followed by more of a task name."""
     return re.compile(r"pixi run((?: -e \S+| --frozen)*) " + re.escape(task) + r"(?![\w-])")
-
-
-def _commands() -> list[tuple[re.Pattern, str]]:
-    subs = []
-    for script, (new, _) in SCRIPTS.items():
-        if not new and not script.endswith("lint.py"):
-            continue
-        run = "bun" if script.endswith(".js") else r"(?:pixi run )?python3?"
-        verb = "ostia-dev" if not new else "ostia-dev " + " ".join(new)
-        subs.append((re.compile(rf"{run} {re.escape(script)}(?![\w-])"), f"pixi run {verb}"))
-    return subs
-
-
-def rename(text: str) -> str:
-    """Apply every old → new substitution: task invocations, script commands, then paths."""
-    for task in sorted(TASKS, key=len, reverse=True):
-        new = " ".join(TASKS[task])
-        text = task_pattern(task).sub(
-            lambda m, new=new: f"pixi run{m.group(1)} ostia-dev {new}", text
-        )
-    for pattern, new in _commands():
-        text = pattern.sub(new, text)
-    for script, (_, moved) in SCRIPTS.items():
-        if moved:
-            text = text.replace(script, SRC + moved)
-    return text
