@@ -3,6 +3,7 @@ ruling B1), so parsing, help and errors stay the tool's own; only the program na
 """
 
 import importlib
+import sys
 
 import typer
 
@@ -11,6 +12,18 @@ FORWARD = {
     "ignore_unknown_options": True,
     "help_option_names": [],
 }
+
+
+def forwarded(args: list[str]) -> list[str]:
+    """The extra arguments as typed: click drops the first `--`, but the tools split their
+    own arguments from their program's on it (`bench run … -- --mem cuda`)."""
+    argv = sys.argv[1:]
+    if "--" not in argv:
+        return list(args)
+    tail = argv[argv.index("--") + 1 :]
+    if tail and args[len(args) - len(tail) :] != tail:
+        return list(args)
+    return [*args[: len(args) - len(tail)], "--", *tail]
 
 
 def call(module: str, argv: list[str]) -> int:
@@ -25,4 +38,4 @@ def command(app: typer.Typer, name: str, module: str, help: str, prefix: tuple =
 
     @app.command(name, help=help, context_settings=FORWARD, add_help_option=False)
     def _forward(ctx: typer.Context) -> None:
-        raise typer.Exit(call(module, [*prefix, *ctx.args]))
+        raise typer.Exit(call(module, [*prefix, *forwarded(ctx.args)]))

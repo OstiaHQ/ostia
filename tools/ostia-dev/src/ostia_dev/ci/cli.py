@@ -37,7 +37,7 @@ def graph(ctx: typer.Context) -> None:
     """The resolved link graph against the layering table (reconfigures); --dot FILE checks
     a graph you already have."""
     if ctx.args:
-        raise typer.Exit(passthrough.call("ci.check_graph", ctx.args))
+        raise typer.Exit(passthrough.call("ci.check_graph", passthrough.forwarded(ctx.args)))
     raise typer.Exit(steps.run(steps.graph(steps.env_or_exit("check graph"))))
 
 
@@ -46,7 +46,9 @@ def macros(ctx: typer.Context) -> None:
     """Telemetry macro arguments must not change state (libclang); --public checks only
     public headers."""
     if ctx.args:
-        raise typer.Exit(passthrough.call("ci.check_telemetry_macros", ctx.args))
+        raise typer.Exit(
+            passthrough.call("ci.check_telemetry_macros", passthrough.forwarded(ctx.args))
+        )
     raise typer.Exit(steps.run(steps.macros(steps.env_or_exit("check macros"))))
 
 
@@ -54,7 +56,13 @@ def macros(ctx: typer.Context) -> None:
 def tidy(ctx: typer.Context) -> None:
     """clang-tidy over the compile database, or over FILES (slow)."""
     env = steps.env_or_exit("check tidy")
-    tidy = ["run-clang-tidy", "-quiet", "-p", f"{steps.build_root()}/dev", *ctx.args]
+    tidy = [
+        "run-clang-tidy",
+        "-quiet",
+        "-p",
+        f"{steps.build_root()}/dev",
+        *passthrough.forwarded(ctx.args),
+    ]
     raise typer.Exit(steps.run([steps.configure(env), tidy]))
 
 

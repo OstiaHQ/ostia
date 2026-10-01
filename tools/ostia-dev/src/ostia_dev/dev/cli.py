@@ -72,14 +72,18 @@ def test(
 def cpp(ctx: typer.Context) -> None:
     """C++ and CMake tests (ctest); extra arguments go to ctest, e.g. -R Result."""
     env = steps.env_or_exit("test cpp")
-    raise typer.Exit(steps.run([*steps.build(env), ["ctest", "--preset", "dev", *ctx.args]]))
+    raise typer.Exit(
+        steps.run(
+            [*steps.build(env), ["ctest", "--preset", "dev", *passthrough.forwarded(ctx.args)]]
+        )
+    )
 
 
 @test_app.command(context_settings=FORWARD, add_help_option=False)
 def py(ctx: typer.Context) -> None:
     """Python tests (pytest) after py-dev; extra arguments go to pytest."""
     env = steps.env_or_exit("test py")
-    raise typer.Exit(steps.run([*steps.py_dev(env), ["pytest", *ctx.args]]))
+    raise typer.Exit(steps.run([*steps.py_dev(env), ["pytest", *passthrough.forwarded(ctx.args)]]))
 
 
 @test_app.command()
@@ -93,14 +97,18 @@ def register(app: typer.Typer) -> None:
     @app.command(context_settings=FORWARD, add_help_option=False)
     def build(ctx: typer.Context) -> None:
         """Configure (when needed) and build the dev preset; extra arguments go to cmake."""
-        raise typer.Exit(steps.run(steps.build(steps.env_or_exit("build"), *ctx.args)))
+        raise typer.Exit(
+            steps.run(steps.build(steps.env_or_exit("build"), *passthrough.forwarded(ctx.args)))
+        )
 
     app.add_typer(test_app, name="test")
 
     @app.command("py-dev", context_settings=FORWARD, add_help_option=False)
     def py_dev(ctx: typer.Context) -> None:
         """Build and install native code, then the Python editables (RFC-0001 §3.5)."""
-        raise typer.Exit(steps.run(steps.py_dev(steps.env_or_exit("py-dev"), *ctx.args)))
+        raise typer.Exit(
+            steps.run(steps.py_dev(steps.env_or_exit("py-dev"), *passthrough.forwarded(ctx.args)))
+        )
 
     passthrough.command(app, "clean", "dev.clean", "Remove build output and what py-dev installed.")
     passthrough.command(app, "doctor", "dev.doctor", "Print the environment and diagnose problems.")
