@@ -38,7 +38,7 @@ pixi run -e cuda-12 bench run --needs-gpu --runs 10 \
 
 - Without a GPU, `--needs-gpu` stops with an error naming the fix. On a Mac, `pixi run check-cuda` compiles the benchmarks.
 - Multi-process benchmarks run through the multi-process launcher: pass `--format ostia --ranks N`.
-- Across two pods, `--remote` runs one rank: rank 0 gets `--listen` and rank 1 `--connect`, from the pod's `OSTIA_RANK`, `OSTIA_PEER_HOST` and `OSTIA_PORT` (`ostia-dev remote k8s --pods 2`, [remote-runs.md](remote-runs.md)). Only rank 1, the source, writes the record and the evidence.
+- Across two pods, `--remote` runs one rank: rank 0 gets `--listen` and rank 1 `--connect`, from the pod's `OSTIA_RANK`, `OSTIA_PEER_HOST` and `OSTIA_PORT` (`ostia-dev remote k8s --pods 2`, [remote-runs.md](remote-runs.md)). Only rank 1, the source, writes the record and the evidence. A second `run` with the same `--run-id` appends to its `results.jsonl`.
 
 ## Comparing with a baseline
 

@@ -79,6 +79,7 @@ class BenchUsage(BenchError):
 
 
 DNS_RETRY, DNS_EVERY = 120, 2
+BARRIER_WAIT = 1800
 
 
 def _remote_usage(problem: str) -> BenchUsage:
@@ -89,6 +90,46 @@ def _remote_usage(problem: str) -> BenchUsage:
         "  fix: run it inside ostia-dev remote k8s --pods 2, or use --ranks on one machine\n"
         "  see: RFC-0005 §4.11"
     )
+
+
+def _barrier(rank: int, host: str, port: int) -> None:
+    """Both ranks start the program together. Each pod installs and builds on its own, and
+    the programs wait only 60 s for their peer, so a slower build would fail the run."""
+    deadline = time.monotonic() + BARRIER_WAIT
+
+    def missed(e: OSError) -> BenchError:
+        return BenchError(
+            f"error: rank {rank} did not meet its peer on port {port} within "
+            f"{BARRIER_WAIT}s ({e})\n"
+            "  rule: both ranks of a two-pod run start each program together\n"
+            "  fix: check the other rank's log in the run's results\n"
+            "  see: RFC-0005 §4.11"
+        )
+
+    if rank == 0:
+        try:
+            with socket.create_server(("", port)) as server:
+                server.settimeout(BARRIER_WAIT)
+                conn, _ = server.accept()
+                with conn:
+                    conn.settimeout(BARRIER_WAIT)
+                    conn.recv(5)
+                    conn.sendall(b"go")
+        except OSError as e:
+            raise missed(e) from e
+        return
+    while True:
+        try:
+            with socket.create_connection((host, port), timeout=5) as conn:
+                conn.settimeout(BARRIER_WAIT)
+                conn.sendall(b"ready")
+                if conn.recv(2) == b"go":
+                    return
+                raise ConnectionError("the peer closed the barrier")
+        except OSError as e:
+            if time.monotonic() >= deadline:
+                raise missed(e) from e
+            time.sleep(DNS_EVERY)
 
 
 def _remote_args(env) -> tuple[int, list[str]]:
@@ -324,6 +365,8 @@ def _main(args: argparse.Namespace, program_args: list[str]) -> int:
         records = _records(_collect(docs), prov, compat)
     else:
         rank, rendezvous = _remote_args(os.environ) if args.remote else (None, [])
+        if args.remote:
+            _barrier(rank, os.environ["OSTIA_PEER_HOST"], int(os.environ["OSTIA_PORT"]) + 1)
         cmd = [args.bench, *program_args, *rendezvous]
         if args.ranks:
             launcher = ROOT / "fabric" / "tests" / "multiprocess" / "launcher.py"

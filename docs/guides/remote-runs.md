@@ -123,9 +123,9 @@ pixi run ostia-dev remote k8s --context <ctx> --profile l4 --pods 2 -- \
   --bench build/cuda-12/release/fabric/bench/ostia_fabric_bench_tcp_put
 ```
 
-- Both pods run the same command. Each gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST` (rank 0's name) and `OSTIA_PORT` (29400). `ostia_bench.py run --remote` turns them into `--listen` on rank 0 and `--connect` on rank 1.
+- Both pods run the same command. Each gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST` (rank 0's name) and `OSTIA_PORT` (29400). `ostia_bench.py run --remote` turns them into `--listen` on rank 0 and `--connect` on rank 1. Before each program the two drivers meet on port 29401 and start it together, waiting up to 30 minutes for the slower pod's build.
 - The pods land on different nodes; `--same-node` lets them share one.
-- A per-run network policy lets the two pods reach each other on any port, and nothing else.
+- In a guarded namespace, a per-run network policy lets the two pods reach each other on any port, and nothing else.
 - The code is uploaded once both pods run, so one may wait for a scale-up. The output shows each line as `[rank 0]` or `[rank 1]`. If either pod fails, the run fails and both are removed.
 - Results land in `rank-0/` and `rank-1/` inside the run's directory.
 
@@ -151,7 +151,7 @@ namespace = "ostia-gate"
 profile = "a100x4"             # a profile with at least the declared GPUs
 ```
 
-`pixi run ostia-dev remote gate nvlink-node --fallback` then checks the capabilities and the mapping, probes that the evidence counters are readable, runs every gate workload through the benchmark driver with `--evidence`, and checks the evidence. `--baseline <file>` also compares the results with `compare.py --require-pass`. RDMA workloads need a profile of kind `rdma` (below).
+`pixi run ostia-dev remote gate nvlink-node --fallback` then checks the capabilities and the mapping, probes that the evidence counters are readable, runs every gate workload through the benchmark driver with `--evidence`, and checks that each workload left records and evidence. `--baseline <file>` also compares the results with `compare.py --require-pass`. RDMA workloads need a profile of kind `rdma` (below).
 
 The gate is partial for now: RFC-0004's active capability probes, RFC-0003's topology captures and `rent`'s fallback handover come with RFC-0004 PR 7 and RFC-0003 PR 6. The command says so when it runs.
 
@@ -168,6 +168,7 @@ cpu = "16"
 memory = "64Gi"
 ephemeral_storage = "100Gi"
 rdma_resources = { "rdma/rdma_shared_device_a" = "1" }
+rdma_nics = "mlx5_0:1,mlx5_1:1"   # the node's two NIC ports, for dual_link's rails in a gate
 # host_network = true          # only if the cluster needs it; see below
 ```
 

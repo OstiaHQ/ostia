@@ -235,6 +235,10 @@ PEER = {"OSTIA_SIZE": "2", "OSTIA_PEER_HOST": "j-0.j", "OSTIA_PORT": "29400"}
 
 @pytest.fixture
 def rank(monkeypatch):
+    import tools.bench.ostia_bench as ob
+
+    monkeypatch.setattr(ob, "_barrier", lambda r, host, port: None)
+
     def set_rank(r, **env):
         for k, v in {**PEER, "OSTIA_RANK": str(r), **env}.items():
             if v is None:
@@ -339,3 +343,40 @@ def test_a_second_run_with_the_same_run_id_appends(launched, tmp_path):
     assert _ostia_run(tmp_path) == 0
     lines = (tmp_path / "t" / "results.jsonl").read_text().splitlines()
     assert len(lines) == 2
+
+
+def test_remote_ranks_meet_on_the_next_port_first(launched, monkeypatch, dns, tmp_path):
+    import tools.bench.ostia_bench as ob
+
+    met = []
+    monkeypatch.setattr(ob, "_barrier", lambda r, host, port: met.append((r, host, port)))
+    for k, v in {**PEER, "OSTIA_RANK": "1"}.items():
+        monkeypatch.setenv(k, v)
+    assert _ostia_run(tmp_path, "--remote") == 0
+    assert met == [(1, "j-0.j", 29401)]
+
+
+def test_barrier_between_two_real_drivers():
+    import socket
+    import threading
+
+    import tools.bench.ostia_bench as ob
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    done = []
+    t = threading.Thread(target=lambda: done.append(ob._barrier(0, "127.0.0.1", port)))
+    t.start()
+    ob._barrier(1, "127.0.0.1", port)
+    t.join(10)
+    assert done == [None] and not t.is_alive()
+
+
+def test_barrier_times_out_with_a_clear_error(monkeypatch):
+    import tools.bench.ostia_bench as ob
+
+    monkeypatch.setattr(ob, "BARRIER_WAIT", 1)
+    with pytest.raises(ob.BenchError) as e:
+        ob._barrier(1, "127.0.0.1", 9)  # nothing listens on the discard port
+    assert "rank 1 did not meet its peer" in str(e.value) and "RFC-0005 §4.11" in str(e.value)
