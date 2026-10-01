@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Print the environment and diagnose common problems (RFC-0001, Failure handling).
 
-    pixi run doctor
+    pixi run ostia-dev doctor
 
 Prints the same facts as the configure summary (compiler, CUDA on or off and why,
 toolkit, architectures, telemetry level, components, dependencies), then one `check:`
 line per known problem. Exits 1 when any check fails.
 """
 
+import argparse
 import importlib.metadata
 import json
 import os
@@ -79,7 +80,7 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
         c.fail(
             "cmake",
             f"the cmake on PATH is not the pixi environment's ({cmake})",
-            "run commands through pixi (pixi run build, or pixi shell), "
+            "run commands through pixi (pixi run ostia-dev build, or pixi shell), "
             "or point your IDE at .pixi/envs/<env>/bin/cmake",
             "RFC-0001 §1.3",
         )
@@ -113,7 +114,7 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
             c.fail(
                 "installed libraries",
                 f"{', '.join(sorted(stale))} in {prefix / 'lib'} are older than the build tree",
-                "pixi run py-dev",
+                "pixi run ostia-dev py-dev",
                 "RFC-0001 §3.5",
             )
         else:
@@ -130,7 +131,9 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
             elif Path(direct).resolve() != (root / comp / "python").resolve():
                 wrong.append(f"ostia-{comp} is installed from {direct}")
         if wrong:
-            c.fail("python editables", "; ".join(wrong), "pixi run py-dev", "RFC-0001 §3.5")
+            c.fail(
+                "python editables", "; ".join(wrong), "pixi run ostia-dev py-dev", "RFC-0001 §3.5"
+            )
         else:
             c.ok("python editables")
 
@@ -154,7 +157,7 @@ def run_checks(root: Path, prefix: Path | None) -> Checks:
         c.fail(
             "CPM cache",
             f"the CPM source cache is empty ({cache or 'CPM_SOURCE_CACHE not set'})",
-            "pixi run build (fetches the pinned sources once)",
+            "pixi run ostia-dev build (fetches the pinned sources once)",
             "RFC-0001 §2.4",
         )
     else:
@@ -168,12 +171,12 @@ def _installed_flavour(prefix: Path | None) -> str:
         return "not running under pixi"
     config = prefix / "lib" / "cmake" / "ostia" / "ostiaConfig.cmake"
     if not config.exists():
-        return "none installed (pixi run py-dev)"
+        return "none installed (pixi run ostia-dev py-dev)"
     text = config.read_text()
     name = re.search(r'set\(ostia_TELEMETRY "(\w+)"\)', text)
     level = re.search(r"set\(ostia_TELEMETRY_LEVEL (\d)\)", text)
     if not name:
-        return "unknown (installed before telemetry levels; pixi run py-dev)"
+        return "unknown (installed before telemetry levels; pixi run ostia-dev py-dev)"
     return f"{name.group(1)} ({level.group(1) if level else '?'})"
 
 
@@ -189,12 +192,15 @@ def _direct_url(comp: str) -> str | None:
     return urllib.parse.unquote(url.removeprefix("file://")) or None
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argparse.ArgumentParser(
+        prog="ostia-dev doctor", description=__doc__.splitlines()[0]
+    ).parse_args(argv)
     root = repo_root()
     prefix = conda_prefix()
     facts = _summary(root)
     if not facts:
-        print("not configured: run pixi run build")
+        print("not configured: run pixi run ostia-dev build")
     for key in SUMMARY_KEYS:
         print(f"{key}: {facts.get(key, 'not configured')}")
     print(f"pixi_env: {env_name()} ({prefix or 'CONDA_PREFIX not set: not running under pixi'})")

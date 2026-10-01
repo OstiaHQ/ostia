@@ -1,13 +1,11 @@
-"""`pixi run doctor` prints the environment and diagnoses problems (RFC-0001, Failure handling)."""
+"""`ostia-dev doctor` prints the environment and diagnoses problems (RFC-0001, Failure handling)."""
 
 import os
 import stat
 import subprocess
 import sys
 
-from .conftest import ROOT
-
-DOCTOR = ROOT / "tools" / "dev" / "doctor.py"
+DOCTOR = ["-m", "ostia_dev.dev.doctor"]
 KEYS = [
     "compiler",
     "cuda",
@@ -25,7 +23,7 @@ KEYS = [
 
 def run(env=None, cwd=None):
     return subprocess.run(
-        [sys.executable, str(DOCTOR)], capture_output=True, text=True, env=env, cwd=cwd
+        [sys.executable, *DOCTOR], capture_output=True, text=True, env=env, cwd=cwd
     )
 
 

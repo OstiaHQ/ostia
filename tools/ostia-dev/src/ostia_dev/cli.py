@@ -13,6 +13,7 @@ import typer
 from ostia_dev import errors, proc
 from ostia_dev.ci import cli as ci_cli
 from ostia_dev.contract import violation
+from ostia_dev.dev import cli as dev_cli
 from ostia_dev.remote.cli import app as remote_app
 
 
@@ -54,6 +55,7 @@ app = OstiaApp(
     no_args_is_help=True,
     pretty_exceptions_enable=False,
 )
+dev_cli.register(app)
 ci_cli.register(app)
 app.add_typer(remote_app, name="remote")
 

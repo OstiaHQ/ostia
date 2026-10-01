@@ -2,9 +2,8 @@
 
 import shutil
 
-from tools.dev.py_dev import stamp
-
-from .conftest import ROOT
+from ostia_dev.dev.py_dev import stamp
+from ostia_dev.paths import ROOT
 
 
 def _copy(tmp_path):

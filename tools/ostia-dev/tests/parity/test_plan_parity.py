@@ -52,7 +52,9 @@ CASES = [
     ("bench", ["run", "--bench", "/b/noop"]),
     ("compare", ["--baseline", "a.jsonl", "--candidate", "b.jsonl"]),
 ]
-LANDED = False
+# The plan task whose commands make a row pass; LANDED lists the tasks done so far.
+TASK_OF = {"docs-index": 5, "bench": 6, "compare": 6}
+LANDED = {4}
 
 
 def _command(part: str) -> list[str]:
@@ -112,8 +114,12 @@ def _new_argv(task: str, extra: list[str]) -> list[str]:
 
 
 def _params():
-    marks = [] if LANDED else [pytest.mark.xfail(strict=True, reason="lands in Task 4")]
-    return [pytest.param(t, e, id=t, marks=marks) for t, e in CASES]
+    params = []
+    for t, e in CASES:
+        task = TASK_OF.get(t, 4)
+        marks = [] if task in LANDED else [pytest.mark.xfail(strict=True, reason=f"Task {task}")]
+        params.append(pytest.param(t, e, id=t, marks=marks))
+    return params
 
 
 @pytest.mark.parametrize(("task", "extra"), _params())

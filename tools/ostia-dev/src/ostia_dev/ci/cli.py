@@ -3,9 +3,23 @@
 import typer
 
 from ostia_dev import passthrough
+from ostia_dev.dev import steps
 from ostia_dev.passthrough import FORWARD
 
-check_app = typer.Typer(help="Everything CI requires, or one check by name.", no_args_is_help=True)
+check_app = typer.Typer(
+    help="Everything CI requires (lint, graph, macros, tests), or one check by name.",
+    invoke_without_command=True,
+)
+
+
+@check_app.callback()
+def check(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        return
+    env = steps.env_or_exit("check")
+    plan = [steps.py("ci.lint", "lint"), *steps.graph(env), *steps.macros(env)]
+    raise typer.Exit(steps.run([*plan, *steps.all_tests(env)]))
+
 
 FORWARDED = [
     ("layering", "ci.check_layering", "Include layering of each component (RFC-0001 §3.3)."),
@@ -22,20 +36,26 @@ for verb, mod, text in FORWARDED:
 def graph(ctx: typer.Context) -> None:
     """The resolved link graph against the layering table (reconfigures); --dot FILE checks
     a graph you already have."""
-    raise typer.Exit(passthrough.call("ci.check_graph", ctx.args))
+    if ctx.args:
+        raise typer.Exit(passthrough.call("ci.check_graph", ctx.args))
+    raise typer.Exit(steps.run(steps.graph(steps.env_or_exit("check graph"))))
 
 
 @check_app.command(context_settings=FORWARD, add_help_option=False)
 def macros(ctx: typer.Context) -> None:
     """Telemetry macro arguments must not change state (libclang); --public checks only
     public headers."""
-    raise typer.Exit(passthrough.call("ci.check_telemetry_macros", ctx.args))
+    if ctx.args:
+        raise typer.Exit(passthrough.call("ci.check_telemetry_macros", ctx.args))
+    raise typer.Exit(steps.run(steps.macros(steps.env_or_exit("check macros"))))
 
 
 @check_app.command(context_settings=FORWARD, add_help_option=False)
 def tidy(ctx: typer.Context) -> None:
     """clang-tidy over the compile database, or over FILES (slow)."""
-    raise typer.Exit(2)
+    env = steps.env_or_exit("check tidy")
+    tidy = ["run-clang-tidy", "-quiet", "-p", f"{steps.build_root()}/dev", *ctx.args]
+    raise typer.Exit(steps.run([steps.configure(env), tidy]))
 
 
 def register(app: typer.Typer) -> None:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Remove build output and everything `pixi run py-dev` installed (RFC-0001 §3.5).
+"""Remove build output and everything `pixi run ostia-dev py-dev` installed (RFC-0001 §3.5).
 
-    pixi run clean
+    pixi run ostia-dev clean
 
 Removes the files install-native recorded (build/<env>/native-install-manifest.txt, a
 copy that ctest's staging install cannot overwrite) from the pixi environment, uninstalls
@@ -25,7 +25,7 @@ NATIVE_MANIFEST = "native-install-manifest.txt"
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="ostia-dev clean", description=__doc__.splitlines()[0])
     parser.add_argument("--build-root", type=Path, help="default: build/<env>")
     parser.add_argument("--skip-pip", action="store_true", help="leave the editables (tests)")
     args = parser.parse_args(argv)

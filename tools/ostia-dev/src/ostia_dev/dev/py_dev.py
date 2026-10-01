@@ -3,7 +3,7 @@
 
 Run through pixi, which first builds and installs the native libraries:
 
-    pixi run py-dev          # also the documented rebuild after a native change
+    pixi run ostia-dev py-dev          # also the documented rebuild after a native change
 
 Each component with a python/ folder is installed in rank order, as a scikit-build-core
 editable that links the one libostia-* in $CONDA_PREFIX/lib. A component whose Python
@@ -61,7 +61,7 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="ostia-dev py-dev", description=__doc__.splitlines()[0])
     parser.add_argument("--preset", default="dev")
     parser.add_argument("--source-root", type=Path, default=repo_root())
     parser.add_argument("--build-root", type=Path)
@@ -76,20 +76,23 @@ def main(argv: list[str] | None = None) -> int:
     build = (args.build_root or build_root(source)).resolve()
     prefix = conda_prefix()
     if prefix is None:
-        return fail("CONDA_PREFIX is not set", "run through pixi: pixi run py-dev")
+        return fail("CONDA_PREFIX is not set", "run through pixi: pixi run ostia-dev py-dev")
 
     if args.build_native:
         native = build / args.preset
         run(["cmake", "--preset", args.preset, "-B", str(native)], cwd=source)
         run(["cmake", "--build", str(native)], cwd=source)
         run(["cmake", "--install", str(native), "--prefix", str(prefix)], cwd=source)
-        # The record `pixi run clean` reads (ctest's staging install rewrites the other one).
+        # The record `ostia-dev clean` reads (ctest's staging install rewrites the other one).
         shutil.copyfile(native / "install_manifest.txt", build / "native-install-manifest.txt")
 
     if not (prefix / "lib" / "cmake" / "ostia" / "ostiaConfig.cmake").exists():
-        return fail(f"native ostia is not installed in {prefix}", "pixi run install-native")
+        return fail(f"native ostia is not installed in {prefix}", "pixi run ostia-dev py-dev")
 
-    print(f"installing native libraries into {prefix} (RFC-0001 §3.5); undo with pixi run clean")
+    print(
+        f"installing native libraries into {prefix} (RFC-0001 §3.5); "
+        "undo with pixi run ostia-dev clean"
+    )
     layering = json.loads((source / "cmake" / "layering.json").read_text())
     ranked = sorted(layering["components"], key=lambda c: layering["components"][c]["rank"])
     for component in ranked:
@@ -125,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         stamp_file.parent.mkdir(parents=True, exist_ok=True)
         stamp_file.write_text(current)
         print(f"{component}: installed")
-    print("after a native change, rebuild with: pixi run py-dev")
+    print("after a native change, rebuild with: pixi run ostia-dev py-dev")
     return 0
 
 
@@ -136,6 +139,6 @@ if __name__ == "__main__":
         sys.exit(
             fail(
                 f"command failed ({e.returncode}): {' '.join(map(str, e.cmd))}",
-                "read the output above; pixi run doctor checks the environment",
+                "read the output above; pixi run ostia-dev doctor checks the environment",
             )
         )

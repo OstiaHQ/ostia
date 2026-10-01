@@ -1,9 +1,9 @@
-"""`pixi run clean` removes what install-native put into the environment (RFC-0001 §3.5)."""
+"""`ostia-dev clean` removes what install-native put into the environment (RFC-0001 §3.5)."""
 
 import subprocess
 import sys
 
-from .conftest import ROOT
+from ostia_dev.paths import ROOT
 
 
 def test_clean_uses_the_native_install_manifest(tmp_path):
@@ -19,7 +19,7 @@ def test_clean_uses_the_native_install_manifest(tmp_path):
     r = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "tools/dev/clean.py"),
+            str(ROOT / "tools/ostia-dev/src/ostia_dev/dev/clean.py"),
             "--build-root",
             str(build),
             "--skip-pip",

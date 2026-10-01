@@ -23,7 +23,7 @@ REPO = HERE.parents[3]
 OLD_TESTS = ["tools/ci/tests", "tools/bench/tests", "tests/python"]
 ALLOWED = re.compile(
     r"^\s*(from \S+ import .*|import \S+.*|\)|[A-Za-z_]+,?|from \.\S* import .*)\s*$"
-    r"|ostia_dev[./]|tools/ostia-dev|\"-m\"|parents\[\d\]"
+    r"|ostia_dev[./]|tools/ostia-dev|\"-m\"|parents\[\d\]|sys\.executable"
 )
 
 
@@ -53,6 +53,8 @@ def main() -> int:
         ]
         added = [d[1:] for d in diff.splitlines() if d.startswith("+") and not d.startswith("+++")]
         renamed = {rename(r) for r in removed}
+        # A docstring may name the command without the `pixi run` prefix.
+        renamed |= {r.replace("pixi run ostia-dev ", "ostia-dev ") for r in renamed}
         for a in added:
             if a in renamed or ALLOWED.search(a):
                 continue
