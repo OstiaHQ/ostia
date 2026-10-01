@@ -1,6 +1,6 @@
 // Instrumentation macros (RFC-0001 §5). Build-tree header, reached through
 // ostia::telemetry_config: public headers never use these macros or include config.h
-// (tools/ci/check_telemetry_macros.py enforces both).
+// (ostia_dev/ci/check_telemetry_macros.py enforces both).
 //
 // Each macro expands to `if constexpr (OSTIA_TELEMETRY_LEVEL >= N) { ... }`. Below level N
 // the arguments are still type-checked but never evaluated, so they must not have side

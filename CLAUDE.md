@@ -20,7 +20,7 @@ Ostia is in **M0 Foundations** ([RFC-0001](docs/rfcs/0001-m0-foundations.md), Ac
 | ostia-query | 3 | `query/` | runtime, exchange, telemetry |
 | ostia-telemetry | all | `telemetry/` | nothing |
 
-Dependencies only point down. A lower layer never includes or links a higher one; `cmake/layering.json` is the table, and the build and `pixi run lint` enforce it (RFC-0001 §3.3).
+Dependencies only point down. A lower layer never includes or links a higher one; `cmake/layering.json` is the table, and the build and `pixi run ostia-dev lint` enforce it (RFC-0001 §3.3).
 
 Layer 1 is C++20 + CUDA with a stable C ABI and Python bindings (D7). Python packages share the `ostia` import namespace (PEP 420): each component installs into `ostia/<component>/`, and no package ships `ostia/__init__.py`.
 
@@ -33,7 +33,7 @@ Layer 1 is C++20 + CUDA with a stable C ABI and Python bindings (D7). Python pac
 
 ## Comments
 
-Follow [ADR-0015](docs/adr/0015-code-comments.md). A comment says why the code is this way, states an invariant, unit or hazard, or cites an RFC or ADR section. Don't narrate steps, restate the next line, leave commented-out code or banners, or write notes about your edit ("added", "as requested"); those go in the commit message. Match the comment density of the surrounding code. `pixi run lint` (pre-commit and CI) runs `tools/ci/check_comments.py` on every file, and a `PostToolUse` hook (`.claude/settings.json`) runs it on each edit and returns the findings; revise the comments, or mark a real false positive with `comment-ok`.
+Follow [ADR-0015](docs/adr/0015-code-comments.md). A comment says why the code is this way, states an invariant, unit or hazard, or cites an RFC or ADR section. Don't narrate steps, restate the next line, leave commented-out code or banners, or write notes about your edit ("added", "as requested"); those go in the commit message. Match the comment density of the surrounding code. `pixi run ostia-dev lint` (pre-commit and CI) runs `tools/ostia-dev/src/ostia_dev/ci/check_comments.py` on every file, and a `PostToolUse` hook (`.claude/settings.json`) runs it on each edit and returns the findings; revise the comments, or mark a real false positive with `comment-ok`.
 
 ## Commits and pull requests
 
@@ -45,15 +45,16 @@ Follow [ADR-0015](docs/adr/0015-code-comments.md). A comment says why the code i
 ## Tools
 
 ```bash
-pixi run build                            # configure and build (dev preset)
-pixi run test                             # C++, CMake and Python tests
-pixi run check                            # everything CI requires: lint, graph check, tests
-pixi run py-dev                           # rebuild native code and reinstall the Python editables
-pixi run doctor                           # print the environment and diagnose problems
-pixi run clean                            # remove build output and what py-dev installed
-python3 tools/docs/gen_index.py           # regenerate the RFC/ADR index in docs/README.md
-python3 tools/docs/gen_index.py --check   # fails if the index is stale (run before opening a docs PR)
-bun tools/docs/render-figures.js docs/product/figures/src docs/product/figures   # re-render PRD figures
+pixi run ostia-dev build                # configure and build (dev preset)
+pixi run ostia-dev test                 # C++, CMake and Python tests
+pixi run ostia-dev check                # everything CI requires: lint, graph check, tests
+pixi run ostia-dev py-dev               # rebuild native code and reinstall the Python editables
+pixi run ostia-dev doctor               # print the environment and diagnose problems
+pixi run ostia-dev clean                # remove build output and what py-dev installed
+pixi run ostia-dev docs index           # regenerate the RFC/ADR index in docs/README.md
+pixi run ostia-dev docs index --check   # fails if the index is stale (run before opening a docs PR)
+pixi run ostia-dev docs figures         # re-render PRD figures (needs bun)
+pixi run ostia-dev --help               # every other command: test variants, check <name>, bench, remote
 ```
 
 New documents use Mermaid for diagrams. Hand-drawn figures keep their JSX source next to the rendered SVG.

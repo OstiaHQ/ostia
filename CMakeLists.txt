@@ -6,7 +6,8 @@ if(CMAKE_VERSION VERSION_LESS 4.1)
   ostia_fail(
     PROBLEM "CMake ${CMAKE_VERSION} at ${CMAKE_COMMAND} is too old"
     RULE "Ostia needs CMake 4.1 or newer"
-    FIX "run through pixi (pixi run build), or point your IDE at .pixi/envs/default/bin/cmake"
+    FIX
+      "run through pixi (pixi run ostia-dev build), or point your IDE at .pixi/envs/default/bin/cmake"
     SEE "RFC-0001 §1.3"
   )
 endif()
@@ -28,7 +29,7 @@ include(OstiaSummary)
 include(OstiaTelemetry)
 
 # conda's activation puts an rpath to $CONDA_PREFIX/lib ahead of the build tree, so
-# tests would load libraries that `pixi run py-dev` installed there, not the fresh build.
+# tests would load libraries that `pixi run ostia-dev py-dev` installed there, not the fresh build.
 # Move it behind the build tree: it is still needed for the environment's C++ runtime.
 ostia_strip_conda_rpath()
 if(DEFINED ENV{CONDA_PREFIX})
@@ -79,7 +80,7 @@ if(NOT _host_ok)
     PROBLEM "unsupported host compiler ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
     DETAILS "compiler: ${CMAKE_CXX_COMPILER}" "supported: ${_host_range}"
     RULE "C++20 as supported by GCC 11 and nvcc 12.8 defines the floor"
-    FIX "use pixi run build, or a listed compiler"
+    FIX "use pixi run ostia-dev build, or a listed compiler"
     SEE "RFC-0001 §1.2"
   )
 endif()
@@ -87,7 +88,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
   message(
     WARNING
     " AppleClang is best effort (tier 3); RFC-0001 §1.2 uses conda-forge Clang 19 on macOS.\n"
-    " fix: build through pixi (pixi run build)"
+    " fix: build through pixi (pixi run ostia-dev build)"
   )
 endif()
 ostia_summary_set(
@@ -145,7 +146,8 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
         PROBLEM "OSTIA_ENABLE_CUDA=ON but no CUDA compiler was found"
         DETAILS "detected: none" "required: CUDA >= 12.8 (nvcc)"
         RULE "CUDA must be present when OSTIA_ENABLE_CUDA=ON"
-        FIX "install CUDA >= 12.8 (pixi run -e cuda-12 build), or use -DOSTIA_ENABLE_CUDA=AUTO"
+        FIX
+          "install CUDA >= 12.8 (pixi run -e cuda-12 ostia-dev build), or use -DOSTIA_ENABLE_CUDA=AUTO"
         SEE "RFC-0001 §3.4"
       )
     endif()
@@ -158,7 +160,7 @@ if(NOT OSTIA_ENABLE_CUDA STREQUAL "OFF")
         PROBLEM "CUDA ${_cuda_version} at ${OSTIA_NVCC} is too old"
         DETAILS "detected: ${_cuda_version}" "required: CUDA >= 12.8 (nvcc)"
         RULE "CUDA 12.8 is the minimum"
-        FIX "use pixi run -e cuda-12 build, or -DOSTIA_ENABLE_CUDA=OFF"
+        FIX "use pixi run -e cuda-12 ostia-dev build, or -DOSTIA_ENABLE_CUDA=OFF"
         SEE "RFC-0001 §1.1"
       )
     endif()

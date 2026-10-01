@@ -1,7 +1,7 @@
 // p2p_copy (calibration, RFC-0001 §6.4): the NVLink/PCIe ceiling for one large copy
 // between two GPUs, one copy-engine copy at a time (cudaMemcpyPeerAsync), device memory
 // on both sides. The oracle is nvbandwidth's device_to_device_memcpy_write_ce with the
-// same size and direction (tools/bench/oracles.py).
+// same size and direction (ostia_dev/bench/oracles.py).
 //
 //   p2p_copy [--src 0] [--dst 1] [--bytes 1GiB] [--direction uni|bi] [--samples N]
 //            [--smoke] [--corrupt]

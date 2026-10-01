@@ -62,15 +62,15 @@ A placeholder is declared with `ostia_add_component(NAME exchange RANK 2 PLACEHO
 - A component with bindings has `python/pyproject.toml` (scikit-build-core), `python/CMakeLists.txt`, a nanobind module in `python/src/_native.cpp`, and `python/src/ostia/<component>/__init__.py`. Copy `telemetry/python/` as a starting point.
 - **Never add `ostia/__init__.py`.** The packages share the `ostia` namespace (PEP 420).
 - The extension links the installed `ostia::<component>` and never builds or bundles native libraries.
-- `pixi run py-dev` picks up the new package automatically, in rank order.
+- `pixi run ostia-dev py-dev` picks up the new package automatically, in rank order.
 
 ## How layering is enforced
 
 The three checks report a component's own direct edges. A dependency that arrives through another component's public headers is allowed.
 
 1. **Configure time:** `ostia_add_component` rejects a `DEPENDS` entry that is not in the table, a wrong `RANK`, an unknown component, and a disabled dependency.
-2. **After all targets exist:** a link walk over each component's `LINK_LIBRARIES` and `INTERFACE_LINK_LIBRARIES` rejects edges not in the table, including `ostia` names inside generator expressions. `pixi run check-graph` then checks the graph CMake resolved (`cmake --graphviz`), which catches what the generator expressions expand to.
-3. **Includes:** `tools/ci/check_layering.py` (part of `pixi run lint`) rejects three kinds of include:
+2. **After all targets exist:** a link walk over each component's `LINK_LIBRARIES` and `INTERFACE_LINK_LIBRARIES` rejects edges not in the table, including `ostia` names inside generator expressions. `pixi run ostia-dev check graph` then checks the graph CMake resolved (`cmake --graphviz`), which catches what the generator expressions expand to.
+3. **Includes:** `ostia-dev check layering` (part of `pixi run ostia-dev lint`) rejects three kinds of include:
    - an `<ostia/X/...>` include of a component outside the row;
    - an include that reaches into another component's `src/`;
    - a relative include that leaves the component's folder.
@@ -85,4 +85,4 @@ error: query/src/plan.cpp:12 includes <ostia/fabric/topology.hpp>
   see: RFC-0001 §3.3
 ```
 
-The tests for these checks live in `tests/cmake/layering/` (fixture projects) and `tools/ci/tests/`.
+The tests for these checks live in `tests/cmake/layering/` (fixture projects) and `tools/ostia-dev/tests/ci/`.

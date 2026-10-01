@@ -7,9 +7,9 @@ How to run a benchmark, compare it with a baseline, and update a baseline. The d
 | Piece | What it does |
 | --- | --- |
 | nvbench | Times in-process GPU benchmarks: kernels and single-process copies |
-| `tools/bench/ostia_bench.py` (`pixi run bench`) | Runs benchmark binaries, converts nvbench JSON, fills in provenance and compatibility fields, and writes schema-1 records to `bench/results/<run id>/results.jsonl` |
-| `tools/bench/compare.py` (`pixi run compare`) | Compares a run with a baseline: `pass`, `regression`, `inconclusive`, `invalid` or `skipped` |
-| `tools/bench/overhead.py` | The telemetry overhead mechanism: paired, interleaved runs of `off` against a level |
+| `ostia-dev bench run`, `convert`, `median-seconds` | Runs benchmark binaries, converts nvbench JSON, fills in provenance and compatibility fields, and writes schema-1 records to `bench/results/<run id>/results.jsonl` |
+| `ostia-dev bench compare` | Compares a run with a baseline: `pass`, `regression`, `inconclusive`, `invalid` or `skipped` |
+| `ostia-dev bench overhead` | The telemetry overhead mechanism: paired, interleaved runs of `off` against a level |
 | `bench/baselines/<setup>.json` | Committed baselines, one per reference setup |
 
 ## Result records (schema 1)
@@ -31,12 +31,12 @@ Benchmarks need CUDA and a GPU. Build them with `OSTIA_BUILD_BENCH=ON`:
 ```bash
 pixi run -e cuda-12 cmake --preset release -DOSTIA_BUILD_BENCH=ON
 pixi run -e cuda-12 cmake --build --preset release
-pixi run -e cuda-12 bench run --needs-gpu --runs 10 \
+pixi run -e cuda-12 ostia-dev bench run --needs-gpu --runs 10 \
   --bench build/cuda-12/release/telemetry/bench/ostia_telemetry_bench_noop \
   --build-dir build/cuda-12/release
 ```
 
-- Without a GPU, `--needs-gpu` stops with an error naming the fix. On a Mac, `pixi run check-cuda` compiles the benchmarks.
+- Without a GPU, `--needs-gpu` stops with an error naming the fix. On a Mac, `pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile` compiles the benchmarks.
 - Multi-process benchmarks run through the multi-process launcher: pass `--format ostia --ranks N`.
 - Across two pods, `--remote` runs one rank: rank 0 gets `--listen` and rank 1 `--connect`, from the pod's `OSTIA_RANK`, `OSTIA_PEER_HOST` and `OSTIA_PORT` (`ostia-dev remote k8s --pods 2`, [remote-runs.md](remote-runs.md)). Only rank 1, the source, writes the record and the evidence. A second `run` with the same `--run-id` appends to its `results.jsonl`.
 
@@ -84,7 +84,7 @@ fi
 Record the setup on at least two machines if you can, then pool the runs:
 
 ```bash
-pixi run compare --write-baseline bench/baselines/nvlink-node.json --setup nvlink-node \
+pixi run ostia-dev bench compare --write-baseline bench/baselines/nvlink-node.json --setup nvlink-node \
   bench/results/<run on machine 1>/results.jsonl bench/results/<run on machine 2>/results.jsonl
 ```
 
@@ -106,26 +106,26 @@ The M0 gate (RFC-0001 §6.4) runs standalone reference programs from `fabric/ben
 
 - **Build and smoke tests.** The programs build with the tests: the CUDA ones in the `cuda-12` and `cuda-13` environments, and the UCX ones wherever UCX is installed.
   - Every program has `--smoke`, which runs a small size and checks checksums only.
-  - CPU CI runs the UCX programs over TCP loopback: `pixi run -e ucx test-multiprocess`.
+  - CPU CI runs the UCX programs over TCP loopback: `pixi run -e ucx ostia-dev test -L multiprocess`.
   - On one L4 node, `ostia-dev remote`'s `bench-smoke` suite ([remote-runs.md](remote-runs.md)) runs every program, with same-device copies standing in for two GPUs.
   - `--corrupt` flips one received byte, and the checksum must catch it.
 - **Two-node programs.** Start rank 0 (the target) with `--listen PORT` and rank 1 (the source) with `--connect HOST:PORT`. On one machine, `fabric/tests/multiprocess/launcher.py --ranks 2` starts both.
-- **Calibration.** `tools/bench/oracles.py --print-command` prints the reference tool's command, with parameters matched to the recorded result. `--output` then compares that tool's output with the result.
-- **Bounds.** `tools/bench/bounds.py results.jsonl` checks each gate workload against its bound, computed from the same run.
-- **Transport evidence.** `ostia_bench.py run --evidence` records what the run actually used, in `evidence/<workload>.json` next to the results:
+- **Calibration.** `ostia-dev bench oracles --print-command` prints the reference tool's command, with parameters matched to the recorded result. `--output` then compares that tool's output with the result.
+- **Bounds.** `ostia-dev bench bounds results.jsonl` checks each gate workload against its bound, computed from the same run.
+- **Transport evidence.** `ostia-dev bench run --evidence` records what the run actually used, in `evidence/<workload>.json` next to the results:
   - the UCX lanes;
   - the registered memory type;
   - peer access;
   - per-NIC and per-NVLink traffic counters.
 
-  `compare.py --evidence-dir` makes a case `invalid` when its evidence is missing or does not show the capability under test, for example an `rdma_put` that ran over TCP or from host memory.
-- **Capability profiles.** `infra/setups/<setup>.yaml` names each setup's gate workloads and the capabilities of its primary and fallback machines (RFC-0004 §1). Before anything is rented, `tools/bench/capabilities.py` fails if a machine cannot support a gate workload. An also-run workload it cannot support is reported `unsupported`. A machine may be a k8s machine (`backend: k8s`), which `ostia-dev remote gate <setup>` runs ([remote-runs.md](remote-runs.md)); `evidence.py --probe ib|nvlink` checks first that the counters it needs are readable.
+  `ostia-dev bench compare --evidence-dir` makes a case `invalid` when its evidence is missing or does not show the capability under test, for example an `rdma_put` that ran over TCP or from host memory.
+- **Capability profiles.** `infra/setups/<setup>.yaml` names each setup's gate workloads and the capabilities of its primary and fallback machines (RFC-0004 §1). Before anything is rented, `ostia-dev bench capabilities` fails if a machine cannot support a gate workload. An also-run workload it cannot support is reported `unsupported`. A machine may be a k8s machine (`backend: k8s`), which `ostia-dev remote gate <setup>` runs ([remote-runs.md](remote-runs.md)); `ostia-dev bench evidence --probe ib|nvlink` checks first that the counters it needs are readable.
 
 A workload counts as verified only after a real run on its target hardware, against its oracle. Those runs happen in Rollout PR 7, on the rented setups.
 
 ## The telemetry overhead mechanism
 
-`overhead.py` alternates `off` and the level under test on the same box, at least 20 pairs:
+`ostia-dev bench overhead` alternates `off` and the level under test on the same box, at least 20 pairs:
 - It computes the mean overhead `r = t_level / t_off - 1` with a 95% bootstrap interval.
 - It passes below 2% and fails above 2%. Otherwise it adds pairs, up to 100, and fails if it is still undecided.
 - Before the gate counts, an A/A run (`--aa`) must show a noise floor of at most ±0.5%. If an L4 node reached with `ostia-dev remote` is noisier, the gate runs on a quiet rented box (`--target rented`, with RFC-0004's tooling).

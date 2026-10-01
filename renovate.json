@@ -17,7 +17,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "CPM pins in the ostia_cpm_add form (RFC-0001 §2.4); tools/ci/check_cpm_pins.py enforces it",
+      "description": "CPM pins in the ostia_cpm_add form (RFC-0001 §2.4); `ostia-dev check cpm-pins` enforces it",
       "managerFilePatterns": [
         "/(^|/)cmake/[^/]+\\.cmake$/",
         "/(^|/)CMakeLists\\.txt$/"

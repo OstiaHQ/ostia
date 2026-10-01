@@ -1,5 +1,5 @@
 # Reference setup nvlink-node (RFC-0004 §2): one node with NVLink GPUs.
-# Checked by tools/bench/capabilities.py; rented by `pixi run rent` (RFC-0004, Rollout PR 7).
+# Checked by `ostia-dev bench capabilities`; rented by `pixi run rent` (RFC-0004, Rollout PR 7).
 schema: 1
 name: nvlink-node
 gate: [p2p_copy, pipelining, batching, dual_link] # RFC-0001 §6.4: a missing capability fails the gate

@@ -1,7 +1,7 @@
 // batching (RFC-0001 §6.4): throughput across message sizes. For each size m, `count`
 // messages of m bytes are copied back to back to consecutive offsets on the peer GPU,
 // one copy each. The bound for m is m / (t0 + m / B), with t0 the measured time per
-// message at the smallest size and B the ceiling (tools/bench/bounds.py); the gate
+// message at the smallest size and B the ceiling (ostia_dev/bench/bounds.py); the gate
 // checks 1 MiB and larger.
 //
 //   batching [--src 0] [--dst 1] [--min 64] [--max 64MiB] [--total 256MiB]

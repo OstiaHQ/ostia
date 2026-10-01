@@ -1,6 +1,6 @@
 # Building and testing Ostia
 
-How to build Ostia from source, run the tests, and work on the C++ and Python code. The design behind all of this is [RFC-0001 §1–§3](../rfcs/0001-m0-foundations.md). If something fails, start with `pixi run doctor` and the [troubleshooting](#troubleshooting) table.
+How to build Ostia from source, run the tests, and work on the C++ and Python code. The design behind all of this is [RFC-0001 §1–§3](../rfcs/0001-m0-foundations.md). If something fails, start with `pixi run ostia-dev doctor` and the [troubleshooting](#troubleshooting) table.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ pixi run ostia-dev test
 
 The three commands took 48 seconds on an M-series Mac with pixi's package cache already warm. A first-ever install also downloads about 1 GB, so how long it takes depends on your connection. Later runs rebuild only what changed.
 
-- `pixi run test` runs the C++ and CMake tests (ctest) and the Python tests (pytest).
+- `pixi run ostia-dev test` runs the C++ and CMake tests (ctest) and the Python tests (pytest).
 - Before it runs pytest, it installs the Python packages; see [Python development](#python-development).
 
 ## Environments
@@ -50,7 +50,7 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 | `cuda-12` | Linux x86_64 and aarch64 | CUDA 12.8, GCC 11, CUDA-enabled UCX and rdma-core | The CUDA floor; compile-only without a GPU |
 | `cuda-13` | Linux x86_64 and aarch64 | CUDA 13.4, GCC 14, CUDA-enabled UCX and rdma-core | The newest supported CUDA |
 
-- Run a task in another environment with `-e`, for example `pixi run -e cuda-12 build`.
+- Run a command in another environment with `-e`, for example `pixi run -e cuda-12 ostia-dev build`.
 - `OSTIA_ENABLE_CUDA` is set per environment: `OFF` in `default`, `ON` in the CUDA environments. A plain CMake build outside pixi defaults to `AUTO`.
 - Each environment builds into its own directory, `build/<env>/<preset>`, so switching environments never reuses a cache made with another compiler.
 - CI also uses Linux-only environments `gcc11`, `clang`, `ucx` (UCX over TCP for the multi-process tests) and `gcc15` (only for a configure test).
@@ -62,7 +62,6 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 | --- | --- | --- |
 | `dev` | Debug (`-O0`) | `native` when a GPU is detected, otherwise the release list |
 | `release` | RelWithDebInfo | The release list: SASS for `sm_80`, `sm_90`, `sm_100`, and PTX for `sm_100` |
-| `gpu-ci` | RelWithDebInfo | `sm_89` only (an L4); removed by RFC-0005 Rollout PR B |
 
 - A `-DCMAKE_CUDA_ARCHITECTURES=...` you pass always wins, and so does `CUDAARCHS` in a plain CMake build. The presets clear `CUDAARCHS`, because conda's `cuda-nvcc` activation exports its own default list; with a preset, pass `-DCMAKE_CUDA_ARCHITECTURES` instead. The configure summary prints the choice and the reason.
 - Architectures outside the list, such as `sm_120`, run through PTX JIT. Set `CUDA_CACHE_PATH` to a persistent directory so the JIT cost is paid once.
@@ -78,47 +77,47 @@ The build compiles one of four telemetry levels (RFC-0001 §5). `OSTIA_TELEMETRY
 | `trace` | Plus trace events |
 | `debug` | Plus debug checks (the default for the `dev` preset) |
 
-- Presets `level-off`, `level-metrics`, `level-trace` and `level-debug` build a release at each level. `pixi run test-preset level-off` builds and tests one; `pixi run test-levels` runs all four.
-- The macros (`OSTIA_COUNT`, `OSTIA_TRACE_EVENT`, `OSTIA_DEBUG_CHECK`) type-check their arguments at every level, but evaluate them only at their own. Arguments must not have side effects: `pixi run check-macros` rejects calls, assignments and `++`/`--` in them.
-- A telemetry flavour applies to the whole installed stack. A Python extension that finds a `libostia-telemetry` built at another level raises `ImportError`, naming both levels. `pixi run doctor` shows the installed flavour.
-- To install another level into the environment, run `pixi run python tools/dev/py_dev.py --preset level-off --build-native --force`. `pixi run py-dev` switches back to `dev`.
+- Presets `level-off`, `level-metrics`, `level-trace` and `level-debug` build a release at each level. `pixi run ostia-dev test --preset level-off` builds and tests one; `pixi run ostia-dev test --levels` runs all four.
+- The macros (`OSTIA_COUNT`, `OSTIA_TRACE_EVENT`, `OSTIA_DEBUG_CHECK`) type-check their arguments at every level, but evaluate them only at their own. Arguments must not have side effects: `pixi run ostia-dev check macros` rejects calls, assignments and `++`/`--` in them.
+- A telemetry flavour applies to the whole installed stack. A Python extension that finds a `libostia-telemetry` built at another level raises `ImportError`, naming both levels. `pixi run ostia-dev doctor` shows the installed flavour.
+- To install another level into the environment, run `pixi run ostia-dev py-dev --preset level-off --build-native --force`. `pixi run ostia-dev py-dev` switches back to `dev`.
 - Each component declares its metrics and trace events in `<component>/telemetry.toml` (RFC-0002 §1). The build turns the catalog into storage-free handles.
 
-## Everyday tasks
+## Everyday commands
 
-| Task | What it does |
+| Command | What it does |
 | --- | --- |
-| `pixi run build` | Configure (when needed) and build the `dev` preset |
-| `pixi run test` | All tests (`test-cpp` and `test-py`) |
-| `pixi run test-cpp` | C++ and CMake tests; extra arguments go to ctest |
-| `pixi run test-py` | Python tests; extra arguments go to pytest |
-| `pixi run test-rebuild` | Slow tests: a native change is visible from Python after a rebuild |
-| `pixi run py-dev` | Build, install native code into the environment, install the Python editables |
-| `pixi run lint` | Fast checks: clang-format, ruff, gersemi, include layering, CPM pins, docs index |
-| `pixi run fmt` | Apply clang-format, ruff and gersemi |
-| `pixi run check` | Everything CI requires: `lint`, `check-graph`, `check-macros` and `test` |
-| `pixi run check-macros` | Telemetry macro arguments must not change state (parses the sources with libclang) |
-| `pixi run test-preset <preset>` | Configure, build and test one preset, e.g. `level-off` |
-| `pixi run test-levels` | Build and test all four telemetry levels |
-| `pixi run check-graph` | Check the resolved link graph against the layering table (reconfigures) |
-| `pixi run tidy` | clang-tidy over the compile database (slow) |
-| `pixi run doctor` | Print the environment and diagnose common problems |
-| `pixi run clean` | Remove build output and everything `py-dev` installed |
-| `pixi run hooks` | Install the git pre-commit hook, which runs `pixi run lint` |
-| `pixi run check-cuda` | Compile the CUDA code with nvcc in a `linux/arm64` container (needs podman or docker) |
-| `pixi run -e clang sanitize-asan` | Build and test with AddressSanitizer and UBSan (Linux); `sanitize-tsan` for ThreadSanitizer |
-| `pixi run -e ucx test-multiprocess` | Multi-process tests over UCX TCP loopback (Linux) |
-| `pixi run -e cuda-12 bench run --bench <binary>` | Run a benchmark and record schema-1 results ([benchmarks.md](benchmarks.md)) |
-| `pixi run compare --baseline <file> --candidate <file>` | Compare benchmark results with a baseline |
-| `pixi run docs-as-test` | Run this guide's quick start verbatim, as CI does on a fresh runner |
-| `pixi run docs-index` | Regenerate the RFC/ADR index in `docs/README.md` |
+| `pixi run ostia-dev build` | Configure (when needed) and build the `dev` preset |
+| `pixi run ostia-dev test` | All tests (`test cpp` and `test py`) |
+| `pixi run ostia-dev test cpp` | C++ and CMake tests; extra arguments go to ctest |
+| `pixi run ostia-dev test py` | Python tests; extra arguments go to pytest |
+| `pixi run ostia-dev test rebuild` | Slow tests: a native change is visible from Python after a rebuild |
+| `pixi run ostia-dev py-dev` | Build, install native code into the environment, install the Python editables |
+| `pixi run ostia-dev lint` | Fast checks: clang-format, ruff, gersemi, include layering, CPM pins, docs index |
+| `pixi run ostia-dev fmt` | Apply clang-format, ruff and gersemi |
+| `pixi run ostia-dev check` | Everything CI requires: `lint`, `check graph`, `check macros` and `test` |
+| `pixi run ostia-dev check macros` | Telemetry macro arguments must not change state (parses the sources with libclang) |
+| `pixi run ostia-dev test --preset <preset>` | Configure, build and test one preset, e.g. `level-off` |
+| `pixi run ostia-dev test --levels` | Build and test all four telemetry levels |
+| `pixi run ostia-dev check graph` | Check the resolved link graph against the layering table (reconfigures) |
+| `pixi run ostia-dev check tidy` | clang-tidy over the compile database (slow) |
+| `pixi run ostia-dev doctor` | Print the environment and diagnose common problems |
+| `pixi run ostia-dev clean` | Remove build output and everything `py-dev` installed |
+| `pixi run ostia-dev hooks` | Install the git pre-commit hook, which runs `pixi run ostia-dev lint` |
+| `pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile` | Compile the CUDA code with nvcc in a `linux/arm64` container (needs podman or docker) |
+| `pixi run -e clang ostia-dev test --sanitize asan-ubsan` | Build and test with AddressSanitizer and UBSan (Linux); `--sanitize tsan` for ThreadSanitizer |
+| `pixi run -e ucx ostia-dev test -L multiprocess` | Multi-process tests over UCX TCP loopback (Linux) |
+| `pixi run -e cuda-12 ostia-dev bench run --bench <binary>` | Run a benchmark and record schema-1 results ([benchmarks.md](benchmarks.md)) |
+| `pixi run ostia-dev bench compare --baseline <file> --candidate <file>` | Compare benchmark results with a baseline |
+| `pixi run ostia-dev check docs-as-test` | Run this guide's quick start verbatim, as CI does on a fresh runner |
+| `pixi run ostia-dev docs index` | Regenerate the RFC/ADR index in `docs/README.md` |
 
-`pixi task list` shows the same list.
+`pixi run ostia-dev --help` shows every command; each one's `--help` shows its options.
 
 ## Running one test
 
 ```bash
-pixi run test-cpp -R Result                                   # ctest by name
+pixi run ostia-dev test cpp -R Result                         # ctest by name
 pixi run pytest tests/python/test_namespace.py -k telemetry   # pytest, no rebuild
 pixi shell                                                    # a shell with the environment, for repeated commands
 ```
@@ -126,12 +125,12 @@ pixi shell                                                    # a shell with the
 ## Python development
 
 - Each implemented component has a Python package in `<component>/python/` that installs into `ostia/<component>/`. They share the `ostia` import namespace (PEP 420), and no package ships `ostia/__init__.py`.
-- `pixi run py-dev` does three things:
+- `pixi run ostia-dev py-dev` does three things:
   - builds the native libraries;
   - installs them into the pixi environment (`.pixi/envs/<env>/lib`);
   - installs each Python package as a scikit-build-core editable.
-- Every extension loads the one installed `libostia-*` through a relative RPATH. `pixi run clean` undoes all of this.
-- **After a native change, rebuild with `pixi run py-dev`.** Python-only changes need no rebuild.
+- Every extension loads the one installed `libostia-*` through a relative RPATH. `pixi run ostia-dev clean` undoes all of this.
+- **After a native change, rebuild with `pixi run ostia-dev py-dev`.** Python-only changes need no rebuild.
 - Don't run `pip install -e` on a component directly: it cannot find the native libraries, and its error says so.
 
 ## IDE setup
@@ -159,7 +158,7 @@ pixi shell                                                    # a shell with the
 
 ## Checking CUDA code on a Mac
 
-The Mac has no CUDA toolkit. `pixi run check-cuda` compiles the CUDA code with nvcc in a `linux/arm64` container, for both `cuda-12` and `cuda-13` (`pixi run check-cuda cuda-13` for one). The container runs natively on Apple silicon, and nvcc needs no GPU. It needs [podman](https://podman.io) (`brew install podman && podman machine init && podman machine start`) or Docker. Run it before opening a pull request that changes CUDA code.
+The Mac has no CUDA toolkit. `pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile` compiles the CUDA code with nvcc in a `linux/arm64` container, for both `cuda-12` and `cuda-13` (`--env cuda-13` alone for one). The container runs natively on Apple silicon, and nvcc needs no GPU. It needs [podman](https://podman.io) (`brew install podman && podman machine init && podman machine start`) or Docker. Run it before opening a pull request that changes CUDA code.
 
 ## Building without pixi
 
@@ -180,22 +179,22 @@ This is tier 2 or 3: supported on Ubuntu 22.04 and Rocky 9 through CI, best effo
 - **After `pixi.lock` changes** (for example after `git pull`), run `pixi install`.
   - To resolve a merge conflict in `pixi.lock`, run `git checkout --theirs pixi.lock && pixi lock`.
   - If a `pixi run` changed the lock when you didn't edit `pixi.toml`, run `git checkout pixi.lock`.
-- **After changes to `CMakePresets.json` or `cmake/`**, reconfigure from scratch with `rm -rf build/<env>/dev`, then `pixi run build`.
-- **To reset the build and the Python install**, run `pixi run clean`.
+- **After changes to `CMakePresets.json` or `cmake/`**, reconfigure from scratch with `rm -rf build/<env>/dev`, then `pixi run ostia-dev build`.
+- **To reset the build and the Python install**, run `pixi run ostia-dev clean`.
 - **For a full reset**, run `pixi clean && rm -rf build`. This keeps `.cache/cpm`, so nothing is downloaded again.
-- Renamed tasks or presets are listed in `CHANGELOG.md` with their replacement.
+- Renamed commands or presets are listed in `CHANGELOG.md` with their replacement.
 
 ## Troubleshooting
 
-Every Ostia error follows one contract: the problem, the offending item, the rule that was broken, the exact fix, and the RFC section. `pixi run doctor` prints the environment (compiler, CUDA and why, architectures, components, dependencies) and checks for the problems below.
+Every Ostia error follows one contract: the problem, the offending item, the rule that was broken, the exact fix, and the RFC section. `pixi run ostia-dev doctor` prints the environment (compiler, CUDA and why, architectures, components, dependencies) and checks for the problems below.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `CMake 3.x ... is too old`, or `Unrecognized "version" field` | A system CMake (or an IDE) is used instead of pixi's | Run through pixi (`pixi run build`), or point the IDE at `.pixi/envs/default/bin/cmake` |
+| `CMake 3.x ... is too old`, or `Unrecognized "version" field` | A system CMake (or an IDE) is used instead of pixi's | Run through pixi (`pixi run ostia-dev build`), or point the IDE at `.pixi/envs/default/bin/cmake` |
 | Warning `AppleClang is best effort` | Configured with Xcode's compiler outside pixi | Build through pixi, which uses conda-forge Clang 19 |
-| Odd configure errors after switching branches | Stale build directory | `rm -rf build/<env>/dev`, then `pixi run build` |
-| `No module named 'ostia'` | The Python packages are not installed | `pixi run py-dev` |
-| `ostia.telemetry native extension failed to load` | Native libraries removed or out of date | `pixi run py-dev` |
+| Odd configure errors after switching branches | Stale build directory | `rm -rf build/<env>/dev`, then `pixi run ostia-dev build` |
+| `No module named 'ostia'` | The Python packages are not installed | `pixi run ostia-dev py-dev` |
+| `ostia.telemetry native extension failed to load` | Native libraries removed or out of date | `pixi run ostia-dev py-dev` |
 | `pixi.lock` shows up as modified | A `pixi run` re-solved the lock after `pixi.toml` changed | Commit it if you changed `pixi.toml`, otherwise `git checkout pixi.lock` |
 | `xcrun: error` or missing SDK headers on macOS | Command Line Tools missing | `xcode-select --install` |
 | `ostia: <package> ... offline or failing?` before a fetch error | No network, or a pinned tag removed upstream | See [Offline](#offline); a removed tag is fixed by a pin-bump PR |

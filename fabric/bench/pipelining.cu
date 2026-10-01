@@ -2,7 +2,7 @@
 // pack-then-copy. The pack stage gathers 64-byte blocks at a stride of 128 bytes into a
 // staging buffer on the source GPU; the transfer stage copies the staging buffer to the
 // peer GPU. Records each stage alone (the bound is the slower of the two,
-// tools/bench/bounds.py), the synchronous run and the pipelined run.
+// ostia_dev/bench/bounds.py), the synchronous run and the pipelined run.
 //
 //   pipelining [--src 0] [--dst 1] [--bytes 256MiB] [--chunk 4MiB] [--samples N]
 //              [--smoke] [--corrupt]

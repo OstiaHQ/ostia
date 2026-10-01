@@ -13,7 +13,7 @@ if(NOT ostia_FOUND)
     PROBLEM "native ostia-fabric is not installed in $ENV{CONDA_PREFIX}"
     DETAILS "${ostia_NOT_FOUND_MESSAGE}"
     RULE "Python editables link the native libraries installed into the pixi environment"
-    FIX "run pixi run py-dev (not pip install -e directly)"
+    FIX "run pixi run ostia-dev py-dev (not pip install -e directly)"
     SEE "RFC-0001 §3.5"
   )
 endif()

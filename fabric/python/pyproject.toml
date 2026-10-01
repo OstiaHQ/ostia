@@ -1,4 +1,4 @@
-# ostia-fabric Python bindings. Development installs go through `pixi run py-dev`
+# ostia-fabric Python bindings. Development installs go through `pixi run ostia-dev py-dev`
 # (docs/guides/building.md); the native library comes from the environment's prefix.
 [build-system]
 requires = ["scikit-build-core>=1.0.1"]

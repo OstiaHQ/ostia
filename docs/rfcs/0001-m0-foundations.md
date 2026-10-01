@@ -5,7 +5,7 @@ status: Accepted
 authors: [ShAlireza]
 components: [build, telemetry, fabric, docs]
 created: 2026-09-25
-updated: 2026-09-29
+updated: 2026-10-01
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/7
@@ -36,7 +36,7 @@ The repository is public and the project has one maintainer, so three constraint
 
 **Goals**
 
-- A contributor with pixi installed goes from clone to passing tests on macOS or Linux in three commands (`pixi install`, `pixi run build`, `pixi run test`), without a GPU or a cloud account.
+- A contributor with pixi installed goes from clone to passing tests on macOS or Linux in three commands (`pixi install`, `pixi run build`, `pixi run test`), without a GPU or a cloud account. *(update: RFC-0005 Rollout PR B: the commands are now `pixi install`, `pixi run ostia-dev build` and `pixi run ostia-dev test`, RFC-0005 §2.2.)*
 - Every pull request builds on Linux x86_64, Linux aarch64 and macOS, and on a GPU when a maintainer approves it.
 - Layering between components is enforced by configure-time checks and CI, not by convention.
 - The benchmark harness produces results that can be compared across commits and that refuse to pass when the evidence is not good enough.
@@ -64,7 +64,7 @@ The repository is public and the project has one maintainer, so three constraint
 - **Minimum CUDA is 12.8.** It is the first 12.x release with Blackwell (`sm_100`) support and runs on the older drivers that clusters keep. CI also builds with the latest CUDA 13.x (13.4 at the time of writing). CUDA 13 needs driver R580 or newer. The floor is revisited by ADR.
 - **Architectures:** SASS for `sm_80`, `sm_90` and `sm_100`, plus PTX for the newest listed architecture. `sm_80` SASS runs on `sm_86` and `sm_89`, so L4 and A10G CI machines need no extra target. Architectures not in the list, such as `sm_103` and `sm_120`, run through PTX JIT; set `CUDA_CACHE_PATH` so the JIT cost is paid once. Architecture-specific targets (`sm_90a`, `sm_100a`, needed for TMA and wgmma) are left to the kernel RFCs that need them.
 - A user-set `CMAKE_CUDA_ARCHITECTURES` always wins. Otherwise the top-level `CMakeLists.txt` decides before `enable_language(CUDA)`: in the `dev` preset it uses `native` only when a GPU is detected (CMake fails at configure time when `native` is set and no GPU is present), and otherwise the release list. Presets are static and cannot detect hardware, so this logic lives in CMake code, not in `CMakePresets.json`. The configure summary prints the choice.
-- GPU CI builds only `sm_89` (the L4), to keep its build short; the full list is built by the nvcc compile-only CPU jobs.
+- GPU CI builds only `sm_89` (the L4), to keep its build short; the full list is built by the nvcc compile-only CPU jobs. *(update: RFC-0005 Rollout PR B: the `gpu-ci` preset is removed; remote GPU runs pass the node's `<cc>-real` architecture, RFC-0005 §4.9.)*
 
 #### 1.2 Host compilers and language
 
@@ -190,6 +190,8 @@ bench/baselines/            committed baselines; bench/results/ is git-ignored
 pixi.toml  pixi.lock  CMakeLists.txt  CMakePresets.json
 ```
 
+*(update: RFC-0005 Rollout PR B: `tools/ci/` and `tools/bench/` moved into `tools/ostia-dev/src/ostia_dev/ci/` and `bench/`, run as `ostia-dev check …` and `ostia-dev bench …`; `tools/ci/` keeps only `install_cmake.sh` and `gpu_preflight.sh`, RFC-0005 §2.1.)*
+
 `fabric/tools/topo-capture/` is defined by RFC-0003; `tools/rent/` and `infra/setups/` are defined by RFC-0004.
 
 The exchange, runtime and query **placeholders** ship no public headers and no API: a `CMakeLists.txt`, a README pointing to their future RFC, and an empty INTERFACE target. They are not installed or exported, and `find_package(ostia COMPONENTS exchange)` fails with a message naming the RFC that will define it. RFC-0001 approves only the empty skeleton; each component's design needs its own RFC.
@@ -284,7 +286,7 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 | `levels-full` | all | Full telemetry-level matrix on every configuration | Nightly |
 
 - clang-tidy runs on changed files in CI and as a manual pre-commit stage, because it needs `compile_commands.json` and is slow.
-- Required checks aim to finish within **20 minutes**. Jobs use per-PR concurrency groups with `cancel-in-progress`. Every job calls the same `pixi run` tasks a contributor runs locally (`pixi run check` is the required subset) and prints the command to reproduce a failure.
+- Required checks aim to finish within **20 minutes**. Jobs use per-PR concurrency groups with `cancel-in-progress`. Every job calls the same `pixi run` tasks a contributor runs locally (`pixi run check` is the required subset) and prints the command to reproduce a failure. *(update: RFC-0005 Rollout PR B: the same `ostia-dev` commands; `pixi run ostia-dev check` is the required subset.)*
 - ccache runs through pixi, with `actions/cache`, for pull-request CPU jobs only (see §4.2 on caches).
 - In M0 the multi-process suite is a harness test: a launcher starts 2 or more processes, they rendezvous, and a raw UCX put moves a checksummed buffer between them. Fabric's own multi-process tests replace it in M1. It lives in `fabric/tests/multiprocess/` with the ctest label `multiprocess`.
 

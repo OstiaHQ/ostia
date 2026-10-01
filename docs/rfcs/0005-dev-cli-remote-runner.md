@@ -110,7 +110,7 @@ error: namespace ostia-test has no ResourceQuota
 
 #### 1.4 Exit codes
 
-For every subcommand: **0** success, **1** the checked thing failed (tests, lint, a check), **2** usage or configuration error. `remote` adds three (§3.5).
+For every subcommand: **0** success, **1** the checked thing failed (tests, lint, a check), **2** usage or configuration error. `remote` adds three (§3.5). *(update: Rollout PR B: commands that wrap an external tool (`build`, `test`, `check`, `check graph|macros|tidy`, `py-dev`, `hooks`) exit with that tool's own code, as the pixi tasks they replace did, so a failing ctest still exits 8; §2.3 allows only names and paths to change.)*
 
 #### 1.5 Prompts and non-interactive use
 
@@ -135,7 +135,7 @@ tools/ostia-dev/
   tests/
 ```
 
-`telemetry/tools/gen_catalog.py` stays where it is: CMake runs it at build time as code generation, and it belongs to the telemetry component. `tools/ci/install_cmake.sh` and `tools/ci/gpu_preflight.sh` (#17) stay shell scripts, because they run before pixi exists (the container CI jobs, and inside remote pods).
+`telemetry/tools/gen_catalog.py` stays where it is: CMake runs it at build time as code generation, and it belongs to the telemetry component. `tools/ci/install_cmake.sh` and `tools/ci/gpu_preflight.sh` (#17) stay shell scripts, because they run before pixi exists (the container CI jobs, and inside remote pods). *(update: Rollout PR B: for the same reason, four moved modules stay runnable by path with plain `python3` and the standard library: `ci/check_exports.py` and `ci/check_graph.py` (CMake tests, which the container CI jobs run without pixi), `ci/docs_as_test.py` (CI's fresh-runner job, which must not install the environment before the guide does) and `ci/check_comments.py` (the Claude Code hook). Their commands are still `ostia-dev check exports|graph|docs-as-test|comments`.)*
 
 #### 2.2 Everyday commands: one vocabulary
 
@@ -162,6 +162,8 @@ Every command below runs as `pixi run ostia-dev …`, or as plain `ostia-dev …
 | `pixi run bench …`, `tools/bench/*.py` (#18, #19) | `ostia-dev bench run|convert|median-seconds|compare|overhead` |
 | `pixi run rent …` (RFC-0004, Rollout PR 7) | `ostia-dev rent …`, and later a `remote` backend (§3.1) |
 | `pixi run topo-show`, the capture tool (RFC-0003, Rollout PR 6) | `ostia-dev topo show|capture` |
+
+*(update: Rollout PR B: the migration also names what the table leaves out. `install-native` is part of `py-dev`. `check comments [FILES|--hook]`, `check graph --dot FILE`, `check macros --public|--build DIR` and `check tidy [FILES]` take the old scripts' arguments, and `lint` and `fmt` keep `--root` and `--only`. `bench oracles`, `bounds`, `capabilities` and `evidence` are the other benchmark scripts. `docs figures` defaults to the PRD's figures. `test -L <label>` runs ctest only, as `test-multiprocess` did. `check-cuda` becomes `ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile`, because `--preset release --no-test` would not compile the benchmarks that `check-cuda` compiled (§3.3).)*
 
 The quick start in `docs/guides/building.md` becomes `pixi install`, `pixi run ostia-dev build`, `pixi run ostia-dev test`. This amends the wording of RFC-0001's first goal ("three commands"), not its intent.
 
@@ -260,6 +262,8 @@ Suites are named step lists in `profiles.toml`. They reproduce what #17 and #18'
 | `bench-smoke` | the benchmark driver end to end (nvbench to schema 1, RFC-0001 §6.1) and every `fabric/bench` program with `--smoke` |
 | `overhead-aa` | the overhead mechanism's self-test, which fails the run on a wrong verdict, and the A/A noise-floor run on the node (RFC-0001 §6.6), which reports its noise floor and never fails the run |
 | `cpu` | build and `ctest -L cpu` |
+
+*(update: Rollout PR B: a sixth suite, `cuda-compile`, configures `release` with `-DOSTIA_BUILD_BENCH=ON` and builds it, with no tests and no GPU, so it runs on a CPU profile or a Mac's container; it replaces `check-cuda` (§2.2).)*
 
 #### 3.4 Results
 

@@ -25,7 +25,7 @@ Ostia is building its M0 foundations. Useful contributions right now are feedbac
 - Add or update tests for behaviour changes, and update the docs in the same pull request.
 - Follow the code style in [ADR-0013](docs/adr/0013-code-style.md) and the comment rules in [ADR-0015](docs/adr/0015-code-comments.md): comments explain why, invariants and hazards, not what the next line does.
 - A pull request that touches GPU code (ADR-0014 rule 2 lists what counts) needs a GPU run before it merges. A maintainer reviews the diff, runs the `gpu` suite on a GPU node with `ostia-dev remote` ([docs/guides/remote-runs.md](docs/guides/remote-runs.md)), and posts the summary line. You don't need a GPU cluster: ask in a comment.
-- CI must pass. Every job runs a pixi task you can run locally, and its summary shows the command that reproduces it; `pixi run check` covers the required subset (RFC-0001 §4.1).
+- CI must pass. Every job runs an `ostia-dev` command you can run locally, and its summary shows the command that reproduces it; `pixi run ostia-dev check` covers the required subset (RFC-0001 §4.1).
 - A maintainer reviews every pull request. Expect a first response within 5 working days. Address review comments with new commits; the pull request is squash-merged, so the history stays clean.
 
 ## Commit messages
@@ -69,7 +69,7 @@ Ostia is open core: the open-source edition is Apache-2.0, and the project owner
 
 ## Development setup
 
-Install [pixi](https://pixi.sh), then follow [docs/guides/building.md](docs/guides/building.md): `pixi install`, `pixi run build`, `pixi run test`. Before you open a pull request, run `pixi run check`, which runs what CI requires. `pixi run hooks` installs a pre-commit hook that runs `pixi run lint`. To add or grow a component, see [docs/guides/adding-a-component.md](docs/guides/adding-a-component.md).
+Install [pixi](https://pixi.sh), then follow [docs/guides/building.md](docs/guides/building.md): `pixi install`, `pixi run ostia-dev build`, `pixi run ostia-dev test`. Before you open a pull request, run `pixi run ostia-dev check`, which runs what CI requires. `pixi run ostia-dev hooks` installs a pre-commit hook that runs `pixi run ostia-dev lint`. To add or grow a component, see [docs/guides/adding-a-component.md](docs/guides/adding-a-component.md).
 
 ## For maintainers
 
