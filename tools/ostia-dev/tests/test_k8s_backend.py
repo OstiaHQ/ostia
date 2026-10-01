@@ -51,7 +51,13 @@ def cfg(tmp_path):
 def _drive(
     fake, clock, cfg, repo, tmp_path, timeline=HAPPY, *, envs=("default",), profile="cpu", **extra
 ):
-    target = Target(context="c1", namespace="ostia-test", provider="gke", kubectl=Path("/k"))
+    target = Target(
+        context="c1",
+        namespace="ostia-test",
+        provider="gke",
+        kubectl=Path("/k"),
+        allow_unguarded=bool(extra.get("allow_unguarded")),
+    )
     backend = K8sBackend(cfg=cfg, target=target, kube=fake, clock=clock)
     spec = core.RunSpec(
         backend="k8s",
@@ -608,3 +614,11 @@ def test_keep_on_failure_two_pods(fake, clock, cfg, repo, tmp_path, capsys):
     kept = [line for line in err.splitlines() if "kept for debugging" in line]
     assert len(kept) == 1 and kept[0].count("exec -it") == 2
     assert fake.list("job") == []
+
+
+def test_two_pod_run_in_an_unguarded_namespace_creates_no_policy(fake, clock, cfg, repo, tmp_path):
+    for p in fake.list("networkpolicy"):
+        fake.delete("networkpolicy", p["metadata"]["name"])
+    assert _drive(fake, clock, cfg, repo, tmp_path, TWO_OK, pods=2, allow_unguarded=True) == 0
+    created = [c.args[0] for c in fake.calls if c.verb == "create"]
+    assert "Service" in created and "NetworkPolicy" not in created

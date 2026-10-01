@@ -144,7 +144,10 @@ class K8sBackend:
         if state["n"] > 1:  # owned objects first, so no pod runs before its policy (§4.2)
             ref = manifests.owner_reference(created)
             self.kube.create(manifests.service(run.run_id, state["job"], ref, owner_id()))
-            self.kube.create(manifests.run_policy(run.run_id, ref, owner_id()))
+            # In an unguarded namespace nothing restricts the pods; a policy selecting them
+            # would become their only egress rule and cut DNS and the internet.
+            if self.kube.list("networkpolicy", selector="ostia.dev/managed=true"):
+                self.kube.create(manifests.run_policy(run.run_id, ref, owner_id()))
         self.kube.patch("job", state["job"], {"spec": {"suspend": False}})
         self._wait_running(run)
 
