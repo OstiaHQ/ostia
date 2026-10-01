@@ -135,33 +135,11 @@ ucx = { features = ["linux", "gcc14", "ucx-cpu"] }
 gcc15 = { features = ["linux", "gcc15"] }
 
 [tasks]
+# The one task pixi keeps: its inputs/outputs cache decides when to reconfigure. Every
+# command is `pixi run ostia-dev …` (RFC-0005 §2.2).
 _configure = { cmd = "cmake --preset dev", inputs = [
   "CMakePresets.json",
   "pixi.lock",
 ], outputs = [
   "build/{{ pixi.environment.name }}/dev/CMakeCache.txt",
 ], description = "Configure the dev preset (re-runs only when presets or the lock change)" }
-build = { cmd = "ostia-dev build" }
-test-cpp = { cmd = "ostia-dev test cpp" }
-py-dev = { cmd = "ostia-dev py-dev" }
-test-py = { cmd = "ostia-dev test py" }
-test = { cmd = "ostia-dev test" }
-test-rebuild = { cmd = "ostia-dev test rebuild" }
-check-graph = { cmd = "ostia-dev check graph" }
-check-macros = { cmd = "ostia-dev check macros" }
-check = { cmd = "ostia-dev check" }
-tidy = { cmd = "ostia-dev check tidy" }
-doctor = { cmd = "ostia-dev doctor" }
-clean = { cmd = "ostia-dev clean" }
-hooks = { cmd = "ostia-dev hooks" }
-sanitize-asan = { cmd = "ostia-dev test --sanitize asan-ubsan" }
-sanitize-tsan = { cmd = "ostia-dev test --sanitize tsan" }
-test-multiprocess = { cmd = "ostia-dev test -L multiprocess" }
-test-levels = { cmd = "ostia-dev test --levels" }
-test-preset = { cmd = "ostia-dev test --preset {{ preset }}", args = ["preset"] }
-lint = { cmd = "ostia-dev lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, comments, docs index" }
-fmt = { cmd = "ostia-dev fmt", description = "Apply clang-format, ruff and gersemi" }
-docs-index = { cmd = "ostia-dev docs index", description = "Regenerate the RFC/ADR index in docs/README.md" }
-docs-as-test = { cmd = "ostia-dev check docs-as-test", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
-bench = { cmd = "ostia-dev bench", description = "Run a benchmark and record schema-1 results (docs/guides/benchmarks.md)" }
-compare = { cmd = "ostia-dev bench compare", description = "Compare benchmark results with a baseline (RFC-0001 §6.3)" }

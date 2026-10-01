@@ -66,9 +66,9 @@ for name, mean in (("base", 40.0), ("same", 40.0), ("slower", 35.0)):
         f.write(json.dumps(record(mean, name)) + "\n")
 EOF
 # Same numbers: pass (exit 0).
-pixi run compare --baseline bench/results/example/base.jsonl --candidate bench/results/example/same.jsonl
+pixi run ostia-dev bench compare --baseline bench/results/example/base.jsonl --candidate bench/results/example/same.jsonl
 # 12.5% less bandwidth: regression (exit 1).
-if pixi run compare --baseline bench/results/example/base.jsonl --candidate bench/results/example/slower.jsonl; then
+if pixi run ostia-dev bench compare --baseline bench/results/example/base.jsonl --candidate bench/results/example/slower.jsonl; then
   echo "expected a regression"; exit 1
 fi
 ```

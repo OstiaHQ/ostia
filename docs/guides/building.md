@@ -32,8 +32,8 @@ From a fresh clone:
 <!-- docs-as-test:start -->
 ```bash
 pixi install
-pixi run build
-pixi run test
+pixi run ostia-dev build
+pixi run ostia-dev test
 ```
 <!-- docs-as-test:end -->
 

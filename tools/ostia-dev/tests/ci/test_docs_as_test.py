@@ -61,4 +61,6 @@ def test_a_failing_command_fails_the_run(tmp_path, capsys):
 
 def test_building_guide_has_the_quick_start():
     guide = Path(__file__).resolve().parents[4] / "docs" / "guides" / "building.md"
-    assert blocks(guide.read_text()) == ["pixi install\npixi run build\npixi run test\n"]
+    assert blocks(guide.read_text()) == [
+        "pixi install\npixi run ostia-dev build\npixi run ostia-dev test\n"
+    ]

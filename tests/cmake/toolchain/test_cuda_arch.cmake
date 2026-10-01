@@ -74,5 +74,5 @@ macro(configure_twice cache env want1 want2)
 endmacro()
 configure_twice("75" "" "75" "75") # -DCMAKE_CUDA_ARCHITECTURES=75
 configure_twice("" "89" "89" "89") # CUDAARCHS=89
-configure_twice("89" "" "89" "89") # the gpu-ci preset passes 89 on every configure
+configure_twice("89" "" "89" "89") # a preset that passes 89 on every configure
 configure_twice("" "" "${release}" "${release}") # Ostia's own choice, recomputed
