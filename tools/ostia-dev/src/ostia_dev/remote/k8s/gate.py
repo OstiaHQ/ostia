@@ -142,8 +142,19 @@ def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: st
                 "RFC-0005 §6",
             )
         program, args = PROGRAMS[w]
-        if w == "dual_link":
-            args = ["--mode", "rails" if pods == 2 else "nvlink"]
+        if w == "dual_link" and pods == 2:
+            if not profile.rdma_nics:
+                raise _bad(
+                    f"profile {profile.name} has no rdma_nics for dual_link's two rails",
+                    [],
+                    "dual_link --mode rails runs one transfer on each of two NICs",
+                    f'add rdma_nics = "mlx5_0:1,mlx5_1:1" (your node\'s two NIC ports) to '
+                    f"[remote.k8s.profiles.{profile.name}]",
+                    "RFC-0005 §6",
+                )
+            args = ["--mode", "rails", "--nics", profile.rdma_nics]
+        elif w == "dual_link":
+            args = ["--mode", "nvlink"]
         remote = ["--remote"] if pods == 2 else []
         argv = [
             "python", f"{bench}/ostia_bench.py", "run", "--format", "ostia", "--evidence",

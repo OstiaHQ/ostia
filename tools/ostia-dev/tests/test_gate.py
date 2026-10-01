@@ -36,6 +36,7 @@ cpu = "16"
 memory = "64Gi"
 ephemeral_storage = "100Gi"
 rdma_resources = { "rdma/rdma_shared_device_a" = "1" }
+rdma_nics = "mlx5_0:1,mlx5_1:1"
 [remote.k8s.profiles.ib.gke]
 node_selector = { "example.com/ib" = "true" }
 """
@@ -222,6 +223,7 @@ def test_plan_rdma_pair_two_pods(tmp_path, cfg):
     assert "--probe ib" in cmds["evidence-probe"]
     assert "--remote" in cmds["bench-rdma_put"] and "--mem cuda" in cmds["bench-rdma_put"]
     assert "--mode rails" in cmds["bench-dual_link"] and "--remote" in cmds["bench-dual_link"]
+    assert "--nics mlx5_0:1,mlx5_1:1" in cmds["bench-dual_link"]
     assert run.spec.extra["pods"] == 2
 
 
@@ -289,3 +291,16 @@ def test_missing_records_fail(tmp_path, cfg, capsys, monkeypatch):
     run = FakeRun(tmp_path, records=["p2p_copy", "pipelining", "batching"])
     assert _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run) == 1
     assert "no benchmark records for dual_link" in capsys.readouterr().out
+
+
+def test_failure_rails_without_rdma_nics(tmp_path, cfg):
+    path = tmp_path / "config.toml"
+    path.write_text(CONFIG.replace('rdma_nics = "mlx5_0:1,mlx5_1:1"\n', ""))
+    with pytest.raises(UsageError) as e:
+        _gate(
+            tmp_path,
+            config.load(path),
+            _setup(tmp_path, RDMA, "rdma-pair", nodes=2),
+            FakeRun(tmp_path),
+        )
+    assert "rdma_nics" in e.value.message and "[remote.k8s.profiles.ib]" in e.value.message

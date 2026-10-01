@@ -147,6 +147,7 @@ def test_rdma_profile_fields_resolve(tmp_path):
     p = profiles.resolve("ib", "generic", _cfg_with(tmp_path, RDMA + "host_network = true\n"))
     assert p.rdma_resources == {"rdma/rdma_shared_device_a": "1"}
     assert p.host_network is True and "rdma_resources" not in p.extra
+    assert p.rdma_nics is None
 
 
 def test_rdma_fields_default_off(cfg):
@@ -156,7 +157,11 @@ def test_rdma_fields_default_off(cfg):
 
 @pytest.mark.parametrize(
     ("profile", "field"),
-    [("l4", "host_network = true"), ("cpu", 'rdma_resources = { "rdma/x" = "1" }')],
+    [
+        ("l4", "host_network = true"),
+        ("cpu", 'rdma_resources = { "rdma/x" = "1" }'),
+        ("l4", 'rdma_nics = "mlx5_0:1,mlx5_1:1"'),
+    ],
 )
 def test_failure_rdma_fields_on_a_non_rdma_profile(tmp_path, profile, field):
     cfg = _cfg_with(tmp_path, f"[remote.k8s.profiles.{profile}]\n{field}\n")
