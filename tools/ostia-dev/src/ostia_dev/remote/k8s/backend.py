@@ -26,7 +26,7 @@ from ostia_dev.contract import violation
 from ostia_dev.errors import InfraError, UsageError
 from ostia_dev.remote import results, suites
 from ostia_dev.remote.container import supervisor_script
-from ostia_dev.remote.core import SECRET_KEYS, Run, owner_id
+from ostia_dev.remote.core import SECRET_KEYS, Collected, Run, owner_id
 from ostia_dev.remote.k8s import manifests, preflight
 from ostia_dev.remote.k8s.kube import LostConnection
 from ostia_dev.remote.k8s.preflight import Target
@@ -360,7 +360,7 @@ class K8sBackend:
                 see="RFC-0005 §3.4",
             )
 
-    def collect(self, run: Run, workdir: Path) -> tuple[Path, Path]:
+    def collect(self, run: Run, workdir: Path) -> list[Collected]:
         control, artifacts = workdir / "control.tar", workdir / "artifacts.tar"
         build_rel = run.plan.build_dir.removeprefix(suites.WORK + "/")
         self._exec_tar(run, results.control_tar_script(), control)
@@ -376,7 +376,7 @@ class K8sBackend:
             )
         else:
             self.kube.exec_out(run.state["pod"], ["touch", f"{suites.WORK}/.ostia/collected"])
-        return control, artifacts
+        return [Collected("", control, artifacts)]
 
     @staticmethod
     def _failed(control: Path) -> bool:

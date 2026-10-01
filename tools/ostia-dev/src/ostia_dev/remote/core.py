@@ -48,6 +48,15 @@ class RunSpec:
 
 
 @dataclass
+class Collected:
+    """One pod's collected tars; subdir is "" for one pod, rank-<i> for two (§3.4)."""
+
+    subdir: str
+    control: Path
+    artifacts: Path
+
+
+@dataclass
 class Run:
     spec: RunSpec
     env: str
@@ -65,6 +74,7 @@ class Run:
     oom: bool = False
     node: str | None = None
     state: dict = field(default_factory=dict)
+    ranks: list[dict] = field(default_factory=list)
 
     def supervisor_env(self) -> dict[str, str]:
         env = {
@@ -97,7 +107,7 @@ class Backend(Protocol):
     def start(self, run: Run) -> None: ...
     def upload(self, run: Run) -> None: ...
     def stream(self, run: Run) -> None: ...
-    def collect(self, run: Run, workdir: Path) -> tuple[Path, Path]: ...
+    def collect(self, run: Run, workdir: Path) -> list[Collected]: ...
     def teardown(self, run: Run) -> bool: ...
     def describe(self, run: Run) -> dict: ...
     def cleanup_hint(self, run: Run) -> str: ...
@@ -296,28 +306,41 @@ def _pipeline(backend: Backend, run: Run, workdir: Path) -> int:
     ctl = None
     dropped: list[str] = []
     verified = False
+    bench = None
     try:
         backend.start(run)
         backend.upload(run)
         backend.stream(run)
-        control, artifacts = backend.collect(run, workdir)
-        ctl = results.extract_control(control, run.results_dir)
+        collected = backend.collect(run, workdir)
         build_rel = run.plan.build_dir.removeprefix(suites.WORK + "/")
-        dropped = results.extract_artifacts(artifacts, run.results_dir, build_rel)
-        junits = {p.name: p.read_text() for p in sorted(run.results_dir.glob("junit*.xml"))}
-        summary_file = run.results_dir / "ostia-summary.txt"
-        verdict = guards.evaluate(
-            ctl.steps,
-            junits,
-            gpu_profile=run.profile.is_gpu,
-            planned=[s.name for s in run.plan.steps],
-            oom=run.oom,
-            memory=run.profile.memory,
-            profile=run.profile.name,
-            expect_summary=run.plan.expect_summary,
-            summary_text=summary_file.read_text() if summary_file.exists() else None,
-        )
+        per_rank = []
+        for c in collected:
+            dest = run.results_dir / c.subdir
+            rank_ctl = results.extract_control(c.control, dest)
+            ctl = ctl or rank_ctl
+            dropped += results.extract_artifacts(c.artifacts, dest, build_rel)
+            junits = {p.name: p.read_text() for p in sorted(dest.glob("junit*.xml"))}
+            summary_file = dest / "ostia-summary.txt"
+            v = guards.evaluate(
+                rank_ctl.steps,
+                junits,
+                gpu_profile=run.profile.is_gpu,
+                planned=[s.name for s in run.plan.steps],
+                oom=run.oom,
+                memory=run.profile.memory,
+                profile=run.profile.name,
+                expect_summary=run.plan.expect_summary,
+                summary_text=summary_file.read_text() if summary_file.exists() else None,
+            )
+            per_rank.append((c.subdir, v))
+        for r, (_, v) in zip(run.ranks, per_rank, strict=False):
+            r["exit"] = errors.INFRA if v.infra else v.test_code
+        run.state["subdirs"] = [c.subdir for c in collected]
+        verdict = guards.combine(per_rank)
         infra, message = verdict.infra, verdict.message
+        bench = results.merge_bench_results(
+            run.results_dir, run.state["subdirs"], run.run_id, run.repo
+        )
     except KeyboardInterrupt:
         interrupted = True
         message = "interrupted; tearing down"
@@ -347,20 +370,30 @@ def _pipeline(backend: Backend, run: Run, workdir: Path) -> int:
     code = final_exit(test_code, infra, verified, interrupted, usage=usage)
     failing = verdict.failing_step if verdict else failing
     _finish(
-        run, ctl, failing, code, verified, message, dropped, time.monotonic() - t0, backend, verdict
+        run,
+        ctl,
+        failing,
+        code,
+        verified,
+        message,
+        dropped,
+        time.monotonic() - t0,
+        backend,
+        verdict,
+        bench,
     )
     return code
 
 
-def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backend, verdict):
+def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backend, verdict, bench):
     run.results_dir.mkdir(parents=True, exist_ok=True)
-    log = run.results_dir / "log.txt"
-    fingerprint = run.results_dir / "fingerprint.txt"
+    first = run.results_dir / run.state.get("subdirs", [""])[0]
+    log = first / "log.txt"
+    fingerprint = first / "fingerprint.txt"
     reports = {}
     for name, rc in (verdict.reports if verdict else {}).items():
         floor = results.parse_noise_floor(log.read_text(errors="replace")) if log.exists() else None
         reports[name] = {"code": rc, "noise_floor": floor}
-    bench = results.copy_bench_results(run.results_dir, run.repo, run.run_id)
     cleanup = None if verified else backend.cleanup_hint(run)
     ref = run.spec.ref or ""
     summary = {
@@ -371,7 +404,7 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
         "env": run.env,
         "preset": run.plan.preset,
         "suite": run.plan.suite,
-        "node": run.node,
+        "node": ", ".join(str(r.get("node")) for r in run.ranks) if run.ranks else run.node,
         "gpu": _fingerprint_gpu(fingerprint.read_text()) if fingerprint.exists() else None,
         "git_sha": run.git_sha,
         "tree_hash": run.tarball.tree_hash,
@@ -398,6 +431,8 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
         "bench_results": str(bench) if bench else None,
         **backend.describe(run),
     }
+    if run.ranks:
+        summary["ranks"] = run.ranks
     if summary.get("price") is not None:
         summary["cost_estimate"] = round(summary["node_hours"] * summary["price"], 4)
     results.write_summary(run.results_dir, summary)

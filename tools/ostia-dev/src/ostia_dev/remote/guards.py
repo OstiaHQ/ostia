@@ -122,3 +122,22 @@ def evaluate(
                     "RFC-0005 §3.2",
                 )))  # fmt: skip
     return done(Verdict())
+
+
+def combine(verdicts: list[tuple[str, Verdict]]) -> Verdict:
+    """One verdict for a run from each rank's (§4.11: either pod failing fails the run).
+
+    Infrastructure wins over a test failure; the failing step names its rank directory.
+    """
+    if len(verdicts) == 1:
+        return verdicts[0][1]
+
+    def tagged(sub: str, v: Verdict) -> Verdict:
+        step = f"{sub}/{v.failing_step}" if v.failing_step else None
+        return Verdict(v.test_code, v.infra, step, f"{sub}: {v.message}" if v.message else "")
+
+    infra = [tagged(s, v) for s, v in verdicts if v.infra]
+    failed = [tagged(s, v) for s, v in verdicts if v.test_code]
+    out = infra[0] if infra else max(failed, key=lambda v: v.test_code) if failed else Verdict()
+    out.reports = {f"{s}/{k}": c for s, v in verdicts for k, c in v.reports.items()}
+    return out

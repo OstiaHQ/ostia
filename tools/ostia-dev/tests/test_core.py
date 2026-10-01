@@ -103,9 +103,10 @@ def _steps(*codes):
 class FakeBackend:
     name = "container"
 
-    def __init__(self, steps=None, junit="pass.xml", fail_at=None, verified=True):
+    def __init__(self, steps=None, junit="pass.xml", fail_at=None, verified=True, ranks=None):
         self.calls: list[tuple[str, str]] = []
         self.steps = steps if steps is not None else _steps(0, 0, 0, 0)
+        self.ranks = ranks  # per-rank steps for a two-pod run
         self.junit = junit
         self.fail_at = fail_at
         self.verified = verified
@@ -133,14 +134,24 @@ class FakeBackend:
 
     def collect(self, run, workdir):
         self._op("collect", run)
-        control = workdir / "control.tar"
-        files = {"steps.json": json.dumps(self.steps).encode(), "log.txt": b"log\n"}
-        control.write_bytes(_tar_of(files))
-        artifacts = workdir / "artifacts.tar"
-        build = run.plan.build_dir.removeprefix("/w/")
-        arts = {f"{build}/junit.xml": (JUNIT / self.junit).read_bytes()} if self.junit else {}
-        artifacts.write_bytes(_tar_of(arts))
-        return control, artifacts
+        out = []
+        for i, steps in enumerate(self.ranks or [self.steps]):
+            sub = f"rank-{i}" if self.ranks else ""
+            control = workdir / f"control{i}.tar"
+            log = f"log {sub}\n".encode()
+            control.write_bytes(_tar_of({"steps.json": json.dumps(steps).encode(), "log.txt": log}))
+            artifacts = workdir / f"artifacts{i}.tar"
+            build = run.plan.build_dir.removeprefix("/w/")
+            junit = JUNIT / self.junit if self.junit else None
+            artifacts.write_bytes(
+                _tar_of({f"{build}/junit.xml": junit.read_bytes()} if junit else {})
+            )
+            out.append(core.Collected(sub, control, artifacts))
+        if self.ranks:
+            run.ranks = [
+                {"rank": i, "pod": f"p-{i}", "node": f"n{i + 1}"} for i in range(len(self.ranks))
+            ]
+        return out
 
     def teardown(self, run):
         self._op("teardown", run)
@@ -225,9 +236,9 @@ def test_a_truncated_results_tar_is_exit_3(cfg, repo, tmp_path):
     original = b.collect
 
     def collect(run, workdir):
-        control, artifacts = original(run, workdir)
-        artifacts.write_bytes(artifacts.read_bytes()[:700])  # cut inside a member
-        return control, artifacts
+        [c] = original(run, workdir)
+        c.artifacts.write_bytes(c.artifacts.read_bytes()[:700])  # cut inside a member
+        return [c]
 
     b.collect = collect
     assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 3
@@ -245,9 +256,9 @@ def test_missing_steps_json_is_3(cfg, repo, tmp_path):
     original = b.collect
 
     def collect(run, workdir):
-        control, artifacts = original(run, workdir)
-        control.write_bytes(_tar_of({"log.txt": b"x"}))
-        return control, artifacts
+        [c] = original(run, workdir)
+        c.control.write_bytes(_tar_of({"log.txt": b"x"}))
+        return [c]
 
     b.collect = collect
     assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 3
@@ -371,3 +382,44 @@ def test_supervisor_env_carries_the_git_sha(tmp_path):
 
     run = make_run(tmp_path, "cpu", None)
     assert run.supervisor_env()["OSTIA_GIT_SHA"] == "3f2a9c1+dirty"
+
+
+def test_two_ranks_extract_into_rank_dirs(cfg, repo, tmp_path):
+    b = FakeBackend(ranks=[_steps(0, 0, 0, 0), _steps(0, 0, 0, 0)])
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 0
+    (run_dir,) = (tmp_path / "results").iterdir()
+    for i in (0, 1):
+        assert (run_dir / f"rank-{i}" / "steps.json").exists()
+        assert (run_dir / f"rank-{i}" / "junit.xml").exists()
+        assert (run_dir / f"rank-{i}" / "log.txt").read_text() == f"log rank-{i}\n"
+    assert not (run_dir / "steps.json").exists()
+
+
+def test_one_rank_failing_fails_the_run(cfg, repo, tmp_path):
+    b = FakeBackend(ranks=[_steps(0, 0, 0, 0), _steps(0, 0, 0, 8)])
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 1
+    (run_dir,) = (tmp_path / "results").iterdir()
+    s = json.loads((run_dir / "summary.json").read_text())
+    assert s["failing_step"].startswith("rank-1/")
+
+
+def test_infra_in_one_rank_is_exit_3(cfg, repo, tmp_path):
+    install_failed = _steps(9)
+    install_failed["steps"][0]["kind"] = "install"
+    b = FakeBackend(ranks=[install_failed, _steps(0, 0, 0, 0)])
+    assert core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo) == 3
+
+
+def test_summary_ranks_and_node_join(cfg, repo, tmp_path):
+    b = FakeBackend(ranks=[_steps(0, 0, 0, 0), _steps(0, 0, 0, 0)])
+    core.drive(b, _spec(tmp_path), cfg=cfg, repo=repo)
+    (run_dir,) = (tmp_path / "results").iterdir()
+    s = json.loads((run_dir / "summary.json").read_text())
+    assert s["node"] == "n1, n2"
+    assert [r["rank"] for r in s["ranks"]] == [0, 1] and s["ranks"][1]["exit"] == 0
+
+
+def test_single_pod_summary_has_no_ranks(cfg, repo, tmp_path):
+    core.drive(FakeBackend(), _spec(tmp_path), cfg=cfg, repo=repo)
+    (run_dir,) = (tmp_path / "results").iterdir()
+    assert "ranks" not in json.loads((run_dir / "summary.json").read_text())
