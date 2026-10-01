@@ -228,3 +228,107 @@ def test_launcher_records_get_provenance(launched, tmp_path):
     assert record["schema"] == 1 and record["provenance"]["run_id"] == "t"
     assert set(record["compat"]) >= {"gpu", "driver", "deps"}
     validate(record)
+
+
+PEER = {"OSTIA_SIZE": "2", "OSTIA_PEER_HOST": "j-0.j", "OSTIA_PORT": "29400"}
+
+
+@pytest.fixture
+def rank(monkeypatch):
+    def set_rank(r, **env):
+        for k, v in {**PEER, "OSTIA_RANK": str(r), **env}.items():
+            if v is None:
+                monkeypatch.delenv(k, raising=False)
+            else:
+                monkeypatch.setenv(k, v)
+
+    return set_rank
+
+
+@pytest.fixture
+def dns(monkeypatch):
+    """A resolver that fails `failures` times; sleep advances a fake clock."""
+    import socket
+
+    import tools.bench.ostia_bench as ob
+
+    state = {"failures": 0, "t": 0.0, "sleeps": 0, "lookups": 0}
+
+    def resolve(host, port, *a, **kw):
+        state["lookups"] += 1
+        if state["failures"] is None or state["lookups"] <= state["failures"]:
+            raise socket.gaierror(socket.EAI_NONAME, "Name or service not known")
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", int(port)))]
+
+    def sleep(s):
+        state["sleeps"] += 1
+        state["t"] += s
+
+    monkeypatch.setattr(ob.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(ob.time, "sleep", sleep)
+    monkeypatch.setattr(ob.time, "monotonic", lambda: state["t"])
+    return state
+
+
+def test_remote_rank0_listens(launched, rank, dns, tmp_path):
+    rank(0)
+    assert _ostia_run(tmp_path, "--remote") == 0
+    [(cmd, _)] = launched
+    assert cmd == ["/b/tcp_put", "--smoke", "--listen", "29400"]
+    assert not (tmp_path / "t").exists()  # the target prints no record
+    assert dns["lookups"] == 0
+
+
+def test_remote_rank1_retries_dns_then_connects(launched, rank, dns, tmp_path):
+    rank(1)
+    dns["failures"] = 3
+    assert _ostia_run(tmp_path, "--remote") == 0
+    [(cmd, _)] = launched
+    assert cmd == ["/b/tcp_put", "--smoke", "--connect", "j-0.j:29400"]
+    assert dns["sleeps"] == 3
+    assert (tmp_path / "t" / "results.jsonl").exists()
+
+
+def test_remote_rank1_gives_up_after_two_minutes(launched, rank, dns, tmp_path, capsys):
+    rank(1)
+    dns["failures"] = None
+    assert _ostia_run(tmp_path, "--remote") == 1
+    assert launched == []
+    err = capsys.readouterr().err
+    assert "error: rank 1 cannot resolve its peer j-0.j" in err
+    assert "see: RFC-0005 §4.11" in err
+    assert 118 <= dns["t"] <= 122
+
+
+@pytest.mark.parametrize(
+    ("env", "named"),
+    [
+        ({"OSTIA_RANK": None}, "OSTIA_RANK"),
+        ({"OSTIA_SIZE": "3"}, "OSTIA_SIZE"),
+        ({"OSTIA_RANK": "2"}, "OSTIA_RANK"),
+        ({"OSTIA_PORT": None}, "OSTIA_PORT"),
+    ],
+)
+def test_remote_requires_rank_env(launched, rank, dns, tmp_path, capsys, env, named):
+    rank(0, **env)
+    assert _ostia_run(tmp_path, "--remote") == 2
+    assert launched == []
+    assert named in capsys.readouterr().err
+
+
+def test_remote_refuses_ranks_and_nvbench(launched, rank, tmp_path, capsys):
+    rank(0)
+    assert _ostia_run(tmp_path, "--remote", "--ranks", "2") == 2
+    argv = ["run", "--remote", "--bench", "/b/noop", "--out", str(tmp_path)]
+    assert main(argv) == 2
+    assert launched == []
+    assert "--remote" in capsys.readouterr().err
+
+
+def test_remote_rank0_writes_no_evidence(launched, rank, dns, tmp_path, monkeypatch):
+    import tools.bench.ostia_bench as ob
+
+    monkeypatch.setattr(ob.evidence, "snapshot", lambda: {"nic": {}, "nvlink": {}})
+    rank(0)
+    assert _ostia_run(tmp_path, "--remote", "--evidence") == 0
+    assert not (tmp_path / "t").exists()

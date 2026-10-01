@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Ostia benchmark driver (RFC-0001 §6.1).
 
-    ostia_bench.py run --bench <binary> [--format nvbench|ostia] [--runs 10] [--ranks N]
+    ostia_bench.py run --bench <binary> [--format nvbench|ostia] [--runs 10] [--ranks N | --remote]
                        [--tls UCX_TLS] [--evidence] [--needs-gpu]
                        [--build-dir build/cuda-12/release] [--run-id ID] [-- <program args>]
     ostia_bench.py convert --run-id ID <nvbench.json>...
@@ -15,6 +15,8 @@ memory bandwidth when nvbench reports one. `ostia` format binaries print schema-
 records without provenance and compat, which the driver fills in. `--evidence` records
 the transport the run used (tools/bench/evidence.py) in
 bench/results/<run id>/evidence/<workload>.json, which gate comparisons require (§6.4).
+`--remote` runs one rank of a two-pod run (RFC-0005 §4.11): rank 0 gets --listen and
+rank 1 --connect, from the pod's OSTIA_RANK, OSTIA_SIZE, OSTIA_PEER_HOST and OSTIA_PORT.
 `median-seconds` prints one duration for tools/bench/overhead.py.
 """
 
@@ -24,10 +26,12 @@ import hashlib
 import json
 import os
 import shutil
+import socket
 import statistics
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
@@ -68,6 +72,54 @@ def from_nvbench(doc: dict) -> dict[tuple[str, str], tuple[str, bool, float]]:
 
 class BenchError(Exception):
     pass
+
+
+class BenchUsage(BenchError):
+    pass
+
+
+DNS_RETRY, DNS_EVERY = 120, 2
+
+
+def _remote_usage(problem: str) -> BenchUsage:
+    return BenchUsage(
+        f"error: {problem}\n"
+        "  rule: --remote runs one rank of a two-pod run, with OSTIA_RANK 0 or 1, "
+        "OSTIA_SIZE=2, OSTIA_PEER_HOST and OSTIA_PORT set by ostia-dev\n"
+        "  fix: run it inside ostia-dev remote k8s --pods 2, or use --ranks on one machine\n"
+        "  see: RFC-0005 §4.11"
+    )
+
+
+def _remote_args(env) -> tuple[int, list[str]]:
+    """The rendezvous arguments for this pod's rank."""
+    rank, size = env.get("OSTIA_RANK"), env.get("OSTIA_SIZE")
+    host, port = env.get("OSTIA_PEER_HOST"), env.get("OSTIA_PORT")
+    if rank not in ("0", "1"):
+        raise _remote_usage(f"OSTIA_RANK is {rank!r}, not 0 or 1")
+    if size != "2":
+        raise _remote_usage(f"OSTIA_SIZE is {size!r}, not 2")
+    for name, value in (("OSTIA_PEER_HOST", host), ("OSTIA_PORT", port)):
+        if not value:
+            raise _remote_usage(f"{name} is not set")
+    if rank == "0":
+        return 0, ["--listen", port]
+    # The headless Service's record appears only once pod 0 has an address. Only the name
+    # is retried here: a test connection would take rank 0's single accept.
+    deadline = time.monotonic() + DNS_RETRY
+    while True:
+        try:
+            socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+            return 1, ["--connect", f"{host}:{port}"]
+        except socket.gaierror as e:
+            if time.monotonic() >= deadline:
+                raise BenchError(
+                    f"error: rank 1 cannot resolve its peer {host} after {DNS_RETRY}s ({e})\n"
+                    "  rule: rank 0's pod must be running for its Service record to exist\n"
+                    "  fix: check rank 0's log in the run's results\n"
+                    "  see: RFC-0005 §4.11"
+                ) from e
+            time.sleep(DNS_EVERY)
 
 
 def unmeasured(doc: dict) -> list[str]:
@@ -219,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--format", choices=["nvbench", "ostia"], default="nvbench")
     run.add_argument("--runs", type=int, default=10)
     run.add_argument("--ranks", type=int, default=0, help="multi-process: ranks for launcher.py")
+    run.add_argument("--remote", action="store_true", help="one rank of a two-pod run")
     run.add_argument("--needs-gpu", action="store_true")
     run.add_argument("--build-dir", type=Path)
     run.add_argument("--nic", default="none")
@@ -237,6 +290,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         return _main(args, program_args)
+    except BenchUsage as e:
+        print(e, file=sys.stderr)
+        return 2
     except BenchError as e:
         print(e, file=sys.stderr)
         return 1
@@ -256,6 +312,8 @@ def _main(args: argparse.Namespace, program_args: list[str]) -> int:
         docs = [_measured(json.loads(f.read_text())) for f in args.files]
         _write(_records(_collect(docs), prov, compat), args.out, run_id)
         return 0
+    if args.remote and (args.ranks or args.format != "ostia"):
+        raise _remote_usage("--remote needs --format ostia and cannot take --ranks")
     if args.needs_gpu and not shutil.which("nvidia-smi"):
         return _needs_gpu_error()
     prov, compat = provenance_and_compat(run_id, args.build_dir, args.nic)
@@ -263,14 +321,17 @@ def _main(args: argparse.Namespace, program_args: list[str]) -> int:
         docs = [_nvbench_once(args.bench) for _ in range(args.runs)]
         records = _records(_collect(docs), prov, compat)
     else:
-        cmd = [args.bench, *program_args]
+        rank, rendezvous = _remote_args(os.environ) if args.remote else (None, [])
+        cmd = [args.bench, *program_args, *rendezvous]
         if args.ranks:
             launcher = ROOT / "fabric" / "tests" / "multiprocess" / "launcher.py"
             tls = ["--tls", args.tls, "--expect", ""] if args.tls else []
             cmd = [sys.executable, str(launcher), "--ranks", str(args.ranks), *tls, "--", *cmd]
         env = dict(os.environ, OSTIA_BENCH_RUNS=str(args.runs))
-        before = evidence.snapshot() if args.evidence else None
+        before = evidence.snapshot() if args.evidence and rank != 0 else None
         out = subprocess.run(cmd, check=True, capture_output=True, text=True, env=env).stdout
+        if rank == 0:
+            return 0  # the target prints no record; the source, rank 1, does (RFC-0005 §4.11)
         if before is not None:
             _write_evidence(out, before, evidence.snapshot(), args.out / run_id)
         records = []
