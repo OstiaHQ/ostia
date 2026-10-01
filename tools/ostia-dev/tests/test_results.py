@@ -251,3 +251,9 @@ def test_merge_bench_results_clash_is_infra(tmp_path):
     with pytest.raises(InfraError) as e:
         results.merge_bench_results(out, ["rank-0", "rank-1"], "rid", repo)
     assert "rank-0 and rank-1 both wrote" in e.value.message
+
+
+def test_host_network_summary_warning():
+    lines = results.summary_lines(_summary(backend="k8s", host_network=True))
+    assert any("host network" in line and "cloud identity" in line for line in lines)
+    assert not any("host network" in line for line in results.summary_lines(_summary()))

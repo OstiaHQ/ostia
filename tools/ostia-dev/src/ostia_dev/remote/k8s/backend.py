@@ -533,7 +533,9 @@ class K8sBackend:
 
     def describe(self, run: Run) -> dict:
         price = self.cfg.context(self.target.context).get("prices", {}).get(run.profile.name)
+        host = {"host_network": True} if run.profile.host_network else {}
         return {
+            **host,
             "context": self.target.context,
             "namespace": self.target.namespace,
             "provider": self.target.provider,

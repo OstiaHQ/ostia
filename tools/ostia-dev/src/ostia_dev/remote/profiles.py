@@ -26,6 +26,8 @@ class Profile:
     node_selector: dict[str, str] = field(default_factory=dict)
     tolerations: list[dict] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
+    rdma_resources: dict[str, str] = field(default_factory=dict)
+    host_network: bool = False
     extra: dict = field(default_factory=dict)
 
     @property
@@ -82,7 +84,21 @@ def resolve(name: str, provider: str | None, cfg: Config) -> Profile:
             raise _bad(
                 f"profile {name} has no {key}", [], f"set {key} in [remote.k8s.profiles.{name}]"
             )
+    for key in ("rdma_resources", "host_network"):
+        if fields.get(key) and kind != "rdma":
+            raise UsageError(
+                violation(
+                    f"profile {name} sets {key} but has kind {kind!r}",
+                    [],
+                    "RDMA devices and the host network are only for profiles of "
+                    'kind = "rdma", which run in a privileged namespace',
+                    f'set kind = "rdma" in [remote.k8s.profiles.{name}], or drop {key}',
+                    "RFC-0005 §4.12",
+                )
+            )
     known = {
+        "rdma_resources",
+        "host_network",
         "kind",
         "cpu",
         "memory",
@@ -107,6 +123,8 @@ def resolve(name: str, provider: str | None, cfg: Config) -> Profile:
         node_selector=selector,
         tolerations=list(fields.get("tolerations", [])),
         env=dict(fields.get("env", {})),
+        rdma_resources={k: str(v) for k, v in fields.get("rdma_resources", {}).items()},
+        host_network=bool(fields.get("host_network", False)),
         extra={k: v for k, v in fields.items() if k not in known},
     )
 

@@ -220,6 +220,11 @@ def summary_lines(s: dict) -> list[str]:
     for name, rep in sorted(s.get("reports", {}).items()):
         floor = f"noise floor {rep['noise_floor']}" if rep.get("noise_floor") else "reported"
         lines.append(f"  report {name}: {floor} (exit {rep['code']}, never fails the run)")
+    if s.get("host_network"):
+        lines.append(
+            "  warning: host network: the pod had the node's cloud identity and no "
+            "NetworkPolicy applied (RFC-0005 §4.12)"
+        )
     heavy = by_group.get("install", 0) + by_group.get("build", 0)
     if s["backend"] == "k8s" and s["seconds"] and heavy / s["seconds"] >= 0.5:
         lines.append(

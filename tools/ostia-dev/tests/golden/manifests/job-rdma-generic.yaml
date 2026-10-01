@@ -1,0 +1,104 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ostia-k8s-l4-20261002-141501-a1b2c3
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+    ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+    ostia.dev/owner: 0123456789ab
+  annotations:
+    ostia.dev/expires: '2026-10-02T16:10:01Z'
+spec:
+  suspend: true
+  backoffLimit: 0
+  activeDeadlineSeconds: 6900
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        ostia.dev/managed: 'true'
+        ostia.dev/run-id: k8s-l4-20261002-141501-a1b2c3
+        ostia.dev/owner: 0123456789ab
+    spec:
+      restartPolicy: Never
+      serviceAccountName: ostia-test-runner
+      automountServiceAccountToken: false
+      shareProcessNamespace: true
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: supervisor
+        image: ghcr.io/prefix-dev/pixi:0.81.0-noble@sha256:788ae451641666e2d1f79d3dbe35392dfc7e9b394b16a3acb75c347f3badb2ab
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # ostia-supervisor (golden stand-in)
+          exit 0
+        - ostia-supervisor
+        env:
+        - name: OSTIA_WORK
+          value: /w
+        - name: OSTIA_PLAN
+          value: "gpu-preflight\tpreflight\tsh -c 'command -v nvidia-smi >/dev/null || { echo \"error: nvidia-smi not found on PATH=$PATH\"; echo \"  fix: set the profile'\"'\"'s env (PATH, LD_LIBRARY_PATH) for this provider\"; echo \"  see: RFC-0005 §4.9\"; exit 1; }; sh tools/ci/gpu_preflight.sh > .ostia/fingerprint.txt; rc=$?; cat .ostia/fingerprint.txt; exit $rc'\ncompute-capability\tpreflight\tsh -c 'cc=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n 1); if [ \"$cc\" != \"8.0\" ]; then echo \"error: the GPU has compute capability ${cc:-unknown}, profile ib expects 8.0\"; echo \"  rule: a run must land on the node type its profile names\"; echo \"  fix: check the node_selector of profile ib\"; echo \"  see: RFC-0005 §4.9\"; exit 1; fi; echo \"compute capability $cc: ok\"'\nlibcuda\tpreflight\tsh -c 'if ldconfig -p 2>/dev/null | grep -q '\"'\"'libcuda[.]so[.]1'\"'\"'; then echo \"libcuda.so.1: found by ldconfig\"; exit 0; fi; IFS=:; for d in ${LD_LIBRARY_PATH:-};\
+            \ do if [ -e \"$d/libcuda.so.1\" ]; then echo \"libcuda.so.1: $d\"; exit 0; fi; done; echo \"error: libcuda.so.1 not found by ldconfig or in LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}\"; echo \"  fix: set the profile'\"'\"'s env (LD_LIBRARY_PATH) for this provider\"; echo \"  see: RFC-0005 §4.9\"; exit 1'\ninstall\tinstall\tpixi install --locked -e cuda-12\nconfigure\tbuild\tpixi run --frozen -e cuda-12 cmake --preset dev\nbuild\tbuild\tpixi run --frozen -e cuda-12 cmake --build --preset dev\ncommand\tcommand\tpixi run --frozen -e cuda-12 ctest --test-dir /w/build/cuda-12/dev --output-on-failure -j 8 --output-junit junit.xml"
+        - name: OSTIA_ENV
+          value: cuda-12
+        - name: OSTIA_PRESET
+          value: dev
+        - name: OSTIA_BUILD_DIR
+          value: /w/build/cuda-12/dev
+        - name: OSTIA_CODE_WAIT
+          value: '600'
+        - name: OSTIA_COLLECT_WINDOW
+          value: '600'
+        - name: OSTIA_TIMEOUT
+          value: '3600'
+        - name: HOME
+          value: /w/home
+        - name: CMAKE_BUILD_PARALLEL_LEVEL
+          value: '8'
+        - name: CTEST_PARALLEL_LEVEL
+          value: '8'
+        - name: CTEST_NO_TESTS_ACTION
+          value: error
+        - name: OSTIA_GIT_SHA
+          value: 3f2a9c1+dirty
+        - name: OSTIA_REQUIRE_GPU
+          value: '1'
+        resources:
+          requests:
+            cpu: '8'
+            memory: 32Gi
+            ephemeral-storage: 50Gi
+            nvidia.com/gpu: '1'
+            rdma/rdma_shared_device_a: '1'
+          limits:
+            cpu: '8'
+            memory: 32Gi
+            ephemeral-storage: 50Gi
+            nvidia.com/gpu: '1'
+            rdma/rdma_shared_device_a: '1'
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - IPC_LOCK
+          runAsNonRoot: false
+        volumeMounts:
+        - name: work
+          mountPath: /w
+      volumes:
+      - name: work
+        emptyDir:
+          sizeLimit: 50Gi
+      nodeSelector:
+        example.com/ib: 'true'

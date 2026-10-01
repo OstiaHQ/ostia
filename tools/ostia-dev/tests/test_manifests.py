@@ -378,3 +378,59 @@ def test_long_profile_name_is_refused_for_two_pods(tmp_path):
     with pytest.raises(UsageError) as e:
         _job(run, pods=2)
     assert "63" in e.value.message and "profile" in e.value.message
+
+
+RDMA = (
+    GENERIC
+    + """
+[remote.k8s.profiles.ib]
+kind = "rdma"
+gpus = 1
+compute_capability = "8.0"
+cpu = "8"
+memory = "32Gi"
+ephemeral_storage = "50Gi"
+rdma_resources = { "rdma/rdma_shared_device_a" = "1" }
+[remote.k8s.profiles.ib.generic]
+node_selector = { "example.com/ib" = "true" }
+[remote.k8s.profiles.ib-host]
+kind = "rdma"
+gpus = 1
+compute_capability = "8.0"
+cpu = "8"
+memory = "32Gi"
+ephemeral_storage = "50Gi"
+rdma_resources = { "rdma/rdma_shared_device_a" = "1" }
+host_network = true
+[remote.k8s.profiles.ib-host.generic]
+node_selector = { "example.com/ib" = "true" }
+"""
+)
+
+
+def _rdma_job(tmp_path, profile):
+    path = tmp_path / "rdma.toml"
+    path.write_text(RDMA)
+    return _job(make_run(tmp_path, profile, "generic", cfg=config.load(path)))
+
+
+def test_golden_rdma_jobs(tmp_path):
+    _golden("job-rdma-generic", _rdma_job(tmp_path, "ib"))
+    _golden("job-rdma-host-network-generic", _rdma_job(tmp_path, "ib-host"))
+
+
+def test_rdma_job_shape(tmp_path):
+    pod = _rdma_job(tmp_path, "ib")["spec"]["template"]["spec"]
+    (c,) = pod["containers"]
+    assert pod["securityContext"]["runAsUser"] == 0
+    assert pod["securityContext"]["runAsNonRoot"] is False
+    assert c["securityContext"]["capabilities"] == {"drop": ["ALL"], "add": ["IPC_LOCK"]}
+    assert c["securityContext"]["allowPrivilegeEscalation"] is False
+    for side in ("requests", "limits"):
+        assert c["resources"][side]["rdma/rdma_shared_device_a"] == "1"
+    assert "hostNetwork" not in pod
+
+
+def test_rdma_host_network_job(tmp_path):
+    pod = _rdma_job(tmp_path, "ib-host")["spec"]["template"]["spec"]
+    assert pod["hostNetwork"] is True and pod["dnsPolicy"] == "ClusterFirstWithHostNet"

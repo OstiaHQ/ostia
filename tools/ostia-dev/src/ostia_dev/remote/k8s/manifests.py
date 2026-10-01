@@ -122,6 +122,8 @@ def job(
     resources = {"cpu": p.cpu, "memory": p.memory, "ephemeral-storage": p.ephemeral_storage}
     if p.gpus:
         resources["nvidia.com/gpu"] = str(p.gpus)
+    resources.update(p.rdma_resources)
+    rdma = p.kind == "rdma"
     container = {
         "name": "supervisor",
         "image": run.image,
@@ -130,8 +132,9 @@ def job(
         "resources": {"requests": dict(resources), "limits": dict(resources)},
         "securityContext": {
             "allowPrivilegeEscalation": False,
-            "capabilities": {"drop": ["ALL"]},
-            "runAsNonRoot": True,
+            # an added capability works only for root, so RDMA pods run as root (§4.12)
+            "capabilities": {"drop": ["ALL"], "add": ["IPC_LOCK"]} if rdma else {"drop": ["ALL"]},
+            "runAsNonRoot": not rdma,
         },
         "volumeMounts": [{"name": "work", "mountPath": WORK}],
     }
@@ -147,15 +150,18 @@ def job(
         "automountServiceAccountToken": False,
         "shareProcessNamespace": True,
         "securityContext": {
-            "runAsNonRoot": True,
-            "runAsUser": 1000,
-            "runAsGroup": 1000,
-            "fsGroup": 1000,
+            "runAsNonRoot": not rdma,
+            "runAsUser": 0 if rdma else 1000,
+            "runAsGroup": 0 if rdma else 1000,
+            "fsGroup": 0 if rdma else 1000,
             "seccompProfile": {"type": "RuntimeDefault"},
         },
         "containers": [container],
         "volumes": volumes,
     }
+    if p.host_network:
+        pod["hostNetwork"] = True
+        pod["dnsPolicy"] = "ClusterFirstWithHostNet"
     if p.node_selector:
         pod["nodeSelector"] = dict(p.node_selector)
     if p.tolerations:
