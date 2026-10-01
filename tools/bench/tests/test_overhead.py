@@ -2,7 +2,9 @@
 
 import random
 
-from tools.bench.overhead import decide, measure, noise_floor, self_test
+import pytest
+
+from tools.bench.overhead import _command, decide, measure, noise_floor, self_test
 
 
 def pairs(overhead, n=40, sd=0.002, seed=3):
@@ -58,3 +60,12 @@ def test_noise_floor_reports_the_half_width():
 def test_self_test_detects_three_percent_and_passes_zero():
     assert self_test(0.03).outcome == "fail"
     assert self_test(0.0).outcome == "pass"
+
+
+def test_a_failing_command_shows_its_stderr(capsys):
+    run = _command("echo 'error: nvbench measured nothing' >&2; exit 1")
+    with pytest.raises(SystemExit) as e:
+        run()
+    assert e.value.code == 1
+    err = capsys.readouterr().err
+    assert "error: nvbench measured nothing" in err and "exited 1" in err

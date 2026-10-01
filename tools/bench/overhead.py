@@ -104,7 +104,11 @@ def _command(cmd: str, inject: float = 0.0) -> Callable[[], float]:
     env = dict(os.environ, **{INJECT_ENV: str(inject)})
 
     def run() -> float:
-        out = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True, env=env)
+        out = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
+        if out.returncode != 0:
+            sys.stderr.write(out.stderr)
+            print(f"error: {cmd} exited {out.returncode}", file=sys.stderr)
+            raise SystemExit(1)
         return float(out.stdout.strip().splitlines()[-1])
 
     return run

@@ -66,6 +66,40 @@ def from_nvbench(doc: dict) -> dict[tuple[str, str], tuple[str, bool, float]]:
     return out
 
 
+class BenchError(Exception):
+    pass
+
+
+def unmeasured(doc: dict) -> list[str]:
+    """States that ran but have no measurement: nvbench exits 0 when it discarded every
+    sample, for example as throttled on a GPU another job holds at its power cap."""
+    return [
+        f"{bench['name']} [{state['name']}]"
+        for bench in doc["benchmarks"]
+        for state in bench["states"]
+        if not state.get("is_skipped")
+        and not {TIME, BANDWIDTH} & {s["tag"] for s in state["summaries"]}
+    ]
+
+
+def _measured(doc: dict, log: str = "") -> dict:
+    missing = unmeasured(doc)
+    if missing:
+        warns = [line.strip() for line in log.splitlines() if "Warn:" in line]
+        # the first warning names the cause; the last ones say how the measurement ended
+        why = warns[:1] + [w for w in warns[-3:] if w not in warns[:1]]
+        raise BenchError(
+            f"error: nvbench measured nothing for {', '.join(missing)}\n"
+            + "".join(f"  nvbench: {w}\n" for w in why)
+            + "  rule: every state that runs must give a measurement; a dropped sample "
+            "would skew the record\n"
+            "  fix: run on a GPU no other job shares (a whole node with ostia-dev remote, "
+            "or a rented box, RFC-0004)\n"
+            "  see: RFC-0001 §6.1"
+        )
+    return from_nvbench(doc)
+
+
 def _run(cmd: list[str]) -> str:
     try:
         return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()
@@ -125,10 +159,10 @@ def _records(samples: dict, prov: dict, compat: dict) -> list[dict]:
     return records
 
 
-def _collect(docs: list[dict]) -> dict:
+def _collect(measurements: list[dict]) -> dict:
     samples: dict = {}
-    for doc in docs:
-        for key, (unit, higher, value) in from_nvbench(doc).items():
+    for measured in measurements:
+        for key, (unit, higher, value) in measured.items():
             samples.setdefault(key, (unit, higher, []))[2].append(value)
     return samples
 
@@ -155,8 +189,14 @@ def _write_evidence(output: str, before: dict, after: dict, run_dir: Path) -> No
 def _nvbench_once(binary: str) -> dict:
     with tempfile.TemporaryDirectory() as d:
         out = Path(d) / "nvbench.json"
-        subprocess.run([binary, "--json", str(out)], check=True, capture_output=True)
-        return json.loads(out.read_text())
+        proc = subprocess.run([binary, "--json", str(out)], capture_output=True, text=True)
+        log = proc.stdout + proc.stderr
+        if proc.returncode != 0:
+            tail = "".join(f"  {line}\n" for line in log.strip().splitlines()[-20:])
+            raise BenchError(
+                f"error: {binary} exited {proc.returncode}\n{tail}  see: RFC-0001 §6.1"
+            )
+        return _measured(json.loads(out.read_text()), log)
 
 
 def _needs_gpu_error() -> int:
@@ -195,8 +235,16 @@ def main(argv: list[str] | None = None) -> int:
     program_args = argv[argv.index("--") + 1 :] if "--" in argv else []
     args = parser.parse_args(argv[: argv.index("--")] if "--" in argv else argv)
 
+    try:
+        return _main(args, program_args)
+    except BenchError as e:
+        print(e, file=sys.stderr)
+        return 1
+
+
+def _main(args: argparse.Namespace, program_args: list[str]) -> int:
     if args.command == "median-seconds":
-        values = [v for _, _, v in from_nvbench(_nvbench_once(args.bench)).values()]
+        values = [v for _, _, v in _nvbench_once(args.bench).values()]
         print(statistics.median(values))
         return 0
     run_id = (
@@ -205,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.command == "convert":
         prov, compat = provenance_and_compat(run_id, None)
-        docs = [json.loads(f.read_text()) for f in args.files]
+        docs = [_measured(json.loads(f.read_text())) for f in args.files]
         _write(_records(_collect(docs), prov, compat), args.out, run_id)
         return 0
     if args.needs_gpu and not shutil.which("nvidia-smi"):
