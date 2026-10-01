@@ -161,7 +161,7 @@ test-levels = { cmd = "ostia-dev test --levels" }
 test-preset = { cmd = "ostia-dev test --preset {{ preset }}", args = ["preset"] }
 lint = { cmd = "ostia-dev lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, comments, docs index" }
 fmt = { cmd = "ostia-dev fmt", description = "Apply clang-format, ruff and gersemi" }
-docs-index = { cmd = "python tools/docs/gen_index.py", description = "Regenerate the RFC/ADR index in docs/README.md" }
+docs-index = { cmd = "ostia-dev docs index", description = "Regenerate the RFC/ADR index in docs/README.md" }
 check-cuda = { cmd = "python tools/dev/check_cuda.py", description = "Compile the CUDA code with nvcc in a linux/arm64 container (no GPU needed)" }
 docs-as-test = { cmd = "ostia-dev check docs-as-test", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
 bench = { cmd = "python tools/bench/ostia_bench.py", description = "Run a benchmark and record schema-1 results (docs/guides/benchmarks.md)" }

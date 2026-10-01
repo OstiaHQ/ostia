@@ -2,15 +2,16 @@
 """Regenerate the RFC and ADR index in docs/README.md from document front matter.
 
 Usage:
-    python3 tools/docs/gen_index.py          # rewrite the index in place
-    python3 tools/docs/gen_index.py --check  # exit 1 if the index is out of date
+    pixi run ostia-dev docs index          # rewrite the index in place
+    pixi run ostia-dev docs index --check  # exit 1 if the index is out of date
 """
 
+import argparse
 import re
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+from ostia_dev.paths import ROOT
+
 README = ROOT / "docs" / "README.md"
 KINDS = (("RFC", ROOT / "docs" / "rfcs"), ("ADR", ROOT / "docs" / "adr"))
 START, END = "<!-- index:start -->", "<!-- index:end -->"
@@ -73,16 +74,21 @@ def render(rows):
     return "\n".join(lines)
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev docs index", description=__doc__.splitlines()[0]
+    )
+    parser.add_argument("--check", action="store_true", help="exit 1 if the index is out of date")
+    args = parser.parse_args(argv)
     text = README.read_text(encoding="utf-8")
     if START not in text or END not in text:
         raise SystemExit(f"{README}: index markers not found")
     head, rest = text.split(START, 1)
     _, tail = rest.split(END, 1)
     updated = f"{head}{START}\n{render(collect())}\n{END}{tail}"
-    if "--check" in sys.argv:
+    if args.check:
         if updated != text:
-            print("docs/README.md index is out of date; run python3 tools/docs/gen_index.py")
+            print("docs/README.md index is out of date; run pixi run ostia-dev docs index")
             return 1
         return 0
     README.write_text(updated, encoding="utf-8")

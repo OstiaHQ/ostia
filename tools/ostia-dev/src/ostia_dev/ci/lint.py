@@ -87,7 +87,7 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
         ),
         (
             "docs-index",
-            [py, str(ROOT / "tools/docs/gen_index.py"), "--check"],
+            [py, "-m", "ostia_dev.docs.gen_index", "--check"],
             None,
             "pixi run ostia-dev docs index",
         ),

@@ -1,7 +1,7 @@
 // Render figure sources (JSX modules returning an <svg>) to standalone,
 // theme-aware SVG files that follow the reader's light or dark mode.
-// Usage: bun tools/docs/render-figures.js <src-dir> <out-dir>
-// Example: bun tools/docs/render-figures.js docs/product/figures/src docs/product/figures
+// Usage: pixi run ostia-dev docs figures <src-dir> <out-dir>
+// Example: pixi run ostia-dev docs figures docs/product/figures/src docs/product/figures
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join, basename, resolve } from "path";
 
