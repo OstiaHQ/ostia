@@ -423,3 +423,19 @@ def test_single_pod_summary_has_no_ranks(cfg, repo, tmp_path):
     core.drive(FakeBackend(), _spec(tmp_path), cfg=cfg, repo=repo)
     (run_dir,) = (tmp_path / "results").iterdir()
     assert "ranks" not in json.loads((run_dir / "summary.json").read_text())
+
+
+def test_prepare_uses_an_explicit_plan(cfg, repo, tmp_path):
+    from ostia_dev.remote import suites
+
+    seen = {}
+
+    def plan(profile, env, run_id):
+        seen.update(profile=profile.name, env=env, run_id=run_id)
+        step = suites.Step("only", "command", ("true",))
+        return suites.Plan(steps=[step], env=env, preset="release", build_dir="/w/build/x")
+
+    spec = _spec(tmp_path, extra={"plan": plan})
+    run = core.prepare(spec, "default", cfg, repo, tmp_path)
+    assert [s.name for s in run.plan.steps] == ["only"]
+    assert seen == {"profile": "cpu", "env": "default", "run_id": run.run_id}

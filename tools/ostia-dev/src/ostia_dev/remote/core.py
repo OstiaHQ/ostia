@@ -223,17 +223,20 @@ def prepare(spec: RunSpec, env: str, cfg: Config, repo: Path, workdir: Path) -> 
     check_ref_rules(spec.ref, cache=bool(spec.extra.get("cache")), env_vars=env_vars)
     profile = resolve(spec.profile, spec.provider, cfg)
     rid = run_id(spec.backend, profile.name, datetime.datetime.now(datetime.UTC))
-    plan = suites.build_plan(
-        cfg,
-        profile,
-        env,
-        suite=spec.suite,
-        command=spec.command,
-        preset=spec.preset,
-        no_build=spec.no_build,
-        no_test=spec.no_test,
-        run_id=rid,
-    )
+    if spec.extra.get("plan"):  # remote gate builds its plan from a setup file (§6)
+        plan = spec.extra["plan"](profile, env, rid)
+    else:
+        plan = suites.build_plan(
+            cfg,
+            profile,
+            env,
+            suite=spec.suite,
+            command=spec.command,
+            preset=spec.preset,
+            no_build=spec.no_build,
+            no_test=spec.no_test,
+            run_id=rid,
+        )
     suites.encode(plan.steps)  # refuse bad argv before anything exists remotely
     if not spec.ref:
         check_lock(repo)

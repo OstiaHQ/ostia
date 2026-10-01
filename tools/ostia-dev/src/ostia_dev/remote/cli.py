@@ -415,3 +415,41 @@ def k8s_profiles(
 def k8s_usage(results: Results = None) -> None:
     """Node-hours and cost estimates from the local run records."""
     typer.echo(admin.usage(results or repo_root() / "build" / "remote"))
+
+
+@app.command("gate")
+def gate_cmd(
+    setup: Annotated[
+        str, typer.Argument(help="A setup name (infra/setups/<name>.yaml) or a path.")
+    ],
+    fallback: Annotated[
+        bool, typer.Option("--fallback", help="Use the setup's fallback machine.")
+    ] = False,
+    baseline: Annotated[
+        Path | None, typer.Option(help="Compare against this baseline file with compare.py.")
+    ] = None,
+    results: Results = None,
+    yes: Yes = False,
+    kubectl_path: KubectlPath = None,
+    verbose: Verbose = False,
+) -> None:
+    """Run a setup's gate workloads on its k8s machine (RFC-0005 §6; partial)."""
+    from ostia_dev.remote.k8s import gate
+
+    repo = repo_root()
+    path = Path(setup)
+    if not path.suffix:
+        path = repo / "infra" / "setups" / f"{setup}.yaml"
+    code = gate.gate(
+        path,
+        cfg=config.load(),
+        repo=repo,
+        run=run_k8s,
+        fallback=fallback,
+        baseline=baseline,
+        results=results,
+        yes=yes,
+        kubectl=kubectl_path,
+        verbose=verbose,
+    )
+    raise typer.Exit(code)

@@ -273,3 +273,20 @@ def test_pods_and_same_node_reach_the_spec(captured):
 def test_container_has_no_pods_option(captured):
     r = CliRunner().invoke(app, ["remote", "container", "--pods", "2", "--", "true"])
     assert r.exit_code == 2
+
+
+def test_gate_resolves_a_setup_name(monkeypatch, tmp_path):
+    from ostia_dev.remote.k8s import gate
+
+    seen = {}
+
+    def fake_gate(path, **kw):
+        seen.update(path=path, **kw)
+        return 0
+
+    monkeypatch.setattr(gate, "gate", fake_gate)
+    monkeypatch.setenv("OSTIA_CONFIG", str(tmp_path / "none.toml"))
+    r = CliRunner().invoke(app, ["remote", "gate", "nvlink-node", "--fallback"])
+    assert r.exit_code == 0, r.output
+    assert seen["path"].as_posix().endswith("infra/setups/nvlink-node.yaml")
+    assert seen["fallback"] is True and seen["run"] is remote_cli.run_k8s

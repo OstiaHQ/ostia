@@ -1,0 +1,254 @@
+"""`ostia-dev remote gate <setup>`: a setup's gate workloads on a k8s machine (RFC-0005 §6).
+
+Partial (A3, Decision 10): capability check, machine mapping, the RDMA profile rule, the
+evidence-counter probe, the workloads through the bench driver with --evidence, and the
+evidence check. RFC-0004 §1.1's active probes, RFC-0003's captures and rent's fallback
+handover land with RFC-0004 PR 7 and RFC-0003 PR 6.
+"""
+
+import json
+import sys
+from collections.abc import Callable
+from pathlib import Path
+
+from ostia_dev.config import Config
+from ostia_dev.contract import violation
+from ostia_dev.errors import UsageError
+from ostia_dev.remote import suites
+from ostia_dev.remote.core import RunSpec
+from ostia_dev.remote.profiles import Profile, parallelism, resolve
+
+ROOT = Path(__file__).resolve().parents[6]
+ENV = "cuda-12"
+PENDING = (
+    "RFC-0004 §1.1's active capability probes (RFC-0004 PR 7)",
+    "RFC-0003's manifest-gated topology captures (RFC-0003 PR 6)",
+    "rent's fallback handover and its second-active-run refusal (RFC-0004 PR 7)",
+)
+# workload -> (fabric/bench program, its arguments); dual_link's mode follows the pods
+PROGRAMS: dict[str, tuple[str, list[str]]] = {
+    "p2p_copy": ("p2p_copy", []),
+    "pipelining": ("pipelining", []),
+    "batching": ("batching", []),
+    "dual_link": ("dual_link", []),
+    "rdma_put": ("rdma_put", ["--mem", "cuda"]),
+    "gdr_stream": ("gdr_stream", ["--mem", "cuda"]),
+    "tcp_put": ("tcp_put", []),
+}
+NVLINK_WORKLOADS = ("p2p_copy", "pipelining", "batching")
+BINARY = "ostia_fabric_bench_"
+
+
+def _bench():
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from tools.bench import capabilities, evidence
+
+    return capabilities, evidence
+
+
+def _compare_main() -> Callable[[list[str]], int]:
+    _bench()
+    from tools.bench import compare
+
+    return compare.main
+
+
+def _bad(problem: str, details: list[str], rule: str, fix: str, see: str) -> UsageError:
+    return UsageError(violation(problem, details, rule, fix, see))
+
+
+def _rdma(workload: str, pods: int) -> bool:
+    return workload in ("rdma_put", "gdr_stream") or (workload == "dual_link" and pods == 2)
+
+
+def check_machine(setup: dict, which: str, cfg: Config) -> tuple[dict, dict, Profile]:
+    """The chosen k8s machine, its user-config mapping and its profile; exit 2 on any gap."""
+    capabilities, _ = _bench()
+    machine = setup["machines"][which]
+    if machine["backend"] != "k8s":
+        raise _bad(
+            f"the {which} machine of {setup['name']} is a {machine['backend']} machine",
+            [],
+            "remote gate drives k8s machines; rented ones belong to ostia-dev rent",
+            "use --fallback for a k8s fallback, or run it with ostia-dev rent (RFC-0004 PR 7)",
+            "RFC-0005 §6",
+        )
+    name = machine["machine"]
+    mapping = cfg.machine(name)
+    missing = [k for k in ("context", "namespace", "profile") if not mapping.get(k)]
+    if missing:
+        raise _bad(
+            f"k8s machine {name} has no mapping in {cfg.path}",
+            [f"missing: {', '.join(missing)}"],
+            "the repository never names a cluster; the user config maps the logical machine",
+            f'add [remote.k8s.machines.{name}] with context, namespace and profile = "<name>"',
+            "RFC-0005 §6",
+        )
+    provider = cfg.context(mapping["context"]).get("provider")
+    profile = resolve(mapping["profile"], provider, cfg)
+    wanted = capabilities._gpus(machine)
+    if profile.gpus < wanted:
+        raise _bad(
+            f"profile {profile.name} has {profile.gpus} GPUs; machine {name} declares {wanted}",
+            [f"accelerators: {machine['accelerators']}"],
+            "the profile must give each pod the GPUs the setup file declares",
+            f"raise gpus in [remote.k8s.profiles.{profile.name}], or map another profile",
+            "RFC-0005 §6",
+        )
+    rdma = [w for w in setup["gate"] if _rdma(w, machine["pods"])]
+    if rdma and profile.kind != "rdma":
+        raise _bad(
+            f"RDMA gate workloads {', '.join(rdma)} would run on profile {profile.name} "
+            f"(kind {profile.kind})",
+            [f"machine: {name}"],
+            "the counters that prove RDMA traffic are only visible with RDMA devices in the pod",
+            f'map machine {name} to a profile of kind = "rdma" (RFC-0005 §4.12)',
+            "RFC-0005 §6",
+        )
+    return machine, mapping, profile
+
+
+def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: str) -> suites.Plan:
+    pods = machine["pods"]
+    build_dir = f"{suites.WORK}/build/{env}/release"
+    bench = f"{suites.WORK}/tools/bench"
+    steps = suites.gpu_preflight(profile)
+    steps.append(suites.Step("install", "install", ("pixi", "install", "--locked", "-e", env)))
+    configure = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON"]
+    if profile.cc:
+        configure.append(f"-DCMAKE_CUDA_ARCHITECTURES={profile.cc}-real")
+    steps.append(suites.Step("configure", "build", suites._pixi(env, configure)))
+    steps.append(
+        suites.Step(
+            "build", "build", suites._pixi(env, ["cmake", "--build", "--preset", "release"])
+        )
+    )
+    probes = []
+    if any(_rdma(w, pods) for w in setup["gate"]):
+        probes += ["--probe", "ib"]
+    if any(w in NVLINK_WORKLOADS or (w == "dual_link" and pods == 1) for w in setup["gate"]):
+        probes += ["--probe", "nvlink"]
+    if probes:
+        probe = ["python", f"{bench}/evidence.py", *probes]
+        steps.append(suites.Step("evidence-probe", "command", suites._pixi(env, probe)))
+    for w in setup["gate"]:
+        if w not in PROGRAMS:
+            raise _bad(
+                f"gate workload {w} has no fabric/bench program",
+                [],
+                "remote gate runs the gate workloads through the bench driver",
+                "move it to also_run",
+                "RFC-0005 §6",
+            )
+        program, args = PROGRAMS[w]
+        if w == "dual_link":
+            args = ["--mode", "rails" if pods == 2 else "nvlink"]
+        remote = ["--remote"] if pods == 2 else []
+        argv = [
+            "python", f"{bench}/ostia_bench.py", "run", "--format", "ostia", "--evidence",
+            *remote, "--needs-gpu", "--bench", f"{build_dir}/fabric/bench/{BINARY}{program}",
+            "--build-dir", build_dir, "--out", f"{suites.WORK}/bench/results", "--run-id", run_id,
+            "--", *args,
+        ]  # fmt: skip
+        steps.append(suites.Step(f"bench-{w}", "command", suites._pixi(env, argv)))
+    build_jobs, test_jobs = parallelism(profile, env)
+    return suites.Plan(
+        steps=steps,
+        env=env,
+        preset="release",
+        build_dir=build_dir,
+        suite="gate",
+        build_jobs=build_jobs,
+        test_jobs=test_jobs,
+    )
+
+
+def _evidence_problems(workloads: list[str], ev_dir: Path) -> list[str]:
+    _, evidence = _bench()
+    lines = []
+    for w in workloads:
+        path = ev_dir / f"{w}.json"
+        if not path.exists():
+            lines.append(f"error: no evidence for {w} ({path})")
+            continue
+        problems = evidence.check(json.loads(path.read_text()))
+        if problems:
+            lines.append(f"error: {w}: the run does not show the transport it tests")
+            lines += [f"  {p}" for p in problems]
+    if lines:
+        lines.append(
+            "  rule: a gate run that cannot show its transport fails\n  see: RFC-0001 §6.4"
+        )
+    return lines
+
+
+def gate(
+    setup_path: Path,
+    *,
+    cfg: Config,
+    repo: Path,
+    run,
+    fallback: bool = False,
+    baseline: Path | None = None,
+    results: Path | None = None,
+    yes: bool = False,
+    kubectl: str | None = None,
+    verbose: bool = False,
+) -> int:
+    capabilities, _ = _bench()
+    try:
+        setup = capabilities.load_setup(setup_path)
+    except capabilities.SetupError as e:
+        raise _bad(
+            "the setup file is not valid", [str(e)], "setup files follow RFC-0004 §1",
+            "fix the file", "RFC-0005 §6",
+        ) from e  # fmt: skip
+    which = "fallback" if fallback else "primary"
+    unsupported = [r for r in capabilities.evaluate(setup)[which] if r.required and not r.supported]
+    for r in unsupported:
+        print(
+            f"error: {setup['name']}/{which} cannot run gate workload {r.workload} ({r.reason})\n"
+            "  rule: a gate workload the machine cannot support fails the gate\n"
+            "  see: RFC-0001 §6.4"
+        )
+    if unsupported:
+        return 1
+    machine, mapping, profile = check_machine(setup, which, cfg)
+    for item in PENDING:
+        print(f"note: not checked yet: {item}", file=sys.stderr)
+    run_ids: list[str] = []
+
+    def plan(p: Profile, env: str, run_id: str) -> suites.Plan:
+        run_ids.append(run_id)
+        return plan_gate(setup, machine, p, env, run_id)
+
+    spec = RunSpec(
+        backend="k8s",
+        profile=mapping["profile"],
+        envs=[ENV],
+        results=results or repo / "build" / "remote",
+        yes=yes,
+        verbose=verbose,
+        extra={
+            "context": mapping["context"],
+            "namespace": mapping["namespace"],
+            "kubectl": kubectl,
+            "pods": machine["pods"],
+            "plan": plan,
+        },
+    )
+    code = run(spec, cfg, repo)
+    if code != 0:
+        return code
+    out = repo / "bench" / "results" / run_ids[-1]
+    problems = _evidence_problems(setup["gate"], out / "evidence")
+    if problems:
+        print("\n".join(problems))
+        return 1
+    print(f"gate {setup['name']}/{which}: transport evidence ok for {', '.join(setup['gate'])}")
+    if baseline is None:
+        return 0
+    argv = ["--baseline", str(baseline), "--candidate", str(out / "results.jsonl"),
+            "--evidence-dir", str(out / "evidence"), "--require-pass"]  # fmt: skip
+    return _compare_main()(argv)
