@@ -416,6 +416,22 @@ class FakeKube:
                 return
             self.clock.sleep(1)
 
+    def logs(self, *, selector: str, since_time: str | None = None) -> list[str]:
+        """kubectl logs -l --prefix --timestamps --tail=-1: what every matching pod logged so
+        far. --since-time has second precision on the server, so a resume repeats lines."""
+        self._record("logs", selector, since_time)
+        names = {
+            self._index(p): p["metadata"]["name"]
+            for p in self._objs("pod")
+            if self._matches(p, selector)
+        }
+        since = (since_time or "")[:19]
+        return [
+            f"[pod/{names[i]}/supervisor] {ts} {line}"
+            for ts, line, i in sorted(self.log_lines, key=lambda e: (e[2], e[0]))
+            if i in names and ts[:19] >= since
+        ]
+
     def _pod_index(self, name: str) -> int:
         return next((self._index(p) for p in self._objs("pod") if p["metadata"]["name"] == name), 0)
 

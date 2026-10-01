@@ -95,6 +95,8 @@ class K8sBackend:
             job=manifests.job_name(run.run_id),
             keep=run.windows.get("keep", 0),
             cache=bool(run.spec.extra.get("cache")),
+            n=int(run.spec.extra.get("pods") or 1),
+            same_node=bool(run.spec.extra.get("same_node")),
             secret_keys=_secret_keys(run.env_vars) if run.spec.allow_secret else set(),
         )
 
@@ -128,6 +130,8 @@ class K8sBackend:
             cache=state["cache"],
             secret=secret,
             secret_keys=state["secret_keys"],
+            pods=state["n"],
+            same_node=state["same_node"],
         )
         state["created"] = True  # before the call: the server may create it and the reply be lost
         created = self.kube.apply(job)
@@ -137,12 +141,26 @@ class K8sBackend:
             ref = manifests.owner_reference(created)
             # create, not apply: apply copies stringData into last-applied-configuration
             self.kube.create(manifests.secret(run.run_id, values, ref, owner_id()))
+        if state["n"] > 1:  # owned objects first, so no pod runs before its policy (§4.2)
+            ref = manifests.owner_reference(created)
+            self.kube.create(manifests.service(run.run_id, state["job"], ref, owner_id()))
+            self.kube.create(manifests.run_policy(run.run_id, ref, owner_id()))
         self.kube.patch("job", state["job"], {"spec": {"suspend": False}})
         self._wait_running(run)
 
-    def _pod(self, items: list[dict]) -> dict | None:
+    def _pods(self, run: Run, items: list[dict]) -> list[dict]:
+        """The run's pods in rank order (the Indexed Job's completion index)."""
         pods = [i for i in items if i.get("kind") == "Pod"]
-        return pods[-1] if pods else None
+        if run.state["n"] == 1:
+            return pods[-1:]
+        return sorted(pods, key=self._index)
+
+    @staticmethod
+    def _index(pod: dict) -> int:
+        return int(pod["metadata"].get("annotations", {}).get(manifests.INDEX, 0))
+
+    def _who(self, run: Run, pod: dict | None) -> str:
+        return f"rank {self._index(pod)}: " if run.state["n"] > 1 and pod else ""
 
     def _wait_running(self, run: Run) -> None:
         t0 = self.clock.monotonic()
@@ -189,30 +207,42 @@ class K8sBackend:
                         "check the image and the node's egress",
                         step="start",
                     )
-            pod = self._pod(items)
-            if pod:
+            pods = self._pods(run, items)
+            for pod in pods:
                 phase = pod.get("status", {}).get("phase")
                 for cs in pod.get("status", {}).get("containerStatuses", []):
                     reason = cs.get("state", {}).get("waiting", {}).get("reason", "")
                     if reason in PULL_ERRORS:
                         raise self._infra(
                             run,
-                            f"the image could not be pulled: {run.image}",
+                            f"{self._who(run, pod)}the image could not be pulled: {run.image}",
                             [reason],
                             "check the image",
                             step="start",
                         )
-                if phase == "Running":
-                    run.state["pod"] = pod["metadata"]["name"]
-                    run.node = pod["spec"].get("nodeName")
-                    run.phases["node"] = round(self.clock.monotonic() - t0)
-                    return
                 if phase in ("Succeeded", "Failed"):
                     self._terminal(run, pod, items, step="start")
+            running = [p for p in pods if p.get("status", {}).get("phase") == "Running"]
+            if pods and len(running) == run.state["n"]:
+                run.state["pods"] = [p["metadata"]["name"] for p in running]
+                run.state["pod"] = run.state["pods"][0]
+                if run.state["n"] == 1:
+                    run.node = running[0]["spec"].get("nodeName")
+                else:
+                    run.ranks = [
+                        {"rank": i, "pod": p["metadata"]["name"], "node": p["spec"].get("nodeName")}
+                        for i, p in enumerate(running)
+                    ]
+                run.phases["node"] = round(self.clock.monotonic() - t0)
+                return
             if self.clock.monotonic() - t0 >= limit:
+                waiting = [f"rank {self._index(p)}" for p in pods if p not in running] or [
+                    "the pod"
+                ]
+                who = "the pod" if run.state["n"] == 1 else ", ".join(waiting)
                 raise self._infra(
                     run,
-                    f"no node took the pod within --schedule-timeout ({limit // 60} min)",
+                    f"no node took {who} within --schedule-timeout ({limit // 60} min)",
                     [f"last FailedScheduling: {last_scheduling or '(none)'}"],
                     f"check [remote.k8s.profiles.{run.profile.name}] (node_selector, "
                     "tolerations, resources), or raise --schedule-timeout",
@@ -221,8 +251,15 @@ class K8sBackend:
             self.clock.sleep(POLL)
 
     def upload(self, run: Run) -> None:
+        """Only once every pod is Running (§4.11), and ready only once every copy is checked."""
         t0 = self.clock.monotonic()
-        pod = run.state["pod"]
+        for pod in run.state["pods"]:
+            self._upload_one(run, pod)
+        for pod in run.state["pods"]:
+            self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/ready"])
+        run.phases["upload"] = round(self.clock.monotonic() - t0)
+
+    def _upload_one(self, run: Run, pod: str) -> None:
         with run.tarball.path.open("rb") as f:
             r = self.kube.exec_in(pod, ["tar", "-x", "-C", suites.WORK], f)
         if r.returncode != 0:
@@ -241,8 +278,6 @@ class K8sBackend:
             raise self._upload_failed(
                 run, f"{got or '?'} files arrived, the tarball has {run.tarball.file_count}"
             )
-        self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/ready"])
-        run.phases["upload"] = round(self.clock.monotonic() - t0)
 
     def _upload_failed(self, run: Run, detail: str) -> InfraError:
         return self._infra(
@@ -256,6 +291,8 @@ class K8sBackend:
         )
 
     def stream(self, run: Run) -> None:
+        if run.state["n"] > 1:
+            return self._poll_ranks(run)
         last_ts, at_last, lost_since = None, 0, None
         run.state["last_step"] = None
         while True:
@@ -280,25 +317,81 @@ class K8sBackend:
                 lost_since = None
                 items = self.kube.run_status(run.run_id).get("items", [])
             except LostConnection:
-                lost_since = lost_since if lost_since is not None else self.clock.monotonic()
-                if self.clock.monotonic() - lost_since >= LOST_FOR_GOOD:
-                    raise self._infra(
-                        run,
-                        "lost the connection to the cluster for good",
-                        [f"for {LOST_FOR_GOOD}s"],
-                        "the run ends by itself; " + self.cleanup_hint(run),
-                        step=run.state["last_step"],
-                        see="RFC-0005 §4.8",
-                    ) from None
+                lost_since = self._lost(run, lost_since)
                 self.clock.sleep(POLL)
                 continue
-            pod = self._pod(items)
+            pod = next(iter(self._pods(run, items)), None)
             if pod is None or pod["status"].get("phase") not in ("Running", "Pending"):
                 self._terminal(run, pod, items, step=run.state["last_step"])
             self.clock.sleep(1)
 
+    def _lost(self, run: Run, lost_since: float | None) -> float:
+        lost_since = lost_since if lost_since is not None else self.clock.monotonic()
+        if self.clock.monotonic() - lost_since >= LOST_FOR_GOOD:
+            raise self._infra(
+                run,
+                "lost the connection to the cluster for good",
+                [f"for {LOST_FOR_GOOD}s"],
+                "the run ends by itself; " + self.cleanup_hint(run),
+                step=run.state["last_step"],
+                see="RFC-0005 §4.8",
+            )
+        return lost_since
+
+    def _poll_ranks(self, run: Run) -> None:
+        """Two pods: a log poll every POLL seconds instead of logs -f, which would keep
+        blocking on a live pod after the other died. A resume repeats the lines of the
+        since-second, so each pod skips what it already printed."""
+        rank = {name: i for i, name in enumerate(run.state["pods"])}
+        seen: dict[str, list] = {name: [None, 0] for name in rank}
+        finished: set[str] = set()
+        run.state["last_step"] = None
+        lost_since = None
+        while True:
+            stamps = [v[0] for v in seen.values()]
+            since = None if None in stamps else min(stamps)[:19] + "Z"
+            try:
+                items = self.kube.run_status(run.run_id).get("items", [])
+                lines = self.kube.logs(selector=f"ostia.dev/run-id={run.run_id}", since_time=since)
+            except LostConnection:
+                lost_since = self._lost(run, lost_since)
+                self.clock.sleep(POLL)
+                continue
+            lost_since = None
+            skip = {name: v[1] for name, v in seen.items()}
+            for raw in lines:
+                tag, _, rest = raw.partition(" ")
+                name = tag.removeprefix("[pod/").split("/")[0]
+                if name not in seen:
+                    continue
+                ts, _, line = rest.partition(" ")
+                last = seen[name][0]
+                if last and ts < last:
+                    continue
+                if ts == last and skip[name]:
+                    skip[name] -= 1
+                    continue
+                if ts != last:
+                    seen[name] = [ts, 0]
+                seen[name][1] += 1
+                print(f"[rank {rank[name]}] {line}", flush=True)
+                if line.startswith("[ostia] step ") and " (" in line:
+                    run.state["last_step"] = line.split()[2]
+                if line.startswith(FINISHED):
+                    finished.add(name)
+            if len(finished) == len(rank):
+                return
+            pods = self._pods(run, items)
+            for pod in pods:
+                if pod["status"].get("phase") not in ("Running", "Pending"):
+                    self._terminal(run, pod, items, step=run.state["last_step"])
+            if len(pods) < len(rank):
+                self._terminal(run, None, items, step=run.state["last_step"])
+            self.clock.sleep(POLL)
+
     def _terminal(self, run: Run, pod: dict | None, items: list[dict], *, step) -> None:
         profile = f"[remote.k8s.profiles.{run.profile.name}]"
+        who = self._who(run, pod)
         job = next((i for i in items if i.get("kind") == "Job"), {})
         conds = {c.get("reason") for c in job.get("status", {}).get("conditions", [])}
         if "DeadlineExceeded" in conds:
@@ -316,7 +409,7 @@ class K8sBackend:
                 run.oom = True
                 raise self._infra(
                     run,
-                    f"step {step} ran out of memory (OOMKilled)",
+                    f"{who}step {step} ran out of memory (OOMKilled)",
                     [f"memory limit: {run.profile.memory}"],
                     f"raise memory in {profile}, or lower the build parallelism",
                     step=step,
@@ -325,7 +418,7 @@ class K8sBackend:
         if status.get("reason") == "Evicted":
             raise self._infra(
                 run,
-                "the pod was evicted",
+                f"{who}the pod was evicted",
                 [status.get("message", "")],
                 f"raise ephemeral_storage in {profile}",
                 step=step,
@@ -334,22 +427,22 @@ class K8sBackend:
             if c.get("type") == "DisruptionTarget":
                 raise self._infra(
                     run,
-                    f"the node was preempted or went away ({c.get('reason')})",
+                    f"{who}the node was preempted or went away ({c.get('reason')})",
                     [c.get("message", "")],
                     "rerun the same command",
                     step=step,
                 )
         raise self._infra(
             run,
-            "the pod ended before the run finished",
+            f"{who}the pod ended before the run finished",
             [f"phase: {status.get('phase', 'gone')}"],
             "rerun; if it repeats, look at kubectl get events",
             step=step,
         )
 
-    def _exec_tar(self, run: Run, script: str, path: Path) -> None:
+    def _exec_tar(self, run: Run, pod: str, script: str, path: Path) -> None:
         with path.open("wb") as f:
-            r = self.kube.exec_out(run.state["pod"], ["sh", "-c", script], stdout=f)
+            r = self.kube.exec_out(pod, ["sh", "-c", script], stdout=f)
         if r.returncode != 0:
             raise self._infra(
                 run,
@@ -361,22 +454,30 @@ class K8sBackend:
             )
 
     def collect(self, run: Run, workdir: Path) -> list[Collected]:
-        control, artifacts = workdir / "control.tar", workdir / "artifacts.tar"
         build_rel = run.plan.build_dir.removeprefix(suites.WORK + "/")
-        self._exec_tar(run, results.control_tar_script(), control)
-        self._exec_tar(run, results.artifact_tar_script(build_rel), artifacts)
-        if run.state["keep"] and self._failed(control):
+        out, failed = [], False
+        for i, pod in enumerate(run.state["pods"]):
+            control, artifacts = workdir / f"control{i}.tar", workdir / f"artifacts{i}.tar"
+            self._exec_tar(run, pod, results.control_tar_script(), control)
+            self._exec_tar(run, pod, results.artifact_tar_script(build_rel), artifacts)
+            failed = failed or self._failed(control)
+            out.append(Collected(f"rank-{i}" if run.state["n"] > 1 else "", control, artifacts))
+        if run.state["keep"] and failed:
             run.state["kept"] = True
             end = self.clock.now() + datetime.timedelta(seconds=run.state["keep"])
+            execs = " | ".join(
+                f"kubectl --context {self.target.context} --namespace "
+                f"{self.target.namespace} exec -it {pod} -- sh"
+                for pod in run.state["pods"]
+            )
             self._say(
-                f"kept for debugging until {end:%H:%M:%S} UTC: kubectl --context "
-                f"{self.target.context} --namespace {self.target.namespace} exec -it "
-                f"{run.state['pod']} -- sh   (touch /w/.ostia/collected, Ctrl-C or "
-                f"{self.cleanup_hint(run)} ends it)"
+                f"kept for debugging until {end:%H:%M:%S} UTC: {execs}   (touch "
+                f"/w/.ostia/collected, Ctrl-C or {self.cleanup_hint(run)} ends it)"
             )
         else:
-            self.kube.exec_out(run.state["pod"], ["touch", f"{suites.WORK}/.ostia/collected"])
-        return [Collected("", control, artifacts)]
+            for pod in run.state["pods"]:
+                self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/collected"])
+        return out
 
     @staticmethod
     def _failed(control: Path) -> bool:
@@ -395,11 +496,11 @@ class K8sBackend:
         try:
             while self.clock.monotonic() < end:
                 try:
-                    pod = self._pod(self.kube.run_status(run.run_id).get("items", []))
+                    pods = self._pods(run, self.kube.run_status(run.run_id).get("items", []))
                 except LostConnection:
                     self.clock.sleep(POLL)
                     continue
-                if not pod or pod["status"].get("phase") not in ("Running", "Pending"):
+                if not any(p["status"].get("phase") in ("Running", "Pending") for p in pods):
                     return
                 self.clock.sleep(POLL)
         except KeyboardInterrupt:

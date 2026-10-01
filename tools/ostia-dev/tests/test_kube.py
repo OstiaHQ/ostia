@@ -282,3 +282,22 @@ def test_fake_lose_connection_then_recover(tmp_path):
 def test_errors_are_the_contract_types():
     assert issubclass(KubeError, UsageError) and issubclass(LostConnection, InfraError)
     assert kube_mod.forbidden_error("get", "pods", "ns", "ctx").code == 2
+
+
+def test_logs_for_a_selector_reads_every_line_with_prefixes():
+    out = "[pod/j-0-ab/supervisor] 2026-10-02T14:20:00.000000001Z a\n"
+    r = Runner((0, out, ""))
+    lines = _kube(r).logs(selector="ostia.dev/run-id=r", since_time="2026-10-02T14:19:00Z")
+    assert lines == [out.rstrip("\n")]
+    argv = _argv(r)
+    i = argv.index("logs")
+    assert argv[i:] == [
+        "logs", "-l", "ostia.dev/run-id=r", "--prefix", "--timestamps", "--tail=-1",
+        "--since-time=2026-10-02T14:19:00Z",
+    ]  # fmt: skip
+
+
+def test_logs_for_a_selector_maps_errors():
+    r = Runner((1, "", "error: You must be logged in to the server (Unauthorized)\n"))
+    with pytest.raises(UsageError):
+        _kube(r).logs(selector="ostia.dev/run-id=r")

@@ -510,3 +510,101 @@ def test_an_event_without_a_message(fake, clock, cfg, repo, tmp_path):
         )
 
     assert _drive(fake, clock, cfg, repo, tmp_path, [(1, bare), *HAPPY]) == 0
+
+
+TWO_OK = [(3, pod_phase("Running")), (9, log(OK_LOG, index=0)), (9, log(OK_LOG, index=1))]
+
+
+def test_two_pod_happy_path(fake, clock, cfg, repo, tmp_path, capsys):
+    assert _drive(fake, clock, cfg, repo, tmp_path, TWO_OK, pods=2) == 0
+    order = [(c.verb, c.args[0]) for c in fake.calls if c.verb in ("apply", "create", "patch")]
+    assert order == [("apply", "Job"), ("create", "Service"), ("create", "NetworkPolicy"),
+                     ("patch", "job")]  # fmt: skip
+    uploads = {c.args[0] for c in fake.calls if c.verb == "exec_in"}
+    assert len(uploads) == 2
+    ready = [c.args[0] for c in fake.calls if c.verb == "exec_out" and "ready" in str(c.args[1])]
+    collected = [c for c in fake.calls if c.verb == "exec_out" and "collected" in str(c.args[1])]
+    assert len(ready) == 2 and len(collected) == 2
+    assert not any(c.verb == "logs_follow" for c in fake.calls)
+    s = _summary(tmp_path)
+    assert s["node"] == "node-1, node-2" and [r["exit"] for r in s["ranks"]] == [0, 0]
+    run_dir = tmp_path / "res" / s["run_id"]
+    assert (run_dir / "rank-0" / "steps.json").exists() and (
+        run_dir / "rank-1" / "log.txt"
+    ).exists()
+    run_sel = f"ostia.dev/run-id={s['run_id']}"
+    for kind in ("job", "pod", "service", "networkpolicy"):
+        assert fake.list(kind, selector=run_sel) == [], kind
+    out = capsys.readouterr().out
+    assert "[rank 0] [ostia] step install" in out and "[rank 1] [ostia] step install" in out
+
+
+def test_two_pods_starting_ten_minutes_apart(fake, clock, cfg, repo, tmp_path):
+    timeline = [
+        (3, pod_phase("Running", index=0)),
+        (600, pod_phase("Running", index=1)),
+        (610, log(OK_LOG, index=0)),
+        (610, log(OK_LOG, index=1)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 0
+    assert _summary(tmp_path)["phases"]["node"] >= 600
+
+
+def test_failure_one_pod_oomkilled_tears_down_both(fake, clock, cfg, repo, tmp_path):
+    timeline = [
+        (3, pod_phase("Running")),
+        (9, log(OK_LOG[:1], index=0)),
+        (12, pod_phase("Failed", "OOMKilled", index=1)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 3
+    s = _summary(tmp_path)
+    assert "rank 1" in s["message"] and "OOMKilled" in s["message"]
+    assert clock.monotonic() < 120
+    assert fake.list("job") == [] and fake.list("pod") == []
+
+
+def test_failure_one_pod_never_schedules(fake, clock, cfg, repo, tmp_path):
+    timeline = [
+        (3, pod_phase("Running", index=0)),
+        (5, event("FailedScheduling", "0/3 nodes are available: 3 Insufficient nvidia.com/gpu")),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 3
+    msg = _summary(tmp_path)["message"]
+    assert "rank 1" in msg and "0/3 nodes are available" in msg
+
+
+def test_two_pod_logs_resume_without_duplicates(fake, clock, cfg, repo, tmp_path, capsys):
+    timeline = [
+        (3, pod_phase("Running")),
+        (9, log(["[ostia] step a (command): x", "same-second"], index=0)),
+        (9, log(["[ostia] step a (command): x"], index=1)),
+        (10, lose_connection(for_seconds=7)),
+        (20, log(OK_LOG, index=0)),
+        (20, log(OK_LOG, index=1)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out.count("[rank 0] same-second") == 1
+    assert out.count("[rank 0] [ostia] step a (command): x") == 1
+    assert out.count("[rank 1] [ostia] step a (command): x") == 1
+    assert sum(FINISHED in line for line in out) == 2
+
+
+def test_two_pod_finished_needs_both(fake, clock, cfg, repo, tmp_path, capsys):
+    timeline = [
+        (3, pod_phase("Running")),
+        (9, log(OK_LOG, index=0)),
+        (30, log(["late line", *OK_LOG], index=1)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 0
+    assert "[rank 1] late line" in capsys.readouterr().out
+
+
+def test_keep_on_failure_two_pods(fake, clock, cfg, repo, tmp_path, capsys):
+    fake.rank_step_codes, fake.junit = {1: {"command": 8}}, "failed.xml"
+    timeline = [*TWO_OK, (900, pod_phase("Succeeded"))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, keep="30m", pods=2) == 1
+    err = capsys.readouterr().err
+    kept = [line for line in err.splitlines() if "kept for debugging" in line]
+    assert len(kept) == 1 and kept[0].count("exec -it") == 2
+    assert fake.list("job") == []
