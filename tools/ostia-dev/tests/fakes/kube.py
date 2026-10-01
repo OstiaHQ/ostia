@@ -117,6 +117,15 @@ def exec_result(argv_prefix: list[str], code: int, stdout: bytes = b"", *, index
     return act
 
 
+def logs_fail():
+    """kubectl logs fails from now on (a dead node's kubelet is unreachable)."""
+
+    def act(k: FakeKube) -> None:
+        k.logs_broken = True
+
+    return act
+
+
 def forbid(verb: str, resource: str):
     def act(k: FakeKube) -> None:
         k.forbidden.add((verb, resource))
@@ -150,6 +159,7 @@ class FakeKube:
         self.gone_after: float | None = 0
         self.lost = False
         self.lost_until: float | None = None
+        self.logs_broken = False
         self.step_codes: dict[str, int] = {}
         self.rank_step_codes: dict[int, dict[str, int]] = {}
         self.junit: str | None = "pass.xml"
@@ -420,6 +430,10 @@ class FakeKube:
         """kubectl logs -l --prefix --timestamps --tail=-1: what every matching pod logged so
         far. --since-time has second precision on the server, so a resume repeats lines."""
         self._record("logs", selector, since_time)
+        if self.logs_broken:
+            from ostia_dev.remote.k8s.kube import LostConnection
+
+            raise LostConnection("error: dial tcp 10.0.0.9:10250: i/o timeout")
         names = {
             self._index(p): p["metadata"]["name"]
             for p in self._objs("pod")

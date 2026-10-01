@@ -28,7 +28,7 @@ from ostia_dev.remote import results, suites
 from ostia_dev.remote.container import supervisor_script
 from ostia_dev.remote.core import SECRET_KEYS, Collected, Run, owner_id
 from ostia_dev.remote.k8s import manifests, preflight
-from ostia_dev.remote.k8s.kube import LostConnection
+from ostia_dev.remote.k8s.kube import KubeError, LostConnection
 from ostia_dev.remote.k8s.preflight import Target
 
 FINISHED = "[ostia] finished with exit"
@@ -212,7 +212,6 @@ class K8sBackend:
                     )
             pods = self._pods(run, items)
             for pod in pods:
-                phase = pod.get("status", {}).get("phase")
                 for cs in pod.get("status", {}).get("containerStatuses", []):
                     reason = cs.get("state", {}).get("waiting", {}).get("reason", "")
                     if reason in PULL_ERRORS:
@@ -223,8 +222,9 @@ class K8sBackend:
                             "check the image",
                             step="start",
                         )
-                if phase in ("Succeeded", "Failed"):
-                    self._terminal(run, pod, items, step="start")
+            dead = [p for p in pods if p.get("status", {}).get("phase") in ("Succeeded", "Failed")]
+            if dead:
+                self._terminal(run, self._culprit(dead), items, step="start")
             running = [p for p in pods if p.get("status", {}).get("phase") == "Running"]
             if pods and len(running) == run.state["n"]:
                 run.state["pods"] = [p["metadata"]["name"] for p in running]
@@ -355,12 +355,17 @@ class K8sBackend:
             since = None if None in stamps else min(stamps)[:19] + "Z"
             try:
                 items = self.kube.run_status(run.run_id).get("items", [])
-                lines = self.kube.logs(selector=f"ostia.dev/run-id={run.run_id}", since_time=since)
             except LostConnection:
                 lost_since = self._lost(run, lost_since)
                 self.clock.sleep(POLL)
                 continue
-            lost_since = None
+            # A dead rank's logs can be unreachable with its node, so its status decides
+            # before a failing logs call reads as a lost connection.
+            logs_error = None
+            try:
+                lines = self.kube.logs(selector=f"ostia.dev/run-id={run.run_id}", since_time=since)
+            except (LostConnection, KubeError) as e:
+                lines, logs_error = [], e
             skip = {name: v[1] for name, v in seen.items()}
             for raw in lines:
                 tag, _, rest = raw.partition(" ")
@@ -385,12 +390,38 @@ class K8sBackend:
             if len(finished) == len(rank):
                 return
             pods = self._pods(run, items)
-            for pod in pods:
-                if pod["status"].get("phase") not in ("Running", "Pending"):
-                    self._terminal(run, pod, items, step=run.state["last_step"])
+            dead = [p for p in pods if p["status"].get("phase") not in ("Running", "Pending")]
+            if dead:
+                self._terminal(run, self._culprit(dead), items, step=run.state["last_step"])
             if len(pods) < len(rank):
                 self._terminal(run, None, items, step=run.state["last_step"])
+            if isinstance(logs_error, LostConnection):
+                lost_since = self._lost(run, lost_since)
+            elif logs_error is not None:
+                raise logs_error
+            else:
+                lost_since = None
             self.clock.sleep(POLL)
+
+    @staticmethod
+    def _culprit(dead: list[dict]) -> dict:
+        """The pod that failed first: once one rank fails, the Job controller deletes the
+        other, so a concrete reason, then a pod not being deleted, names the cause."""
+
+        def concrete(p: dict) -> bool:
+            st = p.get("status", {})
+            oom = any(
+                cs.get("state", {}).get("terminated", {}).get("reason") == "OOMKilled"
+                for cs in st.get("containerStatuses", [])
+            )
+            disrupted = any(c.get("type") == "DisruptionTarget" for c in st.get("conditions", []))
+            return oom or disrupted or st.get("reason") == "Evicted"
+
+        return (
+            next((p for p in dead if concrete(p)), None)
+            or next((p for p in dead if not p["metadata"].get("deletionTimestamp")), None)
+            or dead[0]
+        )
 
     def _terminal(self, run: Run, pod: dict | None, items: list[dict], *, step) -> None:
         profile = f"[remote.k8s.profiles.{run.profile.name}]"

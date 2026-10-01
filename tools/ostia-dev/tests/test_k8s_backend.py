@@ -8,7 +8,16 @@ from pathlib import Path
 
 import pytest
 from fakes.clock import FakeClock
-from fakes.kube import FakeKube, drop_stream, event, exec_result, log, lose_connection, pod_phase
+from fakes.kube import (
+    FakeKube,
+    drop_stream,
+    event,
+    exec_result,
+    log,
+    logs_fail,
+    lose_connection,
+    pod_phase,
+)
 from ostia_dev import config
 from ostia_dev.remote import core
 from ostia_dev.remote.k8s import manifests
@@ -622,3 +631,26 @@ def test_two_pod_run_in_an_unguarded_namespace_creates_no_policy(fake, clock, cf
     assert _drive(fake, clock, cfg, repo, tmp_path, TWO_OK, pods=2, allow_unguarded=True) == 0
     created = [c.args[0] for c in fake.calls if c.verb == "create"]
     assert "Service" in created and "NetworkPolicy" not in created
+
+
+def test_failure_dead_rank_with_failing_logs_names_the_rank(fake, clock, cfg, repo, tmp_path):
+    timeline = [
+        (3, pod_phase("Running")),
+        (12, logs_fail()),
+        (12, pod_phase("Failed", "PreemptionByScheduler", index=1)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 3
+    msg = _summary(tmp_path)["message"]
+    assert "rank 1" in msg and "preempted" in msg
+    assert clock.monotonic() < 60
+
+
+def test_the_rank_with_the_reason_is_blamed(fake, clock, cfg, repo, tmp_path):
+    timeline = [
+        (3, pod_phase("Running")),
+        (12, pod_phase("Failed", index=0)),
+        (12, pod_phase("Failed", "OOMKilled", index=1)),
+    ]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 3
+    msg = _summary(tmp_path)["message"]
+    assert "rank 1" in msg and "OOMKilled" in msg
