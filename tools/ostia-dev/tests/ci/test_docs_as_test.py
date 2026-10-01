@@ -64,3 +64,23 @@ def test_building_guide_has_the_quick_start():
     assert blocks(guide.read_text()) == [
         "pixi install\npixi run ostia-dev build\npixi run ostia-dev test\n"
     ]
+
+
+def test_default_doc_and_cwd_are_the_repository(monkeypatch, capsys):
+    """Moving the module must not move the defaults: CI runs it with no arguments."""
+    import subprocess
+
+    from ostia_dev.ci import docs_as_test
+    from ostia_dev.paths import ROOT
+
+    cwds = []
+
+    def fake_run(cmd, cwd):
+        cwds.append(Path(cwd))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(docs_as_test.subprocess, "run", fake_run)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    assert main([]) == 0
+    assert cwds and set(cwds) == {ROOT}
+    assert "blocks from building.md passed" in capsys.readouterr().out

@@ -16,6 +16,11 @@ import sys
 import time
 from pathlib import Path
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from ostia_dev.paths import ROOT
+
 START, END = "<!-- docs-as-test:start -->", "<!-- docs-as-test:end -->"
 FENCE = re.compile(r"^```[a-z]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 
@@ -38,12 +43,11 @@ def blocks(text: str) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(
         prog="ostia-dev check docs-as-test", description=__doc__.splitlines()[0]
     )
-    parser.add_argument("--doc", type=Path, default=root / "docs" / "guides" / "building.md")
-    parser.add_argument("--cwd", type=Path, default=root)
+    parser.add_argument("--doc", type=Path, default=ROOT / "docs" / "guides" / "building.md")
+    parser.add_argument("--cwd", type=Path, default=ROOT)
     args = parser.parse_args(argv)
     try:
         found = blocks(args.doc.read_text())
