@@ -66,6 +66,30 @@
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+)",
       "versioningTemplate": "loose"
+    },
+    {
+      "customType": "regex",
+      "description": "The pinned official kubectl for remote k8s runs (RFC-0005 §4.1)",
+      "managerFilePatterns": [
+        "/(^|/)tools/ostia-dev/src/ostia_dev/remote/k8s/kubectl\\.toml$/"
+      ],
+      "matchStrings": [
+        "version = \"(?<currentValue>v[0-9.]+)\""
+      ],
+      "depNameTemplate": "kubernetes/kubernetes",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "The kind node image of remote.yml's kind job (RFC-0005 Testing)",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/workflows/remote\\.yml$/"
+      ],
+      "matchStrings": [
+        "KIND_NODE: (?<depName>kindest/node):(?<currentValue>v[0-9.]+)@(?<currentDigest>sha256:[0-9a-f]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -76,6 +100,22 @@
         "prefix-dev/pixi"
       ],
       "groupName": "pixi"
+    },
+    {
+      "description": "kubectl: patch releases of the pinned minor only (a minor bump is by hand); refill the sha256 table after each bump",
+      "matchDepNames": [
+        "kubernetes/kubernetes"
+      ],
+      "allowedVersions": "/^v1\\.36\\./",
+      "postUpgradeTasks": {
+        "commands": [
+          "pixi run ostia-dev remote k8s kubectl --update-shas"
+        ],
+        "fileFilters": [
+          "tools/ostia-dev/src/ostia_dev/remote/k8s/kubectl.toml"
+        ],
+        "executionMode": "update"
+      }
     }
   ]
 }

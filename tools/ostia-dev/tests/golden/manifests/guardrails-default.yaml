@@ -1,0 +1,216 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ostia-test-runner
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ostia-test-quota
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+spec:
+  hard:
+    requests.nvidia.com/gpu: '4'
+    limits.cpu: '64'
+    limits.memory: 256Gi
+    limits.ephemeral-storage: 1Ti
+    pods: '10'
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: ostia-test-limits
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: '1'
+      memory: 2Gi
+      ephemeral-storage: 10Gi
+    defaultRequest:
+      cpu: '1'
+      memory: 2Gi
+      ephemeral-storage: 10Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ostia-default-deny
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ostia-egress
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 100.64.0.0/10
+        - 169.254.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ostia-test-developer
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+rules:
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - ''
+  resources:
+  - pods/log
+  verbs:
+  - get
+- apiGroups:
+  - ''
+  resources:
+  - services
+  verbs:
+  - create
+  - get
+  - delete
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - get
+  - list
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - events
+  - resourcequotas
+  - limitranges
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ''
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - get
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  resourceNames:
+  - ostia-test-runner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ostia-test-developer-ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - namespaces
+  verbs:
+  - get
+  resourceNames:
+  - ostia-test
+- apiGroups:
+  - ''
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list

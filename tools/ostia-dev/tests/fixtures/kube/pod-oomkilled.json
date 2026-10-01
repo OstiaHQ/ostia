@@ -1,0 +1,28 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "ostia-x-abcde",
+    "uid": "POD-UID",
+    "labels": {
+      "ostia.dev/run-id": "x"
+    }
+  },
+  "spec": {
+    "nodeName": "gke-l4-pool-1"
+  },
+  "status": {
+    "phase": "Failed",
+    "containerStatuses": [
+      {
+        "name": "supervisor",
+        "state": {
+          "terminated": {
+            "reason": "OOMKilled",
+            "exitCode": 137
+          }
+        }
+      }
+    ]
+  }
+}

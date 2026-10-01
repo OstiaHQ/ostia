@@ -1,0 +1,19 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Event",
+      "type": "Warning",
+      "reason": "FailedCreate",
+      "message": "Error creating: pods \"ostia-x-abcde\" is forbidden: exceeded quota: ostia-test-quota, requested: requests.nvidia.com/gpu=1, used: requests.nvidia.com/gpu=4, limited: requests.nvidia.com/gpu=4",
+      "involvedObject": {
+        "kind": "Job",
+        "name": "INVOLVED",
+        "uid": "INVOLVED-UID"
+      },
+      "lastTimestamp": "2026-10-02T14:16:00Z"
+    }
+  ]
+}

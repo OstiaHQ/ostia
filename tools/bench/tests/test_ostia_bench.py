@@ -70,3 +70,38 @@ def test_evidence_is_recorded_next_to_the_results(tmp_path):
         json.loads(line) for line in (out / "e1" / "results.jsonl").read_text().splitlines()
     ]
     validate(record)
+
+
+def test_provenance_prefers_ostia_git_sha(monkeypatch):
+    import tools.bench.ostia_bench as ob
+
+    calls = []
+    real = ob._run
+    monkeypatch.setattr(ob, "_run", lambda cmd: calls.append(cmd) or real(cmd))
+    monkeypatch.setenv("OSTIA_GIT_SHA", "3f2a9c1+dirty")
+    prov, _ = provenance_and_compat("r1", None)
+    assert prov["git_sha"] == "3f2a9c1+dirty"
+    assert not [c for c in calls if c[0] == "git"]  # a pod has no .git to ask
+
+
+def test_provenance_without_the_variable_is_unchanged(monkeypatch):
+    import subprocess
+
+    import tools.bench.ostia_bench as ob
+
+    monkeypatch.delenv("OSTIA_GIT_SHA", raising=False)
+    prov, _ = provenance_and_compat("r1", None)
+    want = (
+        subprocess.run(
+            ["git", "-C", str(ob.ROOT), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        or "unknown"
+    )
+    assert prov["git_sha"] == want
+
+
+def test_provenance_takes_a_ref_sha(monkeypatch):
+    monkeypatch.setenv("OSTIA_GIT_SHA", "abc123400000")
+    assert provenance_and_compat("r1", None)[0]["git_sha"] == "abc123400000"

@@ -85,7 +85,7 @@ schema = 1
 [remote.k8s.contexts.gcp-us-central1-intuigence]
 provider = "gke"                # gke | eks | aks | generic
 namespace = "ostia-test"        # default for this context; --namespace overrides it
-kubectl = "/usr/local/bin/kubectl"   # optional; defaults to the pixi-pinned kubectl
+kubectl = "/usr/local/bin/kubectl"   # optional; defaults to the pinned kubectl (§4.1)
 
 [remote.k8s.profiles.l4.gke]    # override one built-in field
 ephemeral_storage = "80Gi"
@@ -178,9 +178,10 @@ This RFC is the approval that `docs/README.md` requires.
 | Dependency | Licence | Purpose | Source | Environments |
 | --- | --- | --- | --- | --- |
 | typer 0.27 (with rich, shellingham, annotated-doc, colorama) *(update: Rollout PR A; click is vendored inside typer and no longer a separate dependency)* | MIT AND BSD-3-Clause; MIT; ISC; MIT; BSD-3-Clause | Argument parsing, help, completion | conda-forge | all |
-| kubectl (`kubernetes-client`) | Apache-2.0 | Talking to clusters (§4.1) | conda-forge, pinned | all |
+| kubectl, official release binary *(update: Rollout PR A; not conda-forge's `kubernetes-client`, which was 1.34 on linux-64 and osx-arm64 and 1.24 on linux-aarch64, outside the version-skew policy for 1.36–1.37 servers)* | Apache-2.0 | Talking to clusters (§4.1) | dl.k8s.io, a pinned version and per-platform sha256, downloaded and verified by ostia-dev on first use | all |
 | git | GPL-2.0 (tool only, not linked) | CPM fetches source dependencies by `GIT_TAG` inside pods, which run as non-root and cannot install packages (§4.5) | conda-forge | all |
 | setuptools *(update: Rollout PR A)* | MIT | Build only: the build backend of the `ostia-dev` editable, installed from conda-forge and used without build isolation, so nothing comes from PyPI at install time | conda-forge | all |
+| kind *(update: Rollout PR A)* | Apache-2.0 | CI only: a local cluster for the `remote.yml` kind job (Testing) | conda-forge (`kubernetes-kind`) | `remote-ci` (CI only) |
 
 PR A measures whether `typer-slim` (without rich) is enough; if it is, that is used instead and the table is updated in the PR. *Update (Rollout PR A): measured. `typer-slim` 0.24 is a shim that depends on `typer` itself, on conda-forge and on PyPI alike, so choosing it drops nothing; PR A uses plain `typer` (`>=0.27,<0.28`). conda-forge's `typer` depends on colorama on every platform, though typer only uses it on Windows.* Cloud credential plugins (`gke-gcloud-auth-plugin`, `aws`, `kubelogin`) are not dependencies: kubectl uses whatever the developer's kubeconfig names, and the guide lists them per provider.
 
@@ -226,7 +227,7 @@ Common flags for every backend:
 | `--cache` | off | Mount the download cache (§4.7) |
 | `--keep-on-failure[=N]` | off (30 min when given) | Keep a failed pod for debugging (§4.8) |
 | `--allow-unguarded` | off | Run in a namespace without guardrails (§4.3) |
-| `--kubectl PATH` | the pixi-pinned kubectl | Another kubectl binary (§4.1) |
+| `--kubectl PATH` | the pinned kubectl (§4.1) | Another kubectl binary (§4.1) |
 
 `container` only: `--gpus` (pass the host's NVIDIA GPUs through, §5) and `--engine podman|docker` (default: whichever is found first). *Update (Rollout PR A): `container` also takes `--profile` (default `cpu`). `--gpus` needs a GPU profile, for example `--profile l4` on an L4 workstation, which supplies the compute capability, the GPU preflight and `OSTIA_REQUIRE_GPU`; a GPU profile without `--gpus` is an exit 2. The run ID is `container-<profile>-…`.*
 
@@ -305,7 +306,7 @@ The test result wins: a failed run whose teardown also can't be verified exits 1
 
 #### 4.1 Talking to the cluster
 
-- The backend drives a pinned `kubectl` as a subprocess with generated manifests (`apply -f -`, `wait`, `logs -f`, `exec -i`, `delete`). It uses the developer's kubeconfig and credential plugins unchanged, and has kubectl's proven tar-over-exec path. There is no Python Kubernetes client. All calls go through one thin `Kube` wrapper, which is what the unit tests replace (Testing).
+- The backend drives a pinned `kubectl` *(update: Rollout PR A: the official release binary, v1.36.5 at first, downloaded to `~/.cache/ostia/kubectl/<version>/` and checked against the sha256 table in `ostia_dev/remote/k8s/kubectl.toml`; Renovate bumps it)* as a subprocess with generated manifests (`apply -f -`, `wait`, `logs -f`, `exec -i`, `delete`). It uses the developer's kubeconfig and credential plugins unchanged, and has kubectl's proven tar-over-exec path. There is no Python Kubernetes client. All calls go through one thin `Kube` wrapper, which is what the unit tests replace (Testing).
 - `--context` is required on every run. The tool never falls back to kubectl's current context, so a run can't land on the wrong cluster.
 - kubectl errors are mapped, not passed through raw: `Forbidden` names the missing verb and resource and the Role that grants it (§4.3); a missing or expired credential plugin names the plugin and its login command for the provider. Both are exit 2.
 - Preflight reads `kubectl version -o json`. If client and server are more than one minor version apart (outside Kubernetes' version-skew policy), it prints a warning naming both versions and the fix: a newer pin, or `--kubectl PATH` / `kubectl = "…"` in the config.
@@ -359,7 +360,7 @@ sequenceDiagram
 
 `init` creates, and prints, the exact access a developer needs, so nobody has to work it out:
 
-- a namespaced Role `ostia-test-developer`: `create`, `get`, `list`, `watch`, `patch` and `delete` on Jobs; `get`, `list`, `watch` and `delete` on pods; `create` on `pods/exec`; `get` on `pods/log`; `create`, `get` and `delete` on Services and NetworkPolicies; `get` and `list` on events, ResourceQuotas and LimitRanges; `create`, `get` and `delete` on PersistentVolumeClaims (for `--cache`); `get` on the ServiceAccount `ostia-test-runner`;
+- a namespaced Role `ostia-test-developer`: `create`, `get`, `list`, `watch`, `patch` and `delete` on Jobs; `get`, `list`, `watch` and `delete` on pods; `create` on `pods/exec`; `get` on `pods/log`; `create`, `get` and `delete` on Services and NetworkPolicies; `get` and `list` on events, ResourceQuotas and LimitRanges; `create`, `get` and `delete` on PersistentVolumeClaims (for `--cache`); `get` on the ServiceAccount `ostia-test-runner`; *(update: Rollout PR A: also `create`, `get` and `delete` on Secrets, for §4.10's per-run Secret, and `list` on NetworkPolicies, for the preflight's check that a policy selects the run's pods)*
 - a small ClusterRole: `get` on that one namespace (to read its PSA labels) and, optionally, `list` on nodes.
 
 Without node access, provider detection falls back to asking for the provider, and the fit check below is skipped with a note. `init` itself, and creating a namespace, need rights to create namespaces, Roles, ResourceQuotas, LimitRanges, NetworkPolicies and ServiceAccounts: on a shared cluster, a cluster admin, once. The preflight checks that the `ostia-test-runner` ServiceAccount exists.
@@ -430,7 +431,7 @@ The runner runs reviewed code, but on clusters shared with other workloads. The 
 - **No Kubernetes or cloud identity:** a dedicated ServiceAccount `ostia-test-runner` with no RBAC bindings, `automountServiceAccountToken: false` on the pod, and no Workload Identity, IRSA / EKS Pod Identity or Azure Workload Identity annotations.
 - **ResourceQuota and LimitRange** from `init`: a cap on GPUs, CPU, memory and ephemeral storage in the namespace, and defaults for any pod that doesn't set them.
 - **NetworkPolicy:** default-deny ingress and egress for the namespace. Egress allows DNS (UDP and TCP 53) to kube-dns only, and TCP 443 to `0.0.0.0/0` except a blocklist. The blocklist always holds `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` and `169.254.0.0/16`, which covers node, VPC and tailnet addresses and the cloud metadata servers. Clusters also use addresses outside those ranges (GKE's default Service range is `34.118.224.0/20`; some clusters use privately used public IPs), so `init` adds the cluster's pod and Service CIDRs where it can detect them, and any `blocked_cidrs` listed for the context in the user config. Everything a run needs (conda-forge, prefix.dev, ghcr.io, github.com for CPM) is public HTTPS. Two-pod runs get a per-run NetworkPolicy, owned by the Job, that allows traffic between pods with the same `ostia.dev/run-id`. The Kubernetes API server is reachable only if its endpoint is a public IP on 443; `verify` reports whether it is.
-- **NodeLocal DNSCache:** on clusters that run it, pods resolve through `169.254.20.10`, which the blocklist would cut off. `init` detects it and allows UDP and TCP 53 to that address only.
+- **NodeLocal DNSCache:** on clusters that run it, pods resolve through `169.254.20.10`, which the blocklist would cut off. `init` detects it and allows UDP and TCP 53 to that address only. *(update: Rollout PR A: the cache runs on the node's host network, which a NetworkPolicy can't reliably select on every CNI: on GKE Dataplane V2 about a third of the lookups were dropped even with that address and the kube-dns Service IP allowed. So when `init` detects NodeLocal DNSCache, the DNS rule allows UDP and TCP 53 to any destination; without it, DNS stays limited to kube-dns. HTTPS keeps its blocklist, and the metadata server's API stays unreachable.)*
 - **GPU requests** go through `nvidia.com/gpu`, never `privileged`.
 
 These guarantees hold only if the cluster's network plugin enforces NetworkPolicy, and a plugin that doesn't ignores policies silently. `verify` checks that each one actually holds, from a probe pod with the run's exact spec: the metadata server is unreachable, there's no service-account token, the API server, the private ranges and an in-cluster ClusterIP Service on 443 are unreachable, and DNS and `https://github.com` work. `verify` is a manual check, documented as the first step on every new cluster or namespace. It is not run automatically, and runs don't require it.
@@ -447,7 +448,7 @@ The guide's "faster runs" section covers the other speed levers that don't chang
 #### 4.8 Teardown and garbage collection
 
 - **Labels** on every object: `ostia.dev/managed=true`, `ostia.dev/run-id=<id>`, `ostia.dev/owner=<hash of user@host>`. Annotation `ostia.dev/expires=<UTC time>`.
-- **Limits:** `activeDeadlineSeconds` counts from the Job's start, Pending time included, so it is the sum of every phase: `--schedule-timeout` + the code wait + `--timeout` + the collection window + the `--keep-on-failure` window when set + 15 minutes of margin (105 minutes with the defaults). `ttlSecondsAfterFinished: 600`; a 10-minute wait for the code; a 10-minute collection window. The windows can be shortened by configuration for tests.
+- **Limits:** `activeDeadlineSeconds` counts from the Job's start, Pending time included, so it is the sum of every phase: `--schedule-timeout` + the code wait + `--timeout` + the collection window + the `--keep-on-failure` window when set + 15 minutes of margin (105 minutes with the defaults *(update: Rollout PR A: 115 minutes; 20 + 10 + 60 + 10 + 15, the original sum was an arithmetic slip)*). `ttlSecondsAfterFinished: 600`; a 10-minute wait for the code; a 10-minute collection window. The windows can be shortened by configuration for tests.
 - **The CLI deletes** the run's Job (cascading to its pods and owned objects) on success, failure, Ctrl-C and SIGTERM, and then waits until the objects are gone. A second Ctrl-C skips the wait, not the delete, so the run is reported as "delete requested, not verified". If deletion can't be verified, the `cleanup` command is printed (exit codes in §3.5).
 - **Every run starts** by deleting the owner's expired objects in the namespace, including Jobs still suspended past their `ostia.dev/expires` time. A CLI that dies between creating the suspended Job and unsuspending it leaves one: no deadline or TTL runs while a Job is suspended. It costs nothing, since no pod exists, and `cleanup` lists and deletes it.
 - **`cleanup`** deletes the caller's runs; `--run-id` targets one run; `--all` covers every managed run in the namespace, after a confirmation. PVCs from `--cache` are deleted only by `cleanup --cache`.

@@ -74,7 +74,12 @@ def _run(cmd: list[str]) -> str:
 
 
 def provenance_and_compat(run_id: str, build_dir: Path | None, nic: str = "none") -> tuple:
-    sha = _run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"]) or "unknown"
+    # A remote pod has no .git; ostia-dev passes the commit it uploaded (RFC-0005 §3.4).
+    sha = (
+        os.environ.get("OSTIA_GIT_SHA")
+        or _run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"])
+        or "unknown"
+    )
     date = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     gpu = _run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"]).splitlines()
     driver = _run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"])

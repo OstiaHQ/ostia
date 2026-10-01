@@ -21,3 +21,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "ostia_dev.remote" = ["profiles.toml", "pod/supervisor.sh"]
+"ostia_dev.remote.k8s" = ["kubectl.toml"]

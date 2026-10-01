@@ -19,6 +19,16 @@ export OSTIA_BUILD_DIR="${OSTIA_BUILD_DIR:-$W/build/${OSTIA_ENV:-default}/${OSTI
 export CTEST_NO_TESTS_ACTION="${CTEST_NO_TESTS_ACTION:-error}"
 export HOME="${HOME:-$W/home}"
 TAB=$(printf '\t')
+# Kubernetes can't expand $VAR from the image's environment, so profile env values that
+# reference one (e.g. GKE's PATH) arrive here as KEY=VALUE lines, expanded in the pod.
+while IFS= read -r kv; do
+  [ -n "$kv" ] || continue
+  v=${kv#*=}
+  eval "v=\"$v\""
+  export "${kv%%=*}=$v"
+done <<EOF
+${OSTIA_EXPAND_ENV:-}
+EOF
 # busybox's setsid applet has no -w; a step is never a group leader, so neither one forks.
 if setsid -w true 2>/dev/null; then SETSID="setsid -w"; else SETSID=setsid; fi
 

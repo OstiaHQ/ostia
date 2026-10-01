@@ -78,3 +78,45 @@ jobs:
             done
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  kind:
+    name: kind
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      OSTIA_CONFIG: tools/ostia-dev/tests/kind/config.toml
+      KIND_NODE: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          environment: remote-ci
+      - name: Create the kind cluster
+        run: pixi run -e remote-ci kind create cluster --name ostia --image "$KIND_NODE" --wait 120s
+      - name: pixi run ostia-dev remote k8s init --context kind-ostia --namespace ostia-test
+        run: pixi run ostia-dev remote k8s init --context kind-ostia --namespace ostia-test
+      - name: Remote k8s runs, policies and admission against kind
+        env:
+          OSTIA_KIND_NIGHTLY: ${{ github.event_name == 'schedule' && '1' || '' }}
+        run: pixi run pytest -m kind tools/ostia-dev/tests/kind -v
+      - name: Cluster state
+        if: always()
+        run: |
+          k="$(pixi run ostia-dev remote k8s kubectl | cut -d' ' -f1)"
+          "$k" --context kind-ostia get all,networkpolicies,resourcequotas -A || true
+          "$k" --context kind-ostia get events -A --sort-by=.lastTimestamp | tail -80 || true
+      - name: Upload the results
+        if: always()
+        # actions/upload-artifact v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: remote-kind-results
+          path: build/remote/
+          if-no-files-found: warn
+      - name: Delete the kind cluster
+        if: always()
+        run: pixi run -e remote-ci kind delete cluster --name ostia

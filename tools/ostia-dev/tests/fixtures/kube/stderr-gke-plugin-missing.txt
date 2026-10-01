@@ -1,0 +1,1 @@
+E1002 14:15:01.000000   123 memcache.go:265] couldn't get current server API group list: Get "https://34.1.2.3/api?timeout=32s": getting credentials: exec: executable gke-gcloud-auth-plugin not found

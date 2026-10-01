@@ -1,0 +1,33 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Node",
+      "metadata": {
+        "name": "ip-10-0-1-20.ec2.internal",
+        "labels": {
+          "kubernetes.io/os": "linux",
+          "kubernetes.io/arch": "amd64",
+          "eks.amazonaws.com/nodegroup": "gpu",
+          "node.kubernetes.io/instance-type": "g6.2xlarge"
+        }
+      },
+      "spec": {
+        "podCIDRs": [
+          "10.52.3.0/24"
+        ]
+      },
+      "status": {
+        "allocatable": {
+          "cpu": "7910m",
+          "memory": "29Gi",
+          "ephemeral-storage": "90Gi",
+          "pods": "110",
+          "nvidia.com/gpu": "1"
+        }
+      }
+    }
+  ]
+}

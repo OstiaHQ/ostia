@@ -120,8 +120,13 @@ cuda-profiler-api = "13.4.*"
 ucx = "*"
 rdma-core = "*"
 
+# CI-only: kind for remote.yml's end-to-end k8s job (RFC-0005 Testing).
+[feature.remote-ci.dependencies]
+kubernetes-kind = "0.33.*"
+
 [environments]
 default = { features = ["host-toolchain"] }
+remote-ci = { features = ["host-toolchain", "remote-ci"] }
 cuda-12 = { features = ["cuda-12", "gcc11"] }
 cuda-13 = { features = ["cuda-13", "gcc14"] }
 gcc11 = { features = ["linux", "gcc11"] }

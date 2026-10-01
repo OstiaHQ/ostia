@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ostia-test-cache
+  namespace: ostia-test
+  labels:
+    ostia.dev/managed: 'true'
+    ostia.dev/owner: 0123456789ab
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
