@@ -85,3 +85,42 @@ def test_schema_errors(tmp_path):
     path.write_text(SETUP.replace("name: example", "name: other"))
     with pytest.raises(SetupError, match="file name"):
         load_setup(path)
+
+
+# Today's results for the committed setups; adding the k8s machine type must not move them.
+SNAPSHOT = [
+    ("nvlink-node", "fallback", "batching", True, True, ""),
+    ("nvlink-node", "fallback", "dual_link", True, True, ""),
+    ("nvlink-node", "fallback", "onpath_placement", False, True, ""),
+    ("nvlink-node", "fallback", "p2p_copy", True, True, ""),
+    ("nvlink-node", "fallback", "pipelining", True, True, ""),
+    ("nvlink-node", "fallback", "topo_capture", False, True, ""),
+    ("nvlink-node", "primary", "batching", True, True, ""),
+    ("nvlink-node", "primary", "dual_link", True, True, ""),
+    ("nvlink-node", "primary", "onpath_placement", False, True, ""),
+    ("nvlink-node", "primary", "p2p_copy", True, True, ""),
+    ("nvlink-node", "primary", "pipelining", True, True, ""),
+    ("nvlink-node", "primary", "topo_capture", False, True, ""),
+    ("rdma-pair", "fallback", "dual_link", True, True, ""),
+    ("rdma-pair", "fallback", "gdr_stream", True, True, ""),
+    ("rdma-pair", "fallback", "rdma_put", True, True, ""),
+    ("rdma-pair", "fallback", "topo_capture", False, True, ""),
+    ("rdma-pair", "primary", "dual_link", True, True, ""),
+    ("rdma-pair", "primary", "gdr_stream", True, True, ""),
+    ("rdma-pair", "primary", "rdma_put", True, True, ""),
+    ("rdma-pair", "primary", "topo_capture", False, True, ""),
+    ("tcp-efa-pair", "fallback", "tcp_put", False, True, ""),
+    ("tcp-efa-pair", "fallback", "topo_capture", False, True, ""),
+    ("tcp-efa-pair", "primary", "tcp_put", False, True, ""),
+    ("tcp-efa-pair", "primary", "topo_capture", False, True, ""),
+]
+
+
+def test_evaluate_snapshot_of_committed_setups():
+    rows = [
+        (path.stem, machine, r.workload, r.required, r.supported, r.reason)
+        for path in sorted(SETUPS.glob("*.yaml"))
+        for machine, results in evaluate(load_setup(path)).items()
+        for r in results
+    ]
+    assert sorted(rows) == SNAPSHOT
