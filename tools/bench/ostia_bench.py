@@ -224,7 +224,9 @@ def _write(records: list[dict], out: Path, run_id: str) -> Path:
         validate(r)
     path = out / run_id / "results.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(json.dumps(r) + "\n" for r in records))
+    # one run ID may hold several programs' records, as a gate run does (RFC-0005 §6)
+    with path.open("a") as f:
+        f.write("".join(json.dumps(r) + "\n" for r in records))
     print(f"wrote {len(records)} records to {path}")
     return path
 

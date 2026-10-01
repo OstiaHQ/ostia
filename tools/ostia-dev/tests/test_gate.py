@@ -98,10 +98,11 @@ def _setup(tmp_path, text, name, nodes=1):
 
 
 class FakeRun:
-    """Stands in for run_k8s: builds the plan like core.prepare and writes evidence."""
+    """Stands in for run_k8s: builds the plan like core.prepare and writes evidence and
+    the records of `records` (default: one per workload with evidence)."""
 
-    def __init__(self, repo, evidence=None, code=0):
-        self.repo, self.evidence, self.code = repo, evidence, code
+    def __init__(self, repo, evidence=None, code=0, records=None):
+        self.repo, self.evidence, self.code, self.records = repo, evidence, code, records
         self.spec = self.plan = None
 
     def __call__(self, spec, cfg, repo):
@@ -114,6 +115,9 @@ class FakeRun:
         ev.mkdir(parents=True, exist_ok=True)
         for w, doc in (self.evidence or {}).items():
             (ev / f"{w}.json").write_text(json.dumps({"schema": 1, "workload": w, **doc}))
+        names = self.records if self.records is not None else list(self.evidence or {})
+        lines = [json.dumps({"bench": w, "params": {}}) + "\n" for w in names]
+        (ev.parent / "results.jsonl").write_text("".join(lines))
         return self.code
 
 
@@ -263,7 +267,7 @@ def test_baseline_runs_compare(tmp_path, cfg, monkeypatch):
     monkeypatch.setattr(gate, "_compare_main", lambda: compare_main)
     monkeypatch.setattr(gate, "_evidence_problems", lambda workloads, ev_dir: [])
     base = tmp_path / "base.json"
-    run = FakeRun(tmp_path)
+    run = FakeRun(tmp_path, records=["p2p_copy", "pipelining", "batching", "dual_link"])
     assert _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run, baseline=base) == 1
     argv = seen["argv"]
     assert argv[argv.index("--baseline") + 1] == str(base)
@@ -278,3 +282,10 @@ def test_fallback_flag_picks_fallback(tmp_path, cfg):
     run = FakeRun(tmp_path, code=1)
     assert _gate(tmp_path, cfg, path, run, fallback=False) == 1
     assert run.spec.profile == "a100x4"
+
+
+def test_missing_records_fail(tmp_path, cfg, capsys, monkeypatch):
+    monkeypatch.setattr(gate, "_evidence_problems", lambda workloads, ev_dir: [])
+    run = FakeRun(tmp_path, records=["p2p_copy", "pipelining", "batching"])
+    assert _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run) == 1
+    assert "no benchmark records for dual_link" in capsys.readouterr().out

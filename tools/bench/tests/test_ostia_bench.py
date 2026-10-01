@@ -332,3 +332,10 @@ def test_remote_rank0_writes_no_evidence(launched, rank, dns, tmp_path, monkeypa
     rank(0)
     assert _ostia_run(tmp_path, "--remote", "--evidence") == 0
     assert not (tmp_path / "t").exists()
+
+
+def test_a_second_run_with_the_same_run_id_appends(launched, tmp_path):
+    assert _ostia_run(tmp_path) == 0
+    assert _ostia_run(tmp_path) == 0
+    lines = (tmp_path / "t" / "results.jsonl").read_text().splitlines()
+    assert len(lines) == 2

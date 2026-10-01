@@ -164,6 +164,16 @@ def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: st
     )
 
 
+def _missing_records(workloads: list[str], results: Path) -> list[str]:
+    """compare.py only judges the cases it is given, so a workload without records would
+    pass silently."""
+    text = results.read_text() if results.exists() else ""
+    benches = {json.loads(line).get("bench") for line in text.splitlines() if line.strip()}
+    return [
+        f"error: no benchmark records for {w} in {results}" for w in workloads if w not in benches
+    ]
+
+
 def _evidence_problems(workloads: list[str], ev_dir: Path) -> list[str]:
     _, evidence = _bench()
     lines = []
@@ -242,7 +252,8 @@ def gate(
     if code != 0:
         return code
     out = repo / "bench" / "results" / run_ids[-1]
-    problems = _evidence_problems(setup["gate"], out / "evidence")
+    problems = _missing_records(setup["gate"], out / "results.jsonl")
+    problems += _evidence_problems(setup["gate"], out / "evidence")
     if problems:
         print("\n".join(problems))
         return 1
