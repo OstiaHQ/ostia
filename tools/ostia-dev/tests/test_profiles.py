@@ -19,7 +19,14 @@ def _cfg_with(tmp_path, text):
 
 def test_builtins_have_the_rfc_profiles(cfg):
     assert set(cfg.profiles) == {"l4", "a100", "h100", "cpu"}
-    assert set(cfg.suites) == {"gpu", "sanitizer", "bench-smoke", "overhead-aa", "cpu"}
+    assert set(cfg.suites) == {
+        "gpu",
+        "sanitizer",
+        "bench-smoke",
+        "overhead-aa",
+        "cpu",
+        "cuda-compile",
+    }
     assert cfg.image.startswith("ghcr.io/prefix-dev/pixi:0.81.0-noble@sha256:")
     assert "aks" not in cfg.profiles["l4"]  # Azure has no generally available L4 size
 
