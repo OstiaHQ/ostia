@@ -38,6 +38,7 @@ pixi run -e cuda-12 bench run --needs-gpu --runs 10 \
 
 - Without a GPU, `--needs-gpu` stops with an error naming the fix. On a Mac, `pixi run check-cuda` compiles the benchmarks.
 - Multi-process benchmarks run through the multi-process launcher: pass `--format ostia --ranks N`.
+- Across two pods, `--remote` runs one rank: rank 0 gets `--listen` and rank 1 `--connect`, from the pod's `OSTIA_RANK`, `OSTIA_PEER_HOST` and `OSTIA_PORT` (`ostia-dev remote k8s --pods 2`, [remote-runs.md](remote-runs.md)). Only rank 1, the source, writes the record and the evidence.
 
 ## Comparing with a baseline
 
@@ -118,7 +119,7 @@ The M0 gate (RFC-0001 §6.4) runs standalone reference programs from `fabric/ben
   - per-NIC and per-NVLink traffic counters.
 
   `compare.py --evidence-dir` makes a case `invalid` when its evidence is missing or does not show the capability under test, for example an `rdma_put` that ran over TCP or from host memory.
-- **Capability profiles.** `infra/setups/<setup>.yaml` names each setup's gate workloads and the capabilities of its primary and fallback machines (RFC-0004 §1). Before anything is rented, `tools/bench/capabilities.py` fails if a machine cannot support a gate workload. An also-run workload it cannot support is reported `unsupported`.
+- **Capability profiles.** `infra/setups/<setup>.yaml` names each setup's gate workloads and the capabilities of its primary and fallback machines (RFC-0004 §1). Before anything is rented, `tools/bench/capabilities.py` fails if a machine cannot support a gate workload. An also-run workload it cannot support is reported `unsupported`. A machine may be a k8s machine (`backend: k8s`), which `ostia-dev remote gate <setup>` runs ([remote-runs.md](remote-runs.md)); `evidence.py --probe ib|nvlink` checks first that the counters it needs are readable.
 
 A workload counts as verified only after a real run on its target hardware, against its oracle. Those runs happen in Rollout PR 7, on the rented setups.
 

@@ -5,7 +5,7 @@ status: Accepted
 authors: [ShAlireza]
 components: [build, docs]
 created: 2026-09-29
-updated: 2026-09-30
+updated: 2026-10-01
 supersedes: []
 superseded_by: []
 discussion: https://github.com/OstiaHQ/ostia/pull/21
@@ -448,7 +448,7 @@ The guide's "faster runs" section covers the other speed levers that don't chang
 #### 4.8 Teardown and garbage collection
 
 - **Labels** on every object: `ostia.dev/managed=true`, `ostia.dev/run-id=<id>`, `ostia.dev/owner=<hash of user@host>`. Annotation `ostia.dev/expires=<UTC time>`.
-- **Limits:** `activeDeadlineSeconds` counts from the Job's start, Pending time included, so it is the sum of every phase: `--schedule-timeout` + the code wait + `--timeout` + the collection window + the `--keep-on-failure` window when set + 15 minutes of margin (105 minutes with the defaults *(update: Rollout PR A: 115 minutes; 20 + 10 + 60 + 10 + 15, the original sum was an arithmetic slip)*). `ttlSecondsAfterFinished: 600`; a 10-minute wait for the code; a 10-minute collection window. The windows can be shortened by configuration for tests.
+- **Limits:** `activeDeadlineSeconds` counts from the Job's start, Pending time included, so it is the sum of every phase: `--schedule-timeout` + the code wait + `--timeout` + the collection window + the `--keep-on-failure` window when set + 15 minutes of margin (105 minutes with the defaults *(update: Rollout PR A: 115 minutes; 20 + 10 + 60 + 10 + 15, the original sum was an arithmetic slip)*; *(update: Rollout PR A3: a two-pod run's code wait is the larger of the code wait and the schedule timeout (§4.11), so its deadline is 125 minutes with the defaults)*). `ttlSecondsAfterFinished: 600`; a 10-minute wait for the code; a 10-minute collection window. The windows can be shortened by configuration for tests.
 - **The CLI deletes** the run's Job (cascading to its pods and owned objects) on success, failure, Ctrl-C and SIGTERM, and then waits until the objects are gone. A second Ctrl-C skips the wait, not the delete, so the run is reported as "delete requested, not verified". If deletion can't be verified, the `cleanup` command is printed (exit codes in §3.5).
 - **Every run starts** by deleting the owner's expired objects in the namespace, including Jobs still suspended past their `ostia.dev/expires` time. A CLI that dies between creating the suspended Job and unsuspending it leaves one: no deadline or TTL runs while a Job is suspended. It costs nothing, since no pod exists, and `cleanup` lists and deletes it.
 - **`cleanup`** deletes the caller's runs; `--run-id` targets one run; `--all` covers every managed run in the namespace, after a confirmation. PVCs from `--cache` are deleted only by `cleanup --cache`.
@@ -498,9 +498,9 @@ stateDiagram-v2
 For the UCX programs that need two nodes (`rdma_put`, `gdr_stream`, `tcp_put`, `dual_link --mode rails`; RFC-0001 §6.4):
 
 - `--pods 2` creates an Indexed Job with required pod anti-affinity, so the two pods land on different nodes (`--same-node` relaxes it).
-- The pods may start minutes apart, for example when one waits for a scale-up. The CLI uploads the code only once every pod is Running, and each supervisor's code wait lasts at least the schedule timeout. Each pod gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST=<job>-0.<service>` and `OSTIA_PORT`. The same command runs in both.
-- The programs already take `--listen PORT` and `--connect HOST:PORT` (#19). Mapping the ranks to them in the benchmark driver (rank 0 to `--listen $OSTIA_PORT`, rank 1 to `--connect $OSTIA_PEER_HOST:$OSTIA_PORT`) is new work in PR A; today the driver only uses the single-node launcher. Rank 1 retries the peer's DNS name and the connection for up to 2 minutes, because the headless Service's record appears only once pod 0 is Ready.
-- Results are collected from each pod into `rank-<i>/`. If either pod fails, the run fails and both are torn down.
+- The pods may start minutes apart, for example when one waits for a scale-up. The CLI uploads the code only once every pod is Running, and each supervisor's code wait lasts at least the schedule timeout. Each pod gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST=<job>-0.<service>` and `OSTIA_PORT`. The same command runs in both. *(update: Rollout PR A3: `OSTIA_PORT` is 29400; `OSTIA_RANK` comes from the Indexed Job's completion-index annotation through the downward API; the headless Service has the Job's name and `publishNotReadyAddresses: true`; the per-run NetworkPolicy allows every port between the run's pods, because UCX opens more connections after the rendezvous. The CLI polls both pods' logs every 3 seconds (`kubectl logs -l <run> --prefix --tail=-1`) instead of following them, so a pod that dies is seen while the other still runs.)*
+- The programs already take `--listen PORT` and `--connect HOST:PORT` (#19). Mapping the ranks to them in the benchmark driver (rank 0 to `--listen $OSTIA_PORT`, rank 1 to `--connect $OSTIA_PEER_HOST:$OSTIA_PORT`) is new work in PR A; today the driver only uses the single-node launcher. Rank 1 retries the peer's DNS name and the connection for up to 2 minutes, because the headless Service's record appears only once pod 0 is Ready. *(update: Rollout PR A3: the driver (`ostia_bench.py run --remote`) retries the name for 2 minutes and leaves the connection retry to the program, since a test connection would take rank 0's single accept; only rank 1, the source, writes the record and the evidence.)*
+- Results are collected from each pod into `rank-<i>/`. If either pod fails, the run fails and both are torn down. *(update: Rollout PR A3: `--pods` takes 1 or 2.)*
 
 #### 4.12 RDMA profiles (opt-in, privileged)
 
@@ -509,7 +509,7 @@ Two-node RDMA and GPUDirect need things `restricted` forbids: RDMA device resour
 - run only in a namespace labelled PSA `privileged`, which `init --privileged` creates. A normal run never creates or relabels one;
 - request the profile's `rdma/*` resources and add `IPC_LOCK`. Kubernetes doesn't set ambient capabilities, so an added capability has no effect for a non-root process: RDMA pods run as root inside their privileged namespace. The memlock limit can't be set in a pod spec; it comes from the container runtime (`LimitMEMLOCK`), and `verify` checks it with `ulimit -l`;
 - use the pod network by default, through the device plugin, so the service-account, token, cloud-identity and NetworkPolicy defaults of §4.6 still apply;
-- may set `host_network = true` only as a separate, explicit profile field. A host-network pod reaches the node's metadata server, so it gets the node's cloud identity (the GKE node service account, the EKS node IAM role), and NetworkPolicies don't apply to it. The summary states this for every such run, and `verify` probes the metadata server in that mode;
+- may set `host_network = true` only as a separate, explicit profile field *(update: Rollout PR A3: the profile fields are `rdma_resources = { "rdma/<name>" = "<n>" }` and `host_network`; either on a profile not of kind `rdma` is an exit 2)*. A host-network pod reaches the node's metadata server, so it gets the node's cloud identity (the GKE node service account, the EKS node IAM role), and NetworkPolicies don't apply to it. The summary states this for every such run, and `verify` probes the metadata server in that mode;
 - are refused in a `restricted` namespace, with the fix naming `init --privileged`.
 
 No RDMA-capable cluster is available today, so this section is designed but unproven. Its first real use confirms it (Open questions).
@@ -558,7 +558,7 @@ namespace = "ostia-gate"
 profile = "a100x4"           # a user profile with 4 GPUs on one node
 ```
 
-A setup file whose k8s machine has no mapping is exit 2, naming the key to add.
+A setup file whose k8s machine has no mapping is exit 2, naming the key to add. *(update: Rollout PR A3: a k8s machine also declares `accelerators` (`"<GPU>:<n>"`, as rented machines do), and the mapped profile must have at least that many GPUs; `pods` stands in for `nodes`. `remote gate` is partial in PR A3: it runs the capability check, the mapping, the RDMA rule, the evidence-counter probe, the gate workloads with `--evidence` and the evidence check (`--baseline` adds `compare.py`); RFC-0004 §1.1's active probes, RFC-0003's captures and `rent`'s fallback handover come with RFC-0004 PR 7 and RFC-0003 PR 6.)*
 
 `ostia-dev remote gate <setup>` runs it. A k8s machine passes exactly the checks a rented one does:
 
