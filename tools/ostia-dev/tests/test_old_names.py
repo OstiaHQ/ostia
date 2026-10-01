@@ -13,7 +13,6 @@ EXEMPT = (
     "docs/adr/",
     "pixi.lock",
     "tools/ostia-dev/tests/renames.py",
-    "tools/ostia-dev/tests/parity/",
     "tools/ostia-dev/tests/test_old_names.py",
     # schema 1's $id names its first home; it identifies the schema, not a file (ruling B17).
     "tools/ostia-dev/src/ostia_dev/bench/schema-v1.json",

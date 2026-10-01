@@ -194,23 +194,6 @@ jobs:
           # shellcheck disable=SC2086 # one argument per file
           pixi run -e clang ostia-dev check tidy $files
 
-  parity:
-    # RFC-0005 §2.3 and Testing "PR B parity": every old tool, read from the commit before the
-    # migration, against its ostia-dev replacement. Removed after the migration merges.
-    name: parity
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        # actions/checkout v7.0.1
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: ./.github/actions/setup
-      - name: Old entry points against their ostia-dev commands
-        run: pixi run pytest -m parity tools/ostia-dev/tests/parity -v
-
   docs-as-test:
     name: docs-as-test (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
