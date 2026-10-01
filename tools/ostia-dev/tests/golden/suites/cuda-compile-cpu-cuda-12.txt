@@ -1,0 +1,4 @@
+install	install	pixi install --locked -e cuda-12
+configure	build	pixi run --frozen -e cuda-12 cmake --preset release -DOSTIA_BUILD_BENCH=ON
+build	build	pixi run --frozen -e cuda-12 cmake --build --preset release
+summary	report	pixi run --frozen -e cuda-12 grep -E '^(cuda|cuda_toolkit|architectures|compiler):' /w/build/cuda-12/release/ostia-summary.txt

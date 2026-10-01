@@ -32,12 +32,12 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           environment: ${{ matrix.env }}
-      - name: pixi run -e ${{ matrix.env }} test-levels
-        run: pixi run -e ${{ matrix.env }} test-levels
+      - name: pixi run -e ${{ matrix.env }} ostia-dev test --levels
+        run: pixi run -e ${{ matrix.env }} ostia-dev test --levels
       - name: Summary
         if: always()
         run: |
           {
             echo "### levels-full ${{ matrix.name }}"
-            echo "Reproduce: \`pixi run -e ${{ matrix.env }} test-levels\`"
+            echo "Reproduce: \`pixi run -e ${{ matrix.env }} ostia-dev test --levels\`"
           } >> "$GITHUB_STEP_SUMMARY"

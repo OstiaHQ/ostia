@@ -2,7 +2,7 @@
 // nvlink-node setup) the source GPU copies to two peer GPUs over their NVLink paths,
 // each path alone and then both together. Across nodes (--mode rails, the rdma-pair
 // setup) the same transfer runs over two NICs (common/ucx.cpp). The bound is the sum of
-// the two paths, or a shared resource's measured limit if lower (tools/bench/bounds.py).
+// the two paths, or a shared resource's measured limit if lower (ostia_dev/bench/bounds.py).
 //
 //   dual_link [--mode nvlink] [--src 0] [--dst-a 1] [--dst-b 2] [--bytes 256MiB]
 //             [--samples N] [--smoke] [--corrupt]

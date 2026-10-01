@@ -149,7 +149,7 @@ def container(
     """Run the pipeline in a local podman or docker container (RFC-0005 §5).
 
     On a Mac the container is linux/arm64 and compile-only: `--env cuda-12 --env cuda-13
-    --preset release --no-test` replaces check-cuda. On a Linux host with an NVIDIA GPU,
+    --suite cuda-compile` compiles everything with nvcc. On a Linux host with an NVIDIA GPU,
     `--gpus --profile l4` runs the GPU suites.
     """
     if verbose:

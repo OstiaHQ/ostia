@@ -2,11 +2,12 @@
 [tool.pytest.ini_options]
 testpaths = ["tests/python", "tools", "telemetry/tools"]
 pythonpath = ["."]
-addopts = "-m 'not slow and not gpu and not kind'"
+addopts = "-m 'not slow and not gpu and not kind and not parity'"
 markers = [
-    "slow: rebuilds native code; run with `pixi run test-rebuild`",
+    "slow: rebuilds native code; run with `pixi run ostia-dev test rebuild`",
     "gpu: needs a CUDA device",
     "kind: needs a kind cluster (RFC-0005 Testing); the remote.yml kind job runs them",
+    "parity: old tool against its ostia-dev replacement (RFC-0005 §2.3); CI's parity job runs them",
 ]
 
 [tool.ruff]

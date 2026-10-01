@@ -1,5 +1,5 @@
 # Source dependencies fetched by CPM (RFC-0001 §2.1, §2.3). Every CPMAddPackage pins a
-# tag and a full commit SHA (§2.4); tools/ci/check_cpm_pins.py enforces the form below.
+# tag and a full commit SHA (§2.4); `ostia-dev check cpm-pins` enforces the form below.
 include_guard(GLOBAL)
 cmake_policy(VERSION 4.1)
 include(${CMAKE_CURRENT_LIST_DIR}/CPM.cmake)

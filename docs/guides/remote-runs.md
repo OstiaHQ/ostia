@@ -34,10 +34,10 @@ The GPU suites need a GPU: a Linux host with `--gpus`, or a cluster's GPU node.
 
 ```bash
 pixi run ostia-dev remote container --env default --suite cpu                                  # the CPU tests, on Linux
-pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --preset release --no-test     # compile the CUDA code with both toolkits
+pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile             # compile the CUDA code with both toolkits
 ```
 
-The second command does what `pixi run check-cuda` does; `--env` repeats, and each environment is its own run with its own result.
+The second command compiles everything with nvcc, the benchmarks included, and runs no tests; it replaces the old `check-cuda` task. `--env` repeats, and each environment is its own run with its own result.
 
 **On a Linux host with an NVIDIA GPU** and the NVIDIA container toolkit, `--gpus` passes the GPUs through. Name a GPU profile with it, so the run knows the GPU's compute capability and runs the GPU checks:
 
@@ -119,11 +119,11 @@ The two-node benchmark programs (`rdma_put`, `gdr_stream`, `tcp_put`, `dual_link
 
 ```bash
 pixi run ostia-dev remote k8s --context <ctx> --profile l4 --pods 2 -- \
-  python tools/bench/ostia_bench.py run --remote --format ostia \
+  ostia-dev bench run --remote --format ostia \
   --bench build/cuda-12/release/fabric/bench/ostia_fabric_bench_tcp_put
 ```
 
-- Both pods run the same command. Each gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST` (rank 0's name) and `OSTIA_PORT` (29400). `ostia_bench.py run --remote` turns them into `--listen` on rank 0 and `--connect` on rank 1. Before each program the two drivers meet on port 29401 and start it together, waiting up to 30 minutes for the slower pod's build.
+- Both pods run the same command. Each gets `OSTIA_RANK` (0 or 1), `OSTIA_SIZE=2`, `OSTIA_PEER_HOST` (rank 0's name) and `OSTIA_PORT` (29400). `ostia-dev bench run --remote` turns them into `--listen` on rank 0 and `--connect` on rank 1. Before each program the two drivers meet on port 29401 and start it together, waiting up to 30 minutes for the slower pod's build.
 - The pods land on different nodes; `--same-node` lets them share one.
 - In a guarded namespace, a per-run network policy lets the two pods reach each other on any port, and nothing else.
 - The code is uploaded once both pods run, so one may wait for a scale-up. The output shows each line as `[rank 0]` or `[rank 1]`. If either pod fails, the run fails and both are removed.

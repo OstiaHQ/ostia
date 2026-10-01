@@ -15,4 +15,4 @@
 - [ ] Tests added or updated
 - [ ] GPU-affecting change ([ADR-0014](https://github.com/OstiaHQ/ostia/blob/main/docs/adr/0014-on-demand-remote-test-runs.md) rule 2): a maintainer reviewed the diff at the head SHA, ran `ostia-dev remote k8s --context <ctx> --profile l4 --suite gpu --ref pr/<n>` (plus `--suite bench-smoke` for `*/bench/`) and pasted the summary line here ([remote-runs.md](https://github.com/OstiaHQ/ostia/blob/main/docs/guides/remote-runs.md)), or this PR doesn't need one
 - [ ] Docs updated (component README, guides, PRD if scope changed)
-- [ ] `python3 tools/docs/gen_index.py --check` passes if RFCs or ADRs changed
+- [ ] `pixi run ostia-dev docs index --check` passes if RFCs or ADRs changed

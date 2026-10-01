@@ -1,5 +1,5 @@
 # The component dependency table (RFC-0001 §3.3). cmake/layering.json is the single
-# source; tools/ci/check_layering.py and check_graph.py read the same file.
+# source; ostia_dev/ci/check_layering.py and check_graph.py read the same file.
 include_guard(GLOBAL)
 # Modules also run under `cmake -P`, where no project sets policies.
 cmake_policy(VERSION 4.1)
@@ -73,7 +73,7 @@ endfunction()
 # Part 2 of RFC-0001 §3.3: walk each component's own direct link edges, after all
 # targets exist. Catches raw target_link_libraries calls that bypass ostia_add_component.
 # Generator expressions are scanned for ostia names but cannot be evaluated here; CI's
-# resolved-graph check (tools/ci/check_graph.py) covers what they expand to.
+# resolved-graph check (ostia_dev/ci/check_graph.py) covers what they expand to.
 function(ostia_check_layering)
   if(OSTIA_SKIP_LINK_WALK)
     return() # fixtures only: lets the graph_genex fixture reach generation

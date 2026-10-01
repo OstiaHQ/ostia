@@ -67,7 +67,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 
 ## Finding documents
 
-- **The index below** lists every RFC and ADR with its status and components. Regenerate it with `python3 tools/docs/gen_index.py`; `--check` fails if it is out of date.
+- **The index below** lists every RFC and ADR with its status and components. Regenerate it with `pixi run ostia-dev docs index`; `--check` fails if it is out of date.
 - **Component READMEs** (for example `fabric/README.md`) link to the RFCs that describe them.
 - **Code comments cite sections**, for example `// See RFC-0005 §5.3 (credit accounting)`, so a reader can jump from code to design.
 - **Search by number:** `rg "RFC-0005"` finds the design and every place that implements it.
@@ -75,7 +75,7 @@ discussion: https://github.com/OstiaHQ/ostia/pull/NN
 ## Figures
 
 - New documents use Mermaid code blocks, which GitHub renders directly.
-- Hand-drawn figures keep their source next to the rendered SVG: sources in `<doc>/figures/src/*.jsx`, output in `<doc>/figures/*.svg`. Re-render with `bun tools/docs/render-figures.js docs/product/figures/src docs/product/figures`. The SVGs follow the reader's light or dark mode.
+- Hand-drawn figures keep their source next to the rendered SVG: sources in `<doc>/figures/src/*.jsx`, output in `<doc>/figures/*.svg`. Re-render with `pixi run ostia-dev docs figures docs/product/figures/src docs/product/figures`. The SVGs follow the reader's light or dark mode.
 
 ## Index
 

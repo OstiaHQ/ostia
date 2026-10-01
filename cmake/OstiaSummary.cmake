@@ -1,5 +1,5 @@
 # Configure summary (RFC-0001, Failure handling): printed at configure time and written
-# to <build>/ostia-summary.txt, which `pixi run doctor` reads. Keys are fixed.
+# to <build>/ostia-summary.txt, which `pixi run ostia-dev doctor` reads. Keys are fixed.
 include_guard(GLOBAL)
 cmake_policy(VERSION 4.1)
 

@@ -20,8 +20,8 @@ With [pixi](https://pixi.sh) installed, on macOS (Apple silicon) or Linux, and n
 
 ```bash
 pixi install
-pixi run build
-pixi run test
+pixi run ostia-dev build
+pixi run ostia-dev test
 ```
 
 See [docs/guides/building.md](docs/guides/building.md) for environments, CUDA, IDE setup and troubleshooting.

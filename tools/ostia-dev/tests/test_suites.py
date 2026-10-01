@@ -38,6 +38,14 @@ def test_golden_cpu_suite_on_the_cpu_profile(cfg):
     _golden("cpu-cpu-default", suites.encode(plan.steps) + "\n")
 
 
+def test_cuda_compile_suite_golden(cfg):
+    """check-cuda's replacement (ruling B9): nvcc compiles everything, benchmarks included."""
+    p = profiles.resolve("cpu", None, cfg)
+    plan = suites.build_plan(cfg, p, "cuda-12", suite="cuda-compile", run_id="container-cpu-x")
+    _golden("cuda-compile-cpu-cuda-12", suites.encode(plan.steps) + "\n")
+    assert not [s for s in plan.steps if s.kind == "command"]
+
+
 def test_install_is_locked_and_later_steps_are_frozen(cfg):
     plan = suites.build_plan(cfg, profiles.resolve("cpu", None, cfg), "default", suite="cpu")
     by_kind = {s.kind: s for s in plan.steps}
@@ -134,7 +142,7 @@ def test_no_build_and_no_test(cfg):
 def test_unknown_suite_is_exit_2(cfg):
     with pytest.raises(UsageError) as e:
         suites.build_plan(cfg, profiles.resolve("cpu", None, cfg), "default", suite="nope")
-    assert "bench-smoke, cpu, gpu, overhead-aa, sanitizer" in e.value.message
+    assert "bench-smoke, cpu, cuda-compile, gpu, overhead-aa, sanitizer" in e.value.message
 
 
 def test_suite_and_command_together_is_exit_2(cfg):

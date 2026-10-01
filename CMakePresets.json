@@ -42,14 +42,6 @@
       }
     },
     {
-      "name": "gpu-ci",
-      "inherits": "release",
-      "displayName": "GPU CI (sm_89 only, RFC-0001 \u00a71.1)",
-      "cacheVariables": {
-        "CMAKE_CUDA_ARCHITECTURES": "89"
-      }
-    },
-    {
       "name": "asan-ubsan",
       "inherits": "dev",
       "displayName": "AddressSanitizer + UBSan (Clang, CI)",
@@ -108,10 +100,6 @@
       "configurePreset": "release"
     },
     {
-      "name": "gpu-ci",
-      "configurePreset": "gpu-ci"
-    },
-    {
       "name": "asan-ubsan",
       "configurePreset": "asan-ubsan"
     },
@@ -150,16 +138,6 @@
     {
       "name": "release",
       "configurePreset": "release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "jobs": 0
-      }
-    },
-    {
-      "name": "gpu-ci",
-      "configurePreset": "gpu-ci",
       "output": {
         "outputOnFailure": true
       },

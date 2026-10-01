@@ -216,6 +216,15 @@ def test_plan_nvlink_node(tmp_path, cfg):
     assert run.plan.suite == "gate"
 
 
+def test_plan_runs_the_bench_tools_through_ostia_dev(tmp_path, cfg):
+    run = FakeRun(tmp_path, code=1)
+    _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run)
+    cmds = _commands(run.plan)
+    assert "ostia-dev bench evidence --probe nvlink" in cmds["evidence-probe"]
+    assert "ostia-dev bench run --format ostia --evidence" in cmds["bench-p2p_copy"]
+    assert "tools/bench" not in " ".join(cmds.values())
+
+
 def test_plan_rdma_pair_two_pods(tmp_path, cfg):
     run = FakeRun(tmp_path, code=1)
     _gate(tmp_path, cfg, _setup(tmp_path, RDMA, "rdma-pair", nodes=2), run)

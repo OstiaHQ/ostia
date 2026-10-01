@@ -18,7 +18,6 @@ from ostia_dev.remote import suites
 from ostia_dev.remote.core import RunSpec
 from ostia_dev.remote.profiles import Profile, parallelism, resolve
 
-ROOT = Path(__file__).resolve().parents[6]
 ENV = "cuda-12"
 PENDING = (
     "RFC-0004 §1.1's active capability probes (RFC-0004 PR 7)",
@@ -40,16 +39,13 @@ BINARY = "ostia_fabric_bench_"
 
 
 def _bench():
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
-    from tools.bench import capabilities, evidence
+    from ostia_dev.bench import capabilities, evidence
 
     return capabilities, evidence
 
 
 def _compare_main() -> Callable[[list[str]], int]:
-    _bench()
-    from tools.bench import compare
+    from ostia_dev.bench import compare
 
     return compare.main
 
@@ -112,7 +108,6 @@ def check_machine(setup: dict, which: str, cfg: Config) -> tuple[dict, dict, Pro
 def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: str) -> suites.Plan:
     pods = machine["pods"]
     build_dir = f"{suites.WORK}/build/{env}/release"
-    bench = f"{suites.WORK}/tools/bench"
     steps = suites.gpu_preflight(profile)
     steps.append(suites.Step("install", "install", ("pixi", "install", "--locked", "-e", env)))
     configure = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON"]
@@ -130,7 +125,7 @@ def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: st
     if any(w in NVLINK_WORKLOADS or (w == "dual_link" and pods == 1) for w in setup["gate"]):
         probes += ["--probe", "nvlink"]
     if probes:
-        probe = ["python", f"{bench}/evidence.py", *probes]
+        probe = ["ostia-dev", "bench", "evidence", *probes]
         steps.append(suites.Step("evidence-probe", "command", suites._pixi(env, probe)))
     for w in setup["gate"]:
         if w not in PROGRAMS:
@@ -157,7 +152,7 @@ def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: st
             args = ["--mode", "nvlink"]
         remote = ["--remote"] if pods == 2 else []
         argv = [
-            "python", f"{bench}/ostia_bench.py", "run", "--format", "ostia", "--evidence",
+            "ostia-dev", "bench", "run", "--format", "ostia", "--evidence",
             *remote, "--needs-gpu", "--bench", f"{build_dir}/fabric/bench/{BINARY}{program}",
             "--build-dir", build_dir, "--out", f"{suites.WORK}/bench/results", "--run-id", run_id,
             "--", *args,

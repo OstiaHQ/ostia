@@ -51,7 +51,7 @@ inline Result<void> check_build_level(std::string_view component, int compiled, 
     m += level_name(loaded);
     m += " (" + std::to_string(loaded) + ")";
     m += "; a telemetry flavour applies to the whole installed stack; "
-         "fix: install one flavour (pixi run py-dev); see: RFC-0001 §5";
+         "fix: install one flavour (pixi run ostia-dev py-dev); see: RFC-0001 §5";
     return Unexpected(Error{1, std::move(m)});
 }
 

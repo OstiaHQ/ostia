@@ -1,16 +1,17 @@
-# Install with `pixi run hooks`. Hooks call the same pixi tasks as CI (RFC-0001 §3.3, §4.1).
+# Install with `pixi run ostia-dev hooks`. Hooks call the same ostia-dev commands as CI
+# (RFC-0001 §3.3, §4.1).
 repos:
   - repo: local
     hooks:
       - id: lint
-        name: pixi run lint
-        entry: pixi run lint
+        name: pixi run ostia-dev lint
+        entry: pixi run ostia-dev lint
         language: system
         pass_filenames: false
         stages: [pre-commit]
       - id: clang-tidy
-        name: pixi run tidy
-        entry: pixi run tidy
+        name: pixi run ostia-dev check tidy
+        entry: pixi run ostia-dev check tidy
         language: system
         pass_filenames: false
         stages: [manual]

@@ -29,7 +29,7 @@ ruff = "*"
 gersemi = "*"
 clang-format = "19.*"
 clang-tools = "19.*"
-python-clang = "19.*" # libclang bindings for tools/ci/check_telemetry_macros.py
+python-clang = "19.*" # libclang bindings for ostia-dev check macros
 pre-commit = "*"
 typer = ">=0.27,<0.28"  # ostia-dev's argument parsing (RFC-0005 §2.4)
 git = ">=2.56"          # CPM fetches inside remote pods, which cannot apt-get (RFC-0005 §2.4)
@@ -135,75 +135,11 @@ ucx = { features = ["linux", "gcc14", "ucx-cpu"] }
 gcc15 = { features = ["linux", "gcc15"] }
 
 [tasks]
+# The one task pixi keeps: its inputs/outputs cache decides when to reconfigure. Every
+# command is `pixi run ostia-dev …` (RFC-0005 §2.2).
 _configure = { cmd = "cmake --preset dev", inputs = [
   "CMakePresets.json",
   "pixi.lock",
 ], outputs = [
   "build/{{ pixi.environment.name }}/dev/CMakeCache.txt",
 ], description = "Configure the dev preset (re-runs only when presets or the lock change)" }
-build = { cmd = "cmake --build --preset dev", depends-on = [
-  "_configure",
-], description = "Build the dev preset" }
-test-cpp = { cmd = "ctest --preset dev", depends-on = [
-  "build",
-], description = "Run C++ and CMake tests; extra args go to ctest, e.g. -R Result" }
-install-native = { cmd = "cmake --install $OSTIA_BUILD_ROOT/dev --prefix $CONDA_PREFIX && cmake -E copy $OSTIA_BUILD_ROOT/dev/install_manifest.txt $OSTIA_BUILD_ROOT/native-install-manifest.txt", depends-on = [
-  "build",
-], description = "Install libostia-* into the pixi environment (RFC-0001 §3.5)" }
-py-dev = { cmd = "python tools/dev/py_dev.py --preset dev", depends-on = [
-  "install-native",
-], description = "Build native code and install the Python editables; the documented rebuild after a native change" }
-test-py = { cmd = "pytest", depends-on = [
-  "py-dev",
-], description = "Run Python tests (extra args go to pytest)" }
-test = { depends-on = ["test-cpp", "test-py"], description = "Run all tests" }
-test-rebuild = { cmd = "pytest -m slow tests/python", depends-on = [
-  "py-dev",
-], description = "Slow tests: native change visible after rebuild, py-dev idempotency" }
-lint = { cmd = "python tools/ci/lint.py lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, comments, docs index" }
-fmt = { cmd = "python tools/ci/lint.py fmt", description = "Apply clang-format, ruff and gersemi" }
-check-graph = { cmd = "cmake --preset dev --graphviz=$OSTIA_BUILD_ROOT/dev/ostia.dot && python tools/ci/check_graph.py --dot $OSTIA_BUILD_ROOT/dev/ostia.dot", depends-on = [
-  "_configure",
-], description = "Check resolved link edges against the layering table (reconfigures)" }
-check-macros = { cmd = "python tools/ci/check_telemetry_macros.py --build $OSTIA_BUILD_ROOT/dev", depends-on = [
-  "_configure",
-], description = "Telemetry macro arguments must not change state (RFC-0001 §5; parses with libclang)" }
-check = { depends-on = [
-  "lint",
-  "check-graph",
-  "check-macros",
-  "test",
-], description = "Everything CI requires (RFC-0001 §4.1)" }
-tidy = { cmd = "run-clang-tidy -quiet -p $OSTIA_BUILD_ROOT/dev", depends-on = [
-  "_configure",
-], description = "clang-tidy over the compile database (slow; manual pre-commit stage)" }
-doctor = { cmd = "python tools/dev/doctor.py", description = "Print the environment and diagnose common problems" }
-clean = { cmd = "python tools/dev/clean.py", description = "Remove build output and everything py-dev installed into the environment" }
-hooks = { cmd = "pre-commit install", description = "Install the git pre-commit hook (runs pixi run lint)" }
-docs-index = { cmd = "python tools/docs/gen_index.py", description = "Regenerate the RFC/ADR index in docs/README.md" }
-check-cuda = { cmd = "python tools/dev/check_cuda.py", description = "Compile the CUDA code with nvcc in a linux/arm64 container (no GPU needed)" }
-sanitize-asan = { cmd = "cmake --preset asan-ubsan && cmake --build --preset asan-ubsan && ctest --preset asan-ubsan", description = "Build and test with AddressSanitizer + UBSan (CI: pixi run -e clang sanitize-asan)" }
-sanitize-tsan = { cmd = "cmake --preset tsan && cmake --build --preset tsan && ctest --preset tsan", description = "Build and test with ThreadSanitizer (CI: pixi run -e clang sanitize-tsan)" }
-test-multiprocess = { cmd = "ctest --preset dev -L multiprocess", depends-on = [
-  "build",
-], description = "Multi-process tests over UCX TCP loopback (Linux: pixi run -e ucx test-multiprocess)" }
-docs-as-test = { cmd = "python tools/ci/docs_as_test.py", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
-test-preset = { cmd = "cmake --preset {{ preset }} && cmake --build --preset {{ preset }} && ctest --preset {{ preset }}", args = [
-  "preset",
-], description = "Configure, build and test one preset, e.g. pixi run test-preset level-off" }
-test-levels = { depends-on = [
-  { task = "test-preset", args = [
-    "level-off",
-  ] },
-  { task = "test-preset", args = [
-    "level-metrics",
-  ] },
-  { task = "test-preset", args = [
-    "level-trace",
-  ] },
-  { task = "test-preset", args = [
-    "level-debug",
-  ] },
-], description = "Build and test all four telemetry levels (RFC-0001 §5)" }
-bench = { cmd = "python tools/bench/ostia_bench.py", description = "Run a benchmark and record schema-1 results (docs/guides/benchmarks.md)" }
-compare = { cmd = "python tools/bench/compare.py", description = "Compare benchmark results with a baseline (RFC-0001 §6.3)" }

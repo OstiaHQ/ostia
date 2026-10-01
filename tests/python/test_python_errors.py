@@ -33,4 +33,4 @@ def test_pip_install_without_native_prefix_explains_fix(tmp_path):
         env=env,
     )
     assert r.returncode != 0
-    assert "fix: run pixi run py-dev" in r.stdout + r.stderr
+    assert "fix: run pixi run ostia-dev py-dev" in r.stdout + r.stderr

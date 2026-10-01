@@ -1,7 +1,7 @@
 // Shared pieces of the M0 gate workload programs (RFC-0001 §6.4): arguments, the data
 // pattern every program checksums, result output in the `ostia` format that
-// tools/bench/ostia_bench.py completes to schema 1, and `evidence:` lines that
-// tools/bench/evidence.py reads. These are standalone reference programs, not Ostia's
+// ostia_dev/bench/ostia_bench.py completes to schema 1, and `evidence:` lines that
+// ostia_dev/bench/evidence.py reads. These are standalone reference programs, not Ostia's
 // data path; they port the prototype's ideas, not its code (D6).
 #pragma once
 

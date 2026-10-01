@@ -67,9 +67,10 @@ if(Python3_FOUND AND CMAKE_NM)
   add_test(
     NAME telemetry.exported_symbols
     COMMAND
-      ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ci/check_exports.py --lib
-      $<TARGET_FILE:ostia_telemetry> --expected ${PROJECT_SOURCE_DIR}/telemetry/abi/exports.txt
-      --level ${OSTIA_TELEMETRY_LEVEL} --nm ${CMAKE_NM}
+      ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ostia-dev/src/ostia_dev/ci/check_exports.py
+      --lib $<TARGET_FILE:ostia_telemetry> --expected
+      ${PROJECT_SOURCE_DIR}/telemetry/abi/exports.txt --level ${OSTIA_TELEMETRY_LEVEL} --nm
+      ${CMAKE_NM}
   )
   set_tests_properties(telemetry.exported_symbols PROPERTIES LABELS cpu)
 endif()

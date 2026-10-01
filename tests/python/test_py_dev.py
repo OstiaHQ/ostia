@@ -1,11 +1,10 @@
-"""`pixi run py-dev` is idempotent (RFC-0001 §3.5)."""
+"""`pixi run ostia-dev py-dev` is idempotent (RFC-0001 §3.5)."""
 
 import subprocess
 import sys
 
 import pytest
 
-from .conftest import ROOT
 from .test_namespace import _load
 
 pytestmark = pytest.mark.slow
@@ -13,7 +12,7 @@ pytestmark = pytest.mark.slow
 
 def _py_dev(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "dev" / "py_dev.py"), *args],
+        [sys.executable, "-m", "ostia_dev.dev.py_dev", *args],
         capture_output=True,
         text=True,
     )
