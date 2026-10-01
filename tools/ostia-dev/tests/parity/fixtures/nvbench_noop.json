@@ -1,0 +1,51 @@
+{
+  "meta": {"version": {"json": {"major": 1, "minor": 0, "patch": 0}}},
+  "devices": [{"id": 0, "name": "NVIDIA L4", "sm_version": 890}],
+  "benchmarks": [
+    {
+      "name": "noop_kernel",
+      "index": 0,
+      "states": [
+        {
+          "name": "Device=0 Iterations=65536",
+          "device": 0,
+          "is_skipped": false,
+          "axis_values": [
+            {"name": "Iterations", "type": "int64", "value": "65536"}
+          ],
+          "summaries": [
+            {"tag": "nv/cold/time/gpu/mean", "name": "GPU Time",
+             "data": [{"name": "value", "type": "float64", "value": "1.25e-05"}]},
+            {"tag": "nv/cold/sample_size", "name": "Samples",
+             "data": [{"name": "value", "type": "int64", "value": "1000"}]}
+          ]
+        },
+        {
+          "name": "Device=0 Iterations=1",
+          "device": 0,
+          "is_skipped": true,
+          "axis_values": [{"name": "Iterations", "type": "int64", "value": "1"}],
+          "summaries": []
+        }
+      ]
+    },
+    {
+      "name": "copy",
+      "index": 1,
+      "states": [
+        {
+          "name": "Device=0 Bytes=1048576",
+          "device": 0,
+          "is_skipped": false,
+          "axis_values": [{"name": "Bytes", "type": "int64", "value": "1048576"}],
+          "summaries": [
+            {"tag": "nv/cold/time/gpu/mean", "name": "GPU Time",
+             "data": [{"name": "value", "type": "float64", "value": "4.0e-06"}]},
+            {"tag": "nv/cold/bw/global/bytes_per_second", "name": "GlobalMem BW",
+             "data": [{"name": "value", "type": "float64", "value": "2.5e11"}]}
+          ]
+        }
+      ]
+    }
+  ]
+}
