@@ -1,12 +1,12 @@
-"""Tests for tools/ci/lint.py (ADR-0013, RFC-0001 §4.1 lint row)."""
+"""Tests for ostia_dev/ci/lint.py (ADR-0013, RFC-0001 §4.1 lint row)."""
 
 import shutil
 import subprocess
 from pathlib import Path
 
-from tools.ci.lint import file_lists, main
+from ostia_dev.ci.lint import file_lists, main
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 
 
 def git_repo(root: Path, files: dict[str, str]) -> None:
@@ -44,7 +44,7 @@ def test_bad_format_reports_the_fix(tmp_path, capsys):
     assert main(["lint", "--root", str(tmp_path), "--only", "clang-format"]) == 1
     out = capsys.readouterr().out
     assert "error: clang-format found problems" in out
-    assert "fix: pixi run fmt" in out
+    assert "fix: pixi run ostia-dev fmt" in out
     assert "lint: 1 checks, 1 failed" in out
 
 

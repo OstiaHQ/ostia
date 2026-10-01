@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Flag comments that break the comment policy (ADR-0015).
 
-    python tools/ci/check_comments.py FILE...   # check whole files, exit 1 on findings
-    python tools/ci/check_comments.py --hook    # Claude Code PostToolUse hook (stdin JSON)
+    pixi run ostia-dev check comments FILE...   # check whole files, exit 1 on findings
+    pixi run ostia-dev check comments --hook    # Claude Code PostToolUse hook (stdin JSON)
 
 The rules are heuristics, tuned to stay quiet on Ostia's own code: commented-out code,
 banners, step narration, change-log notes, comments that restate the next line, TODOs
@@ -26,7 +26,8 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.ci._contract import ROOT, violation
+from ostia_dev.contract import violation
+from ostia_dev.paths import ROOT
 
 HASH = {".py", ".cmake", ".sh"}
 SLASH = {".h", ".hpp", ".c", ".cpp", ".cu", ".cuh", ".inl", ".ipp"}
@@ -340,7 +341,9 @@ def check_hook(payload: dict) -> list[Finding]:
 
 
 def main(argv: list[str] | None = None, stdin=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check comments", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("files", nargs="*", type=Path)
     parser.add_argument("--hook", action="store_true", help="read a PostToolUse payload on stdin")
     args = parser.parse_args(argv)

@@ -5,7 +5,7 @@ The configure-time link walk cannot evaluate generator expressions, so CI also c
 the graph CMake resolves:
 
     cmake --preset dev --graphviz=build/default/dev/graph/ostia.dot
-    python tools/ci/check_graph.py --dot build/default/dev/graph/ostia.dot
+    pixi run ostia-dev check graph --dot build/default/dev/graph/ostia.dot
 """
 
 import argparse
@@ -17,7 +17,8 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.ci._contract import allowed_text, load_layering, violation
+from ostia_dev.ci.layering import allowed_text, load_layering
+from ostia_dev.contract import violation
 
 NODE = re.compile(r'^\s*"(?P<id>[^"]+)"\s*\[\s*label\s*=\s*"(?P<label>[^"]*)"')
 EDGE = re.compile(r'^\s*"(?P<src>[^"]+)"\s*->\s*"(?P<dst>[^"]+)"')
@@ -58,7 +59,9 @@ def violations(dot_text: str, layering: dict | None = None) -> list[Violation]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check graph", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--dot", type=Path, required=True, help="output of cmake --graphviz")
     parser.add_argument("--layering", type=Path, help="default: cmake/layering.json")
     args = parser.parse_args(argv)

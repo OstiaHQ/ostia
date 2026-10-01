@@ -452,7 +452,7 @@ ROWS = [
 ]
 
 # Tasks whose subcommands have landed; their rows must pass from then on.
-LANDED: set[int] = set()
+LANDED: set[int] = {3}
 
 
 def _params():

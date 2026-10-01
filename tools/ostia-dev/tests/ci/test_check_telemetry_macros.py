@@ -1,12 +1,11 @@
-"""Tests for tools/ci/check_telemetry_macros.py (RFC-0001 §5)."""
+"""Tests for ostia_dev/ci/check_telemetry_macros.py (RFC-0001 §5)."""
 
 from pathlib import Path
 
 import pytest
+from ostia_dev.ci.check_telemetry_macros import scan_args, scan_public_headers
 
-from tools.ci.check_telemetry_macros import scan_args, scan_public_headers
-
-LAYERING = Path(__file__).resolve().parents[3] / "cmake" / "layering.json"
+LAYERING = Path(__file__).resolve().parents[4] / "cmake" / "layering.json"
 
 
 def repo(root: Path, files: dict[str, str]) -> Path:

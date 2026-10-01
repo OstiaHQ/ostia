@@ -1,4 +1,4 @@
-"""Tests for tools/ci/check_comments.py (ADR-0015)."""
+"""Tests for ostia_dev/ci/check_comments.py (ADR-0015)."""
 
 import io
 import json
@@ -6,10 +6,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from ostia_dev.ci.check_comments import check_text, language, main
 
-from tools.ci.check_comments import check_text, language, main
-
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 
 
 def rules(text: str, lang: str, hook: bool = False) -> list[str]:
@@ -55,7 +54,7 @@ CLEAN = [
     ("py", "import x  # noqa: F401\n"),
     ("py", "# x = 1  comment-ok\n"),
     ("cpp", "// NOLINT(readability-x)\n"),
-    ("py", "# fix: pixi run fmt\n"),
+    ("py", "# fix: pixi run ostia-dev fmt\n"),
     ("py", "# Fixed at build time; see ADR-0013.\n"),
     # A multi-line explanation is not a label, even if a line echoes the code.
     ("py", "# Return the rank\n# because the caller indexes by it.\nreturn rank\n"),

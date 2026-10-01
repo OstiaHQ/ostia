@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Run the fast checks, or apply the formatters (ADR-0013, RFC-0001 §4.1 lint row).
 
-    pixi run lint    # clang-format, ruff, gersemi, include layering, CPM pins, comments,
+    pixi run ostia-dev lint    # clang-format, ruff, gersemi, include layering, CPM pins, comments,
                      # docs index
-    pixi run fmt     # apply clang-format, ruff and gersemi
+    pixi run ostia-dev fmt     # apply clang-format, ruff and gersemi
 
 Each failing check prints an error-message-contract block with its fix; the run ends
 with one summary line. File lists come from git, so only tracked files are checked.
@@ -17,8 +17,8 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.ci._contract import ROOT
-from tools.ci.check_comments import language
+from ostia_dev.ci.check_comments import language
+from ostia_dev.paths import ROOT
 
 CPP = (".h", ".hpp", ".c", ".cpp", ".cu", ".cuh")
 VENDORED = {"cmake/CPM.cmake"}
@@ -57,26 +57,31 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
             ("gersemi", ["gersemi", "-i"], lists["cmake"], ""),
         ]
     return [
-        ("clang-format", ["clang-format", "--dry-run", "-Werror"], lists["cpp"], "pixi run fmt"),
+        (
+            "clang-format",
+            ["clang-format", "--dry-run", "-Werror"],
+            lists["cpp"],
+            "pixi run ostia-dev fmt",
+        ),
         (
             "ruff-check",
             ["ruff", "check"],
             lists["python"],
-            "pixi run fmt, then fix the rest by hand",
+            "pixi run ostia-dev fmt, then fix the rest by hand",
         ),
-        ("ruff-format", ["ruff", "format", "--check"], lists["python"], "pixi run fmt"),
-        ("gersemi", ["gersemi", "--check"], lists["cmake"], "pixi run fmt"),
-        ("layering", [py, str(ROOT / "tools/ci/check_layering.py"), "--root", str(root)], None, ""),
-        ("cpm-pins", [py, str(ROOT / "tools/ci/check_cpm_pins.py"), "--root", str(root)], None, ""),
+        ("ruff-format", ["ruff", "format", "--check"], lists["python"], "pixi run ostia-dev fmt"),
+        ("gersemi", ["gersemi", "--check"], lists["cmake"], "pixi run ostia-dev fmt"),
+        ("layering", [py, "-m", "ostia_dev.ci.check_layering", "--root", str(root)], None, ""),
+        ("cpm-pins", [py, "-m", "ostia_dev.ci.check_cpm_pins", "--root", str(root)], None, ""),
         (
             "telemetry-headers",
-            [py, str(ROOT / "tools/ci/check_telemetry_macros.py"), "--public", "--root", str(root)],
+            [py, "-m", "ostia_dev.ci.check_telemetry_macros", "--public", "--root", str(root)],
             None,
             "",
         ),
         (
             "comments",
-            [py, str(ROOT / "tools/ci/check_comments.py")],
+            [py, "-m", "ostia_dev.ci.check_comments"],
             lists["comments"],
             "",
         ),
@@ -84,13 +89,13 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
             "docs-index",
             [py, str(ROOT / "tools/docs/gen_index.py"), "--check"],
             None,
-            "pixi run docs-index",
+            "pixi run ostia-dev docs index",
         ),
     ]
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="ostia-dev", description=__doc__.splitlines()[0])
     parser.add_argument("mode", choices=["lint", "fmt"])
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--only", action="append", help="run only the named check(s)")

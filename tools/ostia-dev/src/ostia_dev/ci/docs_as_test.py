@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a guide's marked command blocks verbatim (RFC-0001 §4.1 docs-as-test).
 
-    python tools/ci/docs_as_test.py --doc docs/guides/building.md
+    pixi run ostia-dev check docs-as-test --doc docs/guides/building.md
 
 Runs every fenced block between `<!-- docs-as-test:start -->` and
 `<!-- docs-as-test:end -->` with `bash -e`, in order, in --cwd (default: the repository
@@ -39,7 +39,9 @@ def blocks(text: str) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     root = Path(__file__).resolve().parents[2]
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check docs-as-test", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--doc", type=Path, default=root / "docs" / "guides" / "building.md")
     parser.add_argument("--cwd", type=Path, default=root)
     args = parser.parse_args(argv)

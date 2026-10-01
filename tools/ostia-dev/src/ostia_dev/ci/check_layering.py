@@ -19,7 +19,9 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.ci._contract import ROOT, allowed_text, load_layering, violation
+from ostia_dev.ci.layering import allowed_text, load_layering
+from ostia_dev.contract import violation
+from ostia_dev.paths import ROOT
 
 EXTENSIONS = {".h", ".hpp", ".c", ".cpp", ".cu", ".cuh", ".inl", ".ipp"}
 INCLUDE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]')
@@ -101,7 +103,9 @@ RULES = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check layering", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
     args = parser.parse_args(argv)
     found = scan(args.root)

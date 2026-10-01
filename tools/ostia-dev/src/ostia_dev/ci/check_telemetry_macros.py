@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check how the telemetry macros are used (RFC-0001 §5).
 
-    python tools/ci/check_telemetry_macros.py --public      # fast: part of pixi run lint
-    python tools/ci/check_telemetry_macros.py --build build/default/dev
+    pixi run ostia-dev check macros --public      # fast: part of pixi run ostia-dev lint
+    pixi run ostia-dev check macros --build build/default/dev
 
 1. Public headers (every `<component>/include/`) must not use OSTIA_COUNT,
    OSTIA_TRACE_EVENT or OSTIA_DEBUG_CHECK, or include ostia/telemetry/config.h or
@@ -26,7 +26,9 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.ci._contract import ROOT, load_layering, violation
+from ostia_dev.ci.layering import load_layering
+from ostia_dev.contract import violation
+from ostia_dev.paths import ROOT
 
 MACROS = ("OSTIA_COUNT", "OSTIA_TRACE_EVENT", "OSTIA_DEBUG_CHECK")
 MACRO_USE = re.compile(r"\b(" + "|".join(MACROS) + r")\s*\(")
@@ -243,7 +245,9 @@ def scan_build(root: Path, build: Path) -> list[Violation]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check macros", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--root", type=Path, default=ROOT)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--public", action="store_true", help="only the public-header rule")

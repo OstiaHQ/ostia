@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/ci/check_comments.py\" --hook",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/ostia-dev/src/ostia_dev/ci/check_comments.py\" --hook",
             "timeout": 10
           }
         ]

@@ -29,7 +29,7 @@ ruff = "*"
 gersemi = "*"
 clang-format = "19.*"
 clang-tools = "19.*"
-python-clang = "19.*" # libclang bindings for tools/ci/check_telemetry_macros.py
+python-clang = "19.*" # libclang bindings for ostia-dev check macros
 pre-commit = "*"
 typer = ">=0.27,<0.28"  # ostia-dev's argument parsing (RFC-0005 §2.4)
 git = ">=2.56"          # CPM fetches inside remote pods, which cannot apt-get (RFC-0005 §2.4)
@@ -160,12 +160,12 @@ test = { depends-on = ["test-cpp", "test-py"], description = "Run all tests" }
 test-rebuild = { cmd = "pytest -m slow tests/python", depends-on = [
   "py-dev",
 ], description = "Slow tests: native change visible after rebuild, py-dev idempotency" }
-lint = { cmd = "python tools/ci/lint.py lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, comments, docs index" }
-fmt = { cmd = "python tools/ci/lint.py fmt", description = "Apply clang-format, ruff and gersemi" }
-check-graph = { cmd = "cmake --preset dev --graphviz=$OSTIA_BUILD_ROOT/dev/ostia.dot && python tools/ci/check_graph.py --dot $OSTIA_BUILD_ROOT/dev/ostia.dot", depends-on = [
+lint = { cmd = "ostia-dev lint", description = "Fast checks: format, ruff, gersemi, include layering, CPM pins, comments, docs index" }
+fmt = { cmd = "ostia-dev fmt", description = "Apply clang-format, ruff and gersemi" }
+check-graph = { cmd = "cmake --preset dev --graphviz=$OSTIA_BUILD_ROOT/dev/ostia.dot && python -m ostia_dev.ci.check_graph --dot $OSTIA_BUILD_ROOT/dev/ostia.dot", depends-on = [
   "_configure",
 ], description = "Check resolved link edges against the layering table (reconfigures)" }
-check-macros = { cmd = "python tools/ci/check_telemetry_macros.py --build $OSTIA_BUILD_ROOT/dev", depends-on = [
+check-macros = { cmd = "python -m ostia_dev.ci.check_telemetry_macros --build $OSTIA_BUILD_ROOT/dev", depends-on = [
   "_configure",
 ], description = "Telemetry macro arguments must not change state (RFC-0001 §5; parses with libclang)" }
 check = { depends-on = [
@@ -187,7 +187,7 @@ sanitize-tsan = { cmd = "cmake --preset tsan && cmake --build --preset tsan && c
 test-multiprocess = { cmd = "ctest --preset dev -L multiprocess", depends-on = [
   "build",
 ], description = "Multi-process tests over UCX TCP loopback (Linux: pixi run -e ucx test-multiprocess)" }
-docs-as-test = { cmd = "python tools/ci/docs_as_test.py", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
+docs-as-test = { cmd = "ostia-dev check docs-as-test", description = "Run building.md's quick-start commands verbatim (CI runs it on a fresh runner)" }
 test-preset = { cmd = "cmake --preset {{ preset }} && cmake --build --preset {{ preset }} && ctest --preset {{ preset }}", args = [
   "preset",
 ], description = "Configure, build and test one preset, e.g. pixi run test-preset level-off" }

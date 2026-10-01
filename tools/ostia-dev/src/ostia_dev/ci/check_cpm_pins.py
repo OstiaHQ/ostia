@@ -22,7 +22,8 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.ci._contract import ROOT, violation
+from ostia_dev.contract import violation
+from ostia_dev.paths import ROOT
 
 SKIP_DIRS = {"build", ".pixi", ".cache", ".git", ".superpowers"}
 SKIP_FILES = {"cmake/CPM.cmake"}
@@ -106,7 +107,9 @@ def scan(root: Path) -> list[Unpinned]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check cpm-pins", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args(argv)
     found = scan(args.root)
@@ -118,7 +121,8 @@ def main(argv: list[str] | None = None) -> int:
                 "every CPMAddPackage pins VERSION (the release tag) "
                 "and GIT_TAG (its full commit SHA)",
                 "resolve the SHA with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` "
-                "and write the pinned form shown in tools/ci/check_cpm_pins.py",
+                "and write the pinned form shown in "
+                "tools/ostia-dev/src/ostia_dev/ci/check_cpm_pins.py",
                 "RFC-0001 §2.4",
             )
         )

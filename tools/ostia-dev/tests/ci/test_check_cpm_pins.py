@@ -1,10 +1,9 @@
-"""Tests for tools/ci/check_cpm_pins.py (RFC-0001 §2.4)."""
+"""Tests for ostia_dev/ci/check_cpm_pins.py (RFC-0001 §2.4)."""
 
 from pathlib import Path
 
 import pytest
-
-from tools.ci.check_cpm_pins import main, scan
+from ostia_dev.ci.check_cpm_pins import main, scan
 
 SHA = "063de7e9578f82b369302001269680b4b1553359"
 
@@ -79,4 +78,4 @@ def test_message_follows_contract(tmp_path, capsys):
 
 
 def test_repository_is_pinned():
-    assert scan(Path(__file__).resolve().parents[3]) == []
+    assert scan(Path(__file__).resolve().parents[4]) == []

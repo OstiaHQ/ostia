@@ -1,10 +1,10 @@
-"""Tests for tools/ci/check_graph.py (RFC-0001 §3.3, enforcement part 2)."""
+"""Tests for ostia_dev/ci/check_graph.py (RFC-0001 §3.3, enforcement part 2)."""
 
 from pathlib import Path
 
-from tools.ci.check_graph import main, violations
+from ostia_dev.ci.check_graph import main, violations
 
-GOLDEN = Path(__file__).resolve().parents[3] / "tests" / "cmake" / "layering" / "golden.dot"
+GOLDEN = Path(__file__).resolve().parents[4] / "tests" / "cmake" / "layering" / "golden.dot"
 UPWARD = "ostia_fabric -> ostia_exchange"
 
 

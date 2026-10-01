@@ -1,12 +1,11 @@
-"""Tests for tools/ci/check_layering.py (RFC-0001 §3.3, enforcement part 3)."""
+"""Tests for ostia_dev/ci/check_layering.py (RFC-0001 §3.3, enforcement part 3)."""
 
 from pathlib import Path
 
 import pytest
+from ostia_dev.ci.check_layering import main, scan
 
-from tools.ci.check_layering import main, scan
-
-LAYERING = Path(__file__).resolve().parents[3] / "cmake" / "layering.json"
+LAYERING = Path(__file__).resolve().parents[4] / "cmake" / "layering.json"
 
 
 def make_repo(root: Path, files: dict[str, str]) -> None:

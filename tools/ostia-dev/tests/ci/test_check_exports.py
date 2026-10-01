@@ -1,6 +1,6 @@
-"""Tests for tools/ci/check_exports.py (RFC-0001 §5: identical exports in every flavour)."""
+"""Tests for ostia_dev/ci/check_exports.py (RFC-0001 §5: identical exports in every flavour)."""
 
-from tools.ci.check_exports import check, exported
+from ostia_dev.ci.check_exports import check, exported
 
 MACOS = """
 0000000000003f80 T _ostia_telemetry_build_level

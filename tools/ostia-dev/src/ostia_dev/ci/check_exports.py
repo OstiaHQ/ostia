@@ -47,7 +47,9 @@ def check(symbols: list[str], expected: list[str], level: int) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="ostia-dev check exports", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("--lib", type=Path, required=True)
     parser.add_argument("--expected", type=Path, required=True)
     parser.add_argument("--level", type=int, required=True)

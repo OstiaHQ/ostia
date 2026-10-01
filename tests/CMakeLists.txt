@@ -94,8 +94,9 @@ if(Python3_FOUND)
     COMMAND
       ${CMAKE_COMMAND} -DSRC=${_layering}/graph_genex
       -DBIN=${CMAKE_CURRENT_BINARY_DIR}/cfg/graph_genex -DPYTHON=${Python3_EXECUTABLE}
-      -DCHECK=${PROJECT_SOURCE_DIR}/tools/ci/check_graph.py -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR}
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
+      -DCHECK=${PROJECT_SOURCE_DIR}/tools/ostia-dev/src/ostia_dev/ci/check_graph.py
+      -DOSTIA_SOURCE_DIR=${PROJECT_SOURCE_DIR} -P
+      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/graph_check.cmake
   )
   set_tests_properties(layering.graph_genex PROPERTIES LABELS cpu)
 endif()
