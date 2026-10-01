@@ -2,6 +2,7 @@
 """Evidence of the transport a gate workload actually used (RFC-0001 §6.4).
 
     evidence.py bench/results/<run id>/evidence/<workload>.json
+    evidence.py --probe ib|nvlink [--probe ...]     # before a gate run (RFC-0005 §6)
 
 A gate run that cannot show it used the capability it tests fails instead of passing.
 `ostia_bench.py run --evidence` writes one evidence file per workload:
@@ -67,6 +68,32 @@ def nvlink_counters(text: str) -> dict[str, int]:
             key = f"{gpu}/{m.group(1)}"
             out[key] = out.get(key, 0) + int(m.group(2)) * 1024
     return out
+
+
+def probe(kinds: list[str], *, ib_root: Path | None = None, run=subprocess.run) -> list[str]:
+    """Problems that would leave a gate unable to show its transport: counters it needs
+    and can't read. Empty means every counter is readable."""
+    problems = []
+    if "ib" in kinds:
+        root = ib_root or IB_ROOT
+        readable = 0
+        for f in root.glob("*/ports/*/counters/port_xmit_data"):
+            try:
+                int(f.read_text())
+                readable += 1
+            except (OSError, ValueError):
+                continue
+        if not readable:
+            problems.append(f"no readable InfiniBand port_xmit_data counter under {root}")
+    if "nvlink" in kinds:
+        try:
+            r = run(["nvidia-smi", "nvlink", "-gt", "d"], capture_output=True, text=True)
+            ok = r.returncode == 0 and NVLINK_DATA.search(r.stdout or "")
+        except OSError:
+            ok = False
+        if not ok:
+            problems.append("no NVLink data counters from nvidia-smi nvlink -gt d")
+    return problems
 
 
 def snapshot() -> dict:
@@ -151,8 +178,19 @@ def check(ev: dict) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("files", nargs="+", type=Path)
+    parser.add_argument("files", nargs="*", type=Path)
+    parser.add_argument("--probe", action="append", choices=["ib", "nvlink"], default=[])
     args = parser.parse_args(argv)
+    if args.probe:
+        problems = probe(args.probe)
+        if problems:
+            print("error: evidence counters unreadable: " + "; ".join(problems))
+            print("  rule: a gate that cannot read its evidence fails closed\n  see: RFC-0005 §6")
+            return 1
+        print(f"evidence counters readable: {', '.join(args.probe)}")
+        return 0
+    if not args.files:
+        parser.error("give evidence files, or --probe")
     failed = 0
     for path in args.files:
         try:
