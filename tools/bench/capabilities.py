@@ -50,6 +50,11 @@ WORKLOADS: dict[str, list[Needs]] = {
     "topo_capture": [Needs()],
 }
 MACHINE_FIELDS = ("backend", "purchase", "nodes", "accelerators", "capabilities")
+BACKENDS = ("skypilot", "azure", "k8s")
+# A k8s machine names a logical machine the user config maps to a cluster (RFC-0005 §6);
+# it has pods instead of nodes, and nothing to buy.
+K8S_FIELDS = ("backend", "machine", "pods", "accelerators", "capabilities")
+K8S_FORBIDDEN = ("purchase", "cloud", "region", "instance_type", "nodes")
 
 
 class SetupError(ValueError):
@@ -81,9 +86,25 @@ def load_setup(path: Path) -> dict:
     if set(machines) != {"primary", "fallback"}:
         raise SetupError(f"{path}: machines must be exactly primary and fallback")
     for name, m in machines.items():
-        missing = [f for f in MACHINE_FIELDS if f not in m]
+        if m.get("backend") not in BACKENDS:
+            raise SetupError(
+                f"{path}: machine {name} has backend '{m.get('backend')}'; "
+                f"use one of {', '.join(BACKENDS)}"
+            )
+        k8s = m["backend"] == "k8s"
+        missing = [f for f in (K8S_FIELDS if k8s else MACHINE_FIELDS) if f not in m]
         if missing:
             raise SetupError(f"{path}: machine {name} is missing {', '.join(missing)}")
+        if k8s:
+            extra = [f for f in K8S_FORBIDDEN if f in m]
+            if extra:
+                raise SetupError(
+                    f"{path}: k8s machine {name} cannot set {', '.join(extra)} "
+                    "(pods sets the node count; nothing is bought)"
+                )
+            if m["pods"] not in (1, 2):
+                raise SetupError(f"{path}: k8s machine {name}: pods must be 1 or 2")
+            m["nodes"] = m["pods"]
     setup["gate"] = setup.get("gate") or []
     setup["also_run"] = setup.get("also_run") or []
     return setup

@@ -165,3 +165,18 @@ def test_append_rolls_back_when_the_result_does_not_parse(tmp_path):
 def test_append_rejects_odd_value_keys(tmp_path):
     with pytest.raises(ValueError):
         config.append_table(tmp_path / "c.toml", ("t",), {"a b": "x"})
+
+
+def test_config_machine_lookup(tmp_path):
+    path = tmp_path / "c.toml"
+    path.write_text(
+        'schema = 1\n[remote.k8s.machines.nvlink-a100x4]\ncontext = "c1"\n'
+        'namespace = "ostia-gate"\nprofile = "a100x4"\n'
+    )
+    cfg = config.load(path)
+    assert cfg.machine("nvlink-a100x4") == {
+        "context": "c1",
+        "namespace": "ostia-gate",
+        "profile": "a100x4",
+    }
+    assert cfg.machine("other") == {}
