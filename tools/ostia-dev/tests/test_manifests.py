@@ -290,3 +290,91 @@ def test_dns_goes_anywhere_with_nodelocal_but_https_stays_blocked():
     assert "to" not in dns and sorted(p["protocol"] for p in dns["ports"]) == ["TCP", "UDP"]
     assert {p["port"] for p in dns["ports"]} == {53}
     assert "169.254.0.0/16" in https["to"][0]["ipBlock"]["except"]
+
+
+OWNER_REF = {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "name": "ostia-k8s-l4-20261002-141501-a1b2c3",
+    "uid": "11111111-2222-3333-4444-555555555555",
+    "controller": True,
+    "blockOwnerDeletion": True,
+}
+
+
+def _env_of(job):
+    return {e["name"]: e for e in job["spec"]["template"]["spec"]["containers"][0]["env"]}
+
+
+def test_golden_two_pod_objects(tmp_path):
+    run = make_run(tmp_path, "l4", "gke")
+    _golden("job-indexed-gke-l4", _job(run, pods=2))
+    cpu = make_run(tmp_path, "cpu", "generic", cfg=_cfg(tmp_path))
+    _golden("job-indexed-same-node-generic-cpu", _job(cpu, pods=2, same_node=True))
+    name = manifests.job_name(run.run_id)
+    _golden("service-two-pod", manifests.service(run.run_id, name, OWNER_REF, OWNER))
+    _golden("run-policy-two-pod", manifests.run_policy(run.run_id, OWNER_REF, OWNER))
+
+
+def test_two_pod_job_shape(tmp_path):
+    run = make_run(tmp_path, "l4", "gke")
+    job = _job(run, pods=2)
+    spec, name = job["spec"], job["metadata"]["name"]
+    assert (spec["completionMode"], spec["completions"], spec["parallelism"]) == ("Indexed", 2, 2)
+    pod = spec["template"]["spec"]
+    assert pod["subdomain"] == name
+    [term] = pod["affinity"]["podAntiAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"]
+    assert term["labelSelector"]["matchLabels"] == {"ostia.dev/run-id": run.run_id}
+    assert term["topologyKey"] == "kubernetes.io/hostname"
+    env = _env_of(job)
+    assert env["OSTIA_SIZE"]["value"] == "2" and env["OSTIA_PORT"]["value"] == "29400"
+    assert env["OSTIA_PEER_HOST"]["value"] == f"{name}-0.{name}"
+    field = env["OSTIA_RANK"]["valueFrom"]["fieldRef"]["fieldPath"]
+    assert field == "metadata.annotations['batch.kubernetes.io/job-completion-index']"
+
+
+def test_same_node_drops_anti_affinity(tmp_path):
+    job = _job(make_run(tmp_path, "l4", "gke"), pods=2, same_node=True)
+    assert "affinity" not in job["spec"]["template"]["spec"]
+
+
+def test_two_pod_code_wait_and_deadline(tmp_path):
+    run = make_run(tmp_path, "l4", "gke")
+    assert _env_of(_job(run))["OSTIA_CODE_WAIT"]["value"] == "600"
+    job = _job(run, pods=2)
+    assert _env_of(job)["OSTIA_CODE_WAIT"]["value"] == "1200"
+    assert job["spec"]["activeDeadlineSeconds"] == (20 + 20 + 60 + 10 + 15) * 60
+    assert manifests.deadline_seconds(run.windows, pods=2) == 7500
+    assert manifests.deadline_seconds(run.windows) == 6900
+
+
+def test_service_and_policy_shape(tmp_path):
+    run = make_run(tmp_path, "l4", "gke")
+    name = manifests.job_name(run.run_id)
+    svc = manifests.service(run.run_id, name, OWNER_REF, OWNER)
+    assert svc["metadata"]["name"] == name and svc["spec"]["clusterIP"] == "None"
+    assert svc["spec"]["publishNotReadyAddresses"] is True
+    assert svc["spec"]["selector"] == {"ostia.dev/run-id": run.run_id}
+    assert svc["spec"]["ports"] == [{"name": "rendezvous", "port": 29400, "protocol": "TCP"}]
+    assert svc["metadata"]["ownerReferences"] == [OWNER_REF]
+    pol = manifests.run_policy(run.run_id, OWNER_REF, OWNER)
+    peers = [{"podSelector": {"matchLabels": {"ostia.dev/run-id": run.run_id}}}]
+    assert pol["spec"]["ingress"] == [{"from": peers}]
+    assert pol["spec"]["egress"] == [{"to": peers}]
+    assert pol["metadata"]["ownerReferences"] == [OWNER_REF]
+
+
+def test_service_name_is_a_dns_label(tmp_path):
+    import re
+
+    longest = max(config.load(tmp_path / "none.toml").profiles, key=len)
+    run_id = f"k8s-{longest}-20261002-141501-a1b2c3"
+    host = f"{manifests.job_name(run_id)}-1"
+    assert len(host) <= 63 and re.fullmatch(r"[a-z]([-a-z0-9]*[a-z0-9])?", host)
+
+
+def test_long_profile_name_is_refused_for_two_pods(tmp_path):
+    run = make_run(tmp_path, "l4", "gke", run_id="k8s-" + "x" * 40 + "-20261002-141501-a1b2c3")
+    with pytest.raises(UsageError) as e:
+        _job(run, pods=2)
+    assert "63" in e.value.message and "profile" in e.value.message

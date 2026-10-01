@@ -4,6 +4,7 @@ import datetime
 
 import yaml
 
+from ostia_dev.errors import UsageError
 from ostia_dev.remote.core import Run
 from ostia_dev.remote.suites import WORK
 
@@ -25,6 +26,8 @@ QUOTA = {
     "pods": "10",
 }
 LIMIT_DEFAULTS = {"cpu": "1", "memory": "2Gi", "ephemeral-storage": "10Gi"}
+RENDEZVOUS_PORT = 29400
+INDEX = "batch.kubernetes.io/job-completion-index"
 CACHE_ENV = {
     "RATTLER_CACHE_DIR": f"{WORK}/cache/rattler",
     "CPM_SOURCE_CACHE": f"{WORK}/cache/cpm",
@@ -40,11 +43,18 @@ def _stamp(t: datetime.datetime) -> str:
     return t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def deadline_seconds(windows: dict[str, int], keep: int = 0) -> int:
+def code_wait(windows: dict[str, int], pods: int = 1) -> int:
+    """A two-pod run's first pod may wait for the second's scale-up (§4.11)."""
+    if pods > 1:
+        return max(windows["code_wait"], windows["schedule_timeout"])
+    return windows["code_wait"]
+
+
+def deadline_seconds(windows: dict[str, int], keep: int = 0, pods: int = 1) -> int:
     """activeDeadlineSeconds counts Pending time too, so it is the sum of every phase (§4.8)."""
     return (
         windows["schedule_timeout"]
-        + windows["code_wait"]
+        + code_wait(windows, pods)
         + windows["timeout"]
         + windows["collect"]
         + keep
@@ -56,8 +66,9 @@ def job_name(run_id: str) -> str:
     return f"ostia-{run_id}"
 
 
-def _env(run: Run, keep: int, cache: bool, secret_keys: set[str]) -> list[dict]:
+def _env(run: Run, keep: int, cache: bool, secret_keys: set[str], pods: int = 1) -> list[dict]:
     env = run.supervisor_env()
+    env["OSTIA_CODE_WAIT"] = str(code_wait(run.windows, pods))
     # Kubernetes never expands $VAR from the image's environment; the supervisor does.
     expand = {k: v for k, v in run.profile.env.items() if "$" in v and env.get(k) == v}
     for k in expand:
@@ -69,7 +80,19 @@ def _env(run: Run, keep: int, cache: bool, secret_keys: set[str]) -> list[dict]:
         env.update(CACHE_ENV)
     for k in secret_keys:
         env.pop(k, None)  # secret values reach the pod only from the per-run Secret
-    return [{"name": k, "value": v} for k, v in env.items()]
+    items = [{"name": k, "value": v} for k, v in env.items()]
+    if pods > 1:
+        name = job_name(run.run_id)
+        items += [
+            {
+                "name": "OSTIA_RANK",
+                "valueFrom": {"fieldRef": {"fieldPath": f"metadata.annotations['{INDEX}']"}},
+            },
+            {"name": "OSTIA_SIZE", "value": str(pods)},
+            {"name": "OSTIA_PORT", "value": str(RENDEZVOUS_PORT)},
+            {"name": "OSTIA_PEER_HOST", "value": f"{name}-0.{name}"},
+        ]
+    return items
 
 
 def job(
@@ -83,9 +106,19 @@ def job(
     cache: bool = False,
     secret: str | None = None,
     secret_keys: frozenset[str] | set[str] = frozenset(),
+    pods: int = 1,
+    same_node: bool = False,
 ) -> dict:
     p = run.profile
-    deadline = deadline_seconds(run.windows, keep)
+    deadline = deadline_seconds(run.windows, keep, pods)
+    name = job_name(run.run_id)
+    if pods > 1 and len(f"{name}-{pods - 1}") > 63:
+        raise UsageError(
+            f"error: pod hostname {name}-{pods - 1} is longer than 63 characters\n"
+            "  rule: two-pod runs reach rank 0 at <job>-0.<job>, a DNS label of at most 63\n"
+            f"  fix: use a profile with a shorter name than {p.name!r}\n"
+            "  see: RFC-0005 §4.11"
+        )
     resources = {"cpu": p.cpu, "memory": p.memory, "ephemeral-storage": p.ephemeral_storage}
     if p.gpus:
         resources["nvidia.com/gpu"] = str(p.gpus)
@@ -93,7 +126,7 @@ def job(
         "name": "supervisor",
         "image": run.image,
         "command": ["/bin/sh", "-c", script, "ostia-supervisor"],
-        "env": _env(run, keep, cache, secret_keys),
+        "env": _env(run, keep, cache, secret_keys, pods),
         "resources": {"requests": dict(resources), "limits": dict(resources)},
         "securityContext": {
             "allowPrivilegeEscalation": False,
@@ -127,8 +160,30 @@ def job(
         pod["nodeSelector"] = dict(p.node_selector)
     if p.tolerations:
         pod["tolerations"] = list(p.tolerations)
+    if pods > 1:
+        pod["subdomain"] = name
+        if not same_node:
+            pod["affinity"] = {
+                "podAntiAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": [
+                        {
+                            "labelSelector": {"matchLabels": {"ostia.dev/run-id": run.run_id}},
+                            "topologyKey": "kubernetes.io/hostname",
+                        }
+                    ]
+                }
+            }
     meta_labels = labels(run.run_id, owner)
     expires = now + datetime.timedelta(seconds=deadline)
+    spec = {
+        "suspend": True,
+        "backoffLimit": 0,
+        "activeDeadlineSeconds": deadline,
+        "ttlSecondsAfterFinished": run.windows["ttl"],
+        "template": {"metadata": {"labels": dict(meta_labels)}, "spec": pod},
+    }
+    if pods > 1:
+        spec.update(completionMode="Indexed", completions=pods, parallelism=pods)
     return {
         "apiVersion": "batch/v1",
         "kind": "Job",
@@ -138,13 +193,7 @@ def job(
             "labels": meta_labels,
             "annotations": {"ostia.dev/expires": _stamp(expires)},
         },
-        "spec": {
-            "suspend": True,
-            "backoffLimit": 0,
-            "activeDeadlineSeconds": deadline,
-            "ttlSecondsAfterFinished": run.windows["ttl"],
-            "template": {"metadata": {"labels": dict(meta_labels)}, "spec": pod},
-        },
+        "spec": spec,
     }
 
 
@@ -170,6 +219,44 @@ def secret(run_id: str, values: dict[str, str], owner_ref: dict, owner: str) -> 
             "ownerReferences": [owner_ref],
         },
         "stringData": dict(values),
+    }
+
+
+def service(run_id: str, name: str, owner_ref: dict, owner: str) -> dict:
+    """The headless Service that gives rank 0 its DNS name before it is Ready (§4.11)."""
+    return {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {"name": name, "labels": labels(run_id, owner), "ownerReferences": [owner_ref]},
+        "spec": {
+            "clusterIP": "None",
+            "publishNotReadyAddresses": True,
+            "selector": {"ostia.dev/run-id": run_id},
+            "ports": [{"name": "rendezvous", "port": RENDEZVOUS_PORT, "protocol": "TCP"}],
+        },
+    }
+
+
+def run_policy(run_id: str, owner_ref: dict, owner: str) -> dict:
+    """Traffic between a run's own pods, on every port: UCX opens more after the rendezvous."""
+
+    def peers() -> list[dict]:
+        return [{"podSelector": {"matchLabels": {"ostia.dev/run-id": run_id}}}]
+
+    return {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {
+            "name": f"{job_name(run_id)}-peers",
+            "labels": labels(run_id, owner),
+            "ownerReferences": [owner_ref],
+        },
+        "spec": {
+            "podSelector": {"matchLabels": {"ostia.dev/run-id": run_id}},
+            "policyTypes": ["Ingress", "Egress"],
+            "ingress": [{"from": peers()}],
+            "egress": [{"to": peers()}],
+        },
     }
 
 
