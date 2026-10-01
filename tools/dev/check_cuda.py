@@ -21,9 +21,8 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ostia_dev import config
+from ostia_dev.paths import repo_root
 from ostia_dev.remote import tarball
-
-from tools.dev._paths import repo_root
 
 SCRIPT = r"""set -eu
 mkdir -p /w

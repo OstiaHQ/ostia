@@ -6,9 +6,12 @@ Every tool resolves the repository from its own location, so it works from any c
 import os
 from pathlib import Path
 
+# ostia-dev is installed editable (RFC-0005 §1.1), so this file sits in the checkout.
+ROOT = Path(__file__).resolve().parents[4]
+
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return ROOT
 
 
 def env_name() -> str:
