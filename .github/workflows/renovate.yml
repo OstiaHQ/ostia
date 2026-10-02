@@ -29,7 +29,7 @@ jobs:
 
       - name: Renovate
         # renovatebot/github-action v46.3.5
-        uses: renovatebot/github-action@1cd96b855fee0da6f230617e89dbff0e06ea393a
+        uses: renovatebot/github-action@6d26fcf0275dc65624cbc3d51fe78bc773f98321
         with:
           configurationFile: .github/renovate-global.js
           token: ${{ secrets.RENOVATE_TOKEN }}
