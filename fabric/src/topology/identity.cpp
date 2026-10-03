@@ -486,6 +486,8 @@ struct Search {
     Leaf first, best;
     bool found = false;
 
+    explicit Search(const Graph& graph) : g(graph) {}
+
     // Returns the depth to resume at, or kNoJump once the subtree is done.
     std::size_t run(const std::vector<int>& colour) {
         const std::size_t n = colour.size();
@@ -595,7 +597,7 @@ nlohmann::json swap_ends(nlohmann::json rails) {
 
 std::string canonical_identity_json(const Model& model) {
     Graph g = strip(model);
-    Search search{g};
+    Search search(g);
     search.run(refine(g, rank_values(g.vkey)));
     return search.best.cert;
 }
