@@ -115,6 +115,7 @@ The build compiles one of four telemetry levels (RFC-0001 §5). `OSTIA_TELEMETRY
 | `pixi run ostia-dev hooks` | Install the git pre-commit hook, which runs `pixi run ostia-dev lint` |
 | `pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile` | Compile the CUDA code with nvcc in a `linux/arm64` container (needs podman or docker) |
 | `pixi run -e clang ostia-dev test --sanitize asan-ubsan` | Build and test with AddressSanitizer and UBSan (Linux); `--sanitize tsan` for ThreadSanitizer |
+| `pixi run -e clang ostia-dev fuzz --time 120` | Fuzz the topology fixture JSON path with libFuzzer, ASan and UBSan for 120 seconds (Linux); extra arguments go to libFuzzer |
 | `pixi run -e ucx ostia-dev test -L multiprocess` | Multi-process tests over UCX TCP loopback (Linux) |
 | `pixi run -e cuda-12 ostia-dev bench run --bench <binary>` | Run a benchmark and record schema-1 results ([benchmarks.md](benchmarks.md)) |
 | `pixi run ostia-dev bench compare --baseline <file> --candidate <file>` | Compare benchmark results with a baseline |

@@ -93,6 +93,35 @@ def preset(name: str) -> list[list[str]]:
     ]
 
 
+FUZZ_TARGET = "ostia_fabric_topology_fuzz"
+
+
+def fuzz(seconds: int, *args: str) -> list[list[str]]:
+    """Build the fuzz preset's target and run it for `seconds`. New inputs go to a working
+    corpus that persists across runs; the seeds are regenerated from the fixtures at configure."""
+    tree = f"{build_root()}/fuzz"
+    corpus, crashes = f"{tree}/corpus", f"{tree}/crashes"
+    return [
+        ["cmake", "--preset", "fuzz"],
+        ["cmake", "--build", "--preset", "fuzz", "--target", FUZZ_TARGET],
+        ["cmake", "-E", "make_directory", corpus, crashes],
+        [
+            f"{tree}/fabric/fuzz/{FUZZ_TARGET}",
+            f"-max_total_time={seconds}",
+            # Well above a slow topo1 search under the sanitizers; a longer input is a finding.
+            "-timeout=25",
+            f"-artifact_prefix={crashes}/",
+            # Rewards inputs that bring a comparison's operands closer, so text integers in the
+            # JSON can climb past a threshold the seeds never reach.
+            "-use_value_profile=1",
+            "-print_final_stats=1",
+            *args,
+            corpus,
+            f"{tree}/fabric/fuzz/seeds",
+        ],
+    ]
+
+
 def graph(env: str) -> list[list[str]]:
     dot = f"{build_root()}/dev/ostia.dot"
     return [

@@ -108,6 +108,20 @@ if(OSTIA_SANITIZE)
   add_link_options(-fsanitize=${OSTIA_SANITIZE})
 endif()
 
+# Coverage instrumentation for the fuzz preset (`ostia-dev fuzz`). libFuzzer ships with Clang
+# only; each fuzz target adds -fsanitize=fuzzer itself, which supplies main().
+option(OSTIA_FUZZ "Build the fuzz targets (Clang)" OFF)
+if(OSTIA_FUZZ)
+  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(
+      FATAL_ERROR
+      "OSTIA_FUZZ needs Clang (libFuzzer); this build uses ${CMAKE_CXX_COMPILER_ID}.\n"
+      " fix: pixi run -e clang ostia-dev fuzz"
+    )
+  endif()
+  add_compile_options(-fsanitize=fuzzer-no-link)
+endif()
+
 # CUDA (RFC-0001 §1.1, §3.4): find nvcc, check its version and the host compiler range,
 # choose the architectures, and only then enable the language.
 set(
