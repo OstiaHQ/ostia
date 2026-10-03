@@ -2,7 +2,7 @@
 """Run the fast checks, or apply the formatters (ADR-0013, RFC-0001 §4.1 lint row).
 
     pixi run ostia-dev lint    # clang-format, ruff, gersemi, include layering, CPM pins, comments,
-                     # docs index
+                     # fixture leaks, docs index
     pixi run ostia-dev fmt     # apply clang-format, ruff and gersemi
 
 Each failing check prints an error-message-contract block with its fix; the run ends
@@ -85,6 +85,7 @@ def _checks(root: Path, lists: dict[str, list[str]], mode: str) -> list[tuple]:
             lists["comments"],
             "",
         ),
+        ("fixture-leaks", [py, "-m", "ostia_dev.ci.check_fixture_leaks"], None, ""),
         (
             "docs-index",
             [py, "-m", "ostia_dev.docs.gen_index", "--check"],
@@ -112,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         failed += 1
         output = (r.stdout + r.stderr).strip()
-        if name in ("layering", "cpm-pins", "telemetry-headers", "comments"):
+        if name in ("layering", "cpm-pins", "telemetry-headers", "comments", "fixture-leaks"):
             print(output)  # already in contract form
             continue
         lines = output.splitlines()

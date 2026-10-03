@@ -26,6 +26,11 @@ FORWARDED = [
     ("cpm-pins", "ci.check_cpm_pins", "CPM dependencies pinned to a tag and SHA (RFC-0001 §2.4)."),
     ("exports", "ci.check_exports", "A library exports exactly its ABI list (RFC-0001 §5)."),
     ("comments", "ci.check_comments", "Comments that break ADR-0015 (files, or --hook)."),
+    (
+        "fixture-leaks",
+        "ci.check_fixture_leaks",
+        "Machine identifiers in committed topology fixtures (RFC-0003 §3).",
+    ),
     ("docs-as-test", "ci.docs_as_test", "Run a guide's marked command blocks verbatim."),
 ]
 for verb, mod, text in FORWARDED:
@@ -71,7 +76,8 @@ def register(app: typer.Typer) -> None:
         app,
         "lint",
         "ci.lint",
-        "Fast checks: format, ruff, gersemi, layering, CPM pins, comments, docs index.",
+        "Fast checks: format, ruff, gersemi, layering, CPM pins, comments, fixture leaks,"
+        " docs index.",
         ("lint",),
     )
     passthrough.command(app, "fmt", "ci.lint", "Apply clang-format, ruff and gersemi.", ("fmt",))
