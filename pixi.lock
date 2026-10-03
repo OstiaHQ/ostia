@@ -75,6 +75,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/clangxx_linux-64-19.1-ha59f9be_28.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cmake-4.4.3-hff7ac6b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/compiler-rt-19.1.7-hb700be7_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.16.2-py312h8b7ec3f_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/git-2.56.0-pl5440h3795e67_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/icu-78.3-py310h44b86e0_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/keyutils-1.6.3-h7cc23a3_1.conda
@@ -109,6 +110,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libxml2-2.15.4-h7df9aa5_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/llvm-openmp-23.1.2-h7148c6a_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/llvm-tools-19-19.1.7-h3b15d91_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/llvm-tools-19.1.7-hb700be7_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.6-hdb14827_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ninja-1.13.2-h171cf75_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/openssl-3.6.4-h781a0a9_0.conda
@@ -186,6 +189,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/clangxx_linux-aarch64-19.1-hc092780_28.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cmake-4.4.3-hcbeb305_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/compiler-rt-19.1.7-hfefdfc9_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/coverage-7.16.2-py312he7c6268_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/git-2.56.0-pl5440h0749d22_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/icu-78.3-py311h3512406_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/keyutils-1.6.3-h5bc82ec_1.conda
@@ -220,6 +224,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/libxml2-2.15.4-h92b9305_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/libzlib-1.3.2-hdc9db2a_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/llvm-openmp-23.1.2-hde6636f_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/llvm-tools-19-19.1.7-hb2a4a65_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/llvm-tools-19.1.7-hfefdfc9_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/ncurses-6.6-h2b6f883_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/ninja-1.13.2-hdc560ac_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/openssl-3.6.4-he6ad1d5_0.conda
@@ -3345,6 +3351,21 @@ packages:
   run_exports: {}
   size: 112803
   timestamp: 1757411468917
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.16.2-py312h8b7ec3f_0.conda
+  sha256: 9ea2907ca5b95350b3b28dd7b6107b89b0754ab9504e214220eff7603e72d111
+  md5: 1d1ef312ddf97e5f5218d3a3d56dd7a0
+  depends:
+  - python
+  - libgcc >=15
+  - __glibc >=2.17,<3.0.a0
+  - python_abi 3.12.* *_cp312
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/coverage?source=compressed-mapping
+  run_exports: {}
+  size: 418196
+  timestamp: 1790542080154
 - conda: https://conda.anaconda.org/conda-forge/linux-64/cuda-crt-tools-12.8.93-ha770c72_3.conda
   sha256: 8d17500d74992372e3d4929c056ca16a89026ec6b9c9147fcc3c67c54d3a8cac
   md5: 3f8d05bb84dbe78ce1b94f85ce74e691
@@ -4563,6 +4584,42 @@ packages:
     - _openmp_mutex * *_llvm
   size: 6129472
   timestamp: 1790195558482
+- conda: https://conda.anaconda.org/conda-forge/linux-64/llvm-tools-19-19.1.7-h3b15d91_2.conda
+  sha256: 8e432eb9fe310429dbfa6f99678c509d9e677de81de354f2ed89d5a0a75396de
+  md5: c1908ce1b43123bc068f7226927e1bff
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=14
+  - libllvm19 19.1.7 hf7376ad_2
+  - libstdcxx >=14
+  - libzlib >=1.3.1,<2.0a0
+  - zstd >=1.5.7,<1.6.0a0
+  license: Apache-2.0 WITH LLVM-exception
+  license_family: Apache
+  purls: []
+  run_exports: {}
+  size: 23196756
+  timestamp: 1757357268176
+- conda: https://conda.anaconda.org/conda-forge/linux-64/llvm-tools-19.1.7-hb700be7_2.conda
+  sha256: 6ffcc46246c0f8c0a6cea64333674069838c34e58f4b8bfe33452ed431c6b3bd
+  md5: f477bd4a351e7158a3b0f342445a3a95
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=14
+  - libllvm19 19.1.7 hf7376ad_2
+  - libstdcxx >=14
+  - llvm-tools-19 19.1.7 h3b15d91_2
+  constrains:
+  - clang       19.1.7
+  - clang-tools 19.1.7
+  - llvmdev     19.1.7
+  - llvm        19.1.7
+  license: Apache-2.0 WITH LLVM-exception
+  license_family: Apache
+  purls: []
+  run_exports: {}
+  size: 87601
+  timestamp: 1757357321202
 - conda: https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.6-hdb14827_1.conda
   sha256: 5d46557214ed184381dafe835b7c94a474a1c3b307a08a250b1ea4779b44ffb3
   md5: ee6c0cd80a60961a1f48aa3e0b91f986
@@ -5161,6 +5218,20 @@ packages:
   run_exports: {}
   size: 113223
   timestamp: 1757411394232
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/coverage-7.16.2-py312he7c6268_0.conda
+  sha256: 8114b6c99505aeae8c0f967de6067aca1a24839d07e9255b03453f22c495dbe8
+  md5: 0f3789ee645b10659eb381956f3d1edd
+  depends:
+  - python
+  - libgcc >=15
+  - python_abi 3.12.* *_cp312
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/coverage?source=compressed-mapping
+  run_exports: {}
+  size: 418244
+  timestamp: 1790542432171
 - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/cuda-crt-tools-12.8.93-h579c4fd_3.conda
   sha256: ace94107f9ebce68cb7700ae32684f9d1885f2c7468d0e96f1db2abc93b232e8
   md5: b4752b52218351fe6a2c3ed66f186476
@@ -6352,6 +6423,40 @@ packages:
     - _openmp_mutex * *_llvm
   size: 5838703
   timestamp: 1790195440147
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/llvm-tools-19-19.1.7-hb2a4a65_2.conda
+  sha256: 39bb89b78af6c1618b7d7e1346b9e8a390f3c72888727c2e5092da1507b4236e
+  md5: facf476499d79aac4bbab0078fb52341
+  depends:
+  - libgcc >=14
+  - libllvm19 19.1.7 hfd2ba90_2
+  - libstdcxx >=14
+  - libzlib >=1.3.1,<2.0a0
+  - zstd >=1.5.7,<1.6.0a0
+  license: Apache-2.0 WITH LLVM-exception
+  license_family: Apache
+  purls: []
+  run_exports: {}
+  size: 23059753
+  timestamp: 1757348889535
+- conda: https://conda.anaconda.org/conda-forge/linux-aarch64/llvm-tools-19.1.7-hfefdfc9_2.conda
+  sha256: 8277201e197c1e2cdfad48abd75b245fabbabcf35d42694121cbaeee3f8b52a6
+  md5: 1a506f5259b512347ca6ef265f44d668
+  depends:
+  - libgcc >=14
+  - libllvm19 19.1.7 hfd2ba90_2
+  - libstdcxx >=14
+  - llvm-tools-19 19.1.7 hb2a4a65_2
+  constrains:
+  - clang-tools 19.1.7
+  - llvm        19.1.7
+  - clang       19.1.7
+  - llvmdev     19.1.7
+  license: Apache-2.0 WITH LLVM-exception
+  license_family: Apache
+  purls: []
+  run_exports: {}
+  size: 87839
+  timestamp: 1757348946274
 - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/ncurses-6.6-h2b6f883_1.conda
   sha256: d69a04914139627f0a6bfd19412d6c7f1e37edc896af84a6011e07e8bc1e69fa
   md5: c3b4349171ca987ff33a1de61f7b3f96

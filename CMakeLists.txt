@@ -122,6 +122,21 @@ if(OSTIA_FUZZ)
   add_compile_options(-fsanitize=fuzzer-no-link)
 endif()
 
+# Clang source-based coverage for the coverage preset (`ostia-dev coverage`). Applied to
+# everything built here; the report filters to Ostia's own sources.
+option(OSTIA_COVERAGE "Build with Clang source-based coverage" OFF)
+if(OSTIA_COVERAGE)
+  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(
+      FATAL_ERROR
+      "OSTIA_COVERAGE needs Clang (source-based coverage); this build uses ${CMAKE_CXX_COMPILER_ID}.\n"
+      " fix: pixi run -e clang ostia-dev coverage"
+    )
+  endif()
+  add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+  add_link_options(-fprofile-instr-generate)
+endif()
+
 # CUDA (RFC-0001 §1.1, §3.4): find nvcc, check its version and the host compiler range,
 # choose the architectures, and only then enable the language.
 set(

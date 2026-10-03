@@ -71,6 +71,14 @@
       }
     },
     {
+      "name": "coverage",
+      "inherits": "dev",
+      "displayName": "Clang source-based coverage (CI)",
+      "cacheVariables": {
+        "OSTIA_COVERAGE": "ON"
+      }
+    },
+    {
       "name": "level-off",
       "inherits": "release",
       "displayName": "Release at telemetry level off (RFC-0001 \u00a75)",
@@ -123,6 +131,10 @@
     {
       "name": "fuzz",
       "configurePreset": "fuzz"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
     },
     {
       "name": "level-off",
@@ -180,6 +192,19 @@
       },
       "execution": {
         "jobs": 0
+      }
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 0
+      },
+      "environment": {
+        "LLVM_PROFILE_FILE": "${sourceDir}/build/$env{PIXI_ENVIRONMENT_NAME}/coverage/profiles/%m-%p.profraw"
       }
     },
     {

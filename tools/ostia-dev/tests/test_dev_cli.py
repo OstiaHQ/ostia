@@ -117,6 +117,24 @@ def test_fuzz_stops_when_the_build_fails(run, monkeypatch):
     assert len(runner.calls) == 2
 
 
+def test_coverage_runs_cpp_then_python_tests_and_writes_both_reports(run):
+    _, calls = run("coverage")
+    tree = "/b/coverage"
+    assert calls[:5] == [
+        ["cmake", "--preset", "coverage"],
+        ["cmake", "--build", "--preset", "coverage"],
+        ["cmake", "-E", "rm", "-rf", f"{tree}/profiles"],
+        ["ctest", "--preset", "coverage"],
+        [sys.executable, "-m", "ostia_dev.dev.coverage", "--build", tree],
+    ]
+    assert calls[-4:] == [
+        ["coverage", "erase"],
+        ["coverage", "run", "-m", "pytest"],
+        ["coverage", "xml", "-o", f"{tree}/python.xml"],
+        ["coverage", "report"],
+    ]
+
+
 def test_hooks_runs_pre_commit_install(run):
     _, calls = run("hooks")
     assert calls == [["pre-commit", "install"]]

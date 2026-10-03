@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/OstiaHQ/ostia/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OstiaHQ/ostia/actions/workflows/ci.yml?query=branch%3Amain)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![codecov](https://codecov.io/gh/OstiaHQ/ostia/graph/badge.svg)](https://codecov.io/gh/OstiaHQ/ostia)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/OstiaHQ/ostia/badge)](https://scorecard.dev/viewer/?uri=github.com/OstiaHQ/ostia)
 
 Topology-aware GPU data infrastructure: a fabric that moves bytes over the best path the hardware offers, a columnar exchange for shuffles, a distributed runtime and a query engine on top.

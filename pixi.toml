@@ -83,6 +83,10 @@ gxx_linux-64 = "15.*"
 [feature.gcc15.target.linux-aarch64.dependencies]
 gxx_linux-aarch64 = "15.*"
 
+# llvm-tools (llvm-profdata, llvm-cov) and coverage.py are for `ostia-dev coverage`.
+[feature.clang.dependencies]
+llvm-tools = "19.*"
+coverage = "*"
 [feature.clang.target.linux-64.dependencies]
 clangxx_linux-64 = "19.*"
 [feature.clang.target.linux-aarch64.dependencies]
