@@ -6,7 +6,7 @@ All notable changes to Ostia are documented here. The format follows [Keep a Cha
 
 ### Added
 
-- Fuzzing: a libFuzzer target over the topology fixture JSON path (schema validation, the model builder and `topo1`), the `fuzz` preset and `OSTIA_FUZZ` option, `ostia-dev fuzz`, and the `fuzz-topology` CI job (2 minutes per PR, 30 nightly).
+- Fuzzing: a libFuzzer target over the topology fixture JSON path (schema validation, the model builder and `topo1`) with a JSON-aware custom mutator, the `fuzz` preset and `OSTIA_FUZZ` option, `ostia-dev fuzz`, and the `fuzz-topology` CI job (2 minutes per PR, 30 nightly).
 - Topology model and fixture replay (RFC-0003 §5–§6, §9, Rollout PR 6a): the internal `ostia_fabric_topology` library, the `topo1` structural identity, closed fixture schemas, synthetic fixtures with golden tests, `ostia-topo` and `ostia-dev topo show|golden`, the `fixture-leaks` lint check, and the `OSTIA_BUILD_TOOLS` option. New dependencies: hwloc ≥ 2.4 (pixi and distro), nlohmann/json 3.12.0 (CPM).
 - Build system (RFC-0001 §1–§3): CMake 4.1+ with presets `dev`, `release`, `asan-ubsan`, `tsan` and `level-*`; the `ostia_add_component` helper; skeleton `telemetry` and `fabric` components with placeholders for `exchange`, `runtime` and `query`; `ostia::Result<T>`.
 - pixi environments `default`, `cuda-12` and `cuda-13`, and the `ostia-dev` contributor CLI (RFC-0005) with `build`, `test`, `check`, `lint`, `fmt`, `py-dev`, `doctor`, `clean` and `remote`.
