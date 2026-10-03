@@ -48,9 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     merged = tree / "coverage.profdata"
-    code = subprocess.call(
-        ["llvm-profdata", "merge", "-sparse", *map(str, raw), "-o", str(merged)]
-    )
+    code = subprocess.call(["llvm-profdata", "merge", "-sparse", *map(str, raw), "-o", str(merged)])
     if code:
         return code
     common = [
