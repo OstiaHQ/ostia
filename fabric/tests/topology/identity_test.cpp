@@ -127,6 +127,67 @@ TEST(Identity, SymmetricEightGpuSwitchIsFast) { // twin pruning (RFC-0003 §5)
     EXPECT_EQ(id, topo1(renumbered(m, 3)));
 }
 
+// g GPU and k NIC branches, each under its own host bridge, over u NUMA nodes; the GPUs share an
+// NVLink switch group. No two vertices are twins, so only automorphism pruning keeps the search
+// small (RFC-0003 Performance).
+static Model branches(int g, int k, int numas) {
+    Model m;
+    auto numa = [](int u) { return "numa-" + std::to_string(u); };
+    for (int u = 0; u < numas; ++u)
+        m.nodes.push_back({NodeKind::numa, numa(u), {}});
+    m.nodes.push_back({NodeKind::switch_group, "switch-group-0", {}});
+    auto branch = [&](bool is_gpu, const std::string& key, int u) {
+        m.nodes.push_back({NodeKind::pcie_bridge, "hostbridge-" + key, {}});
+        if (is_gpu)
+            m.nodes.push_back({NodeKind::gpu,
+                               key,
+                               {{"model", std::string("H100")}, {"cc_major", 9}, {"cc_minor", 0}}});
+        else
+            m.nodes.push_back(
+                {NodeKind::nic, key, {{"pci_vendor", 0x15b3}, {"pci_device", 0x1021}}});
+        m.edges.push_back({EdgeKind::pcie, "hostbridge-" + key, key, {{"gen", 5}, {"width", 16}}});
+        m.edges.push_back({EdgeKind::numa_local, key, numa(u), {}});
+        if (is_gpu)
+            m.edges.push_back({EdgeKind::nvlink, key, "switch-group-0", {{"links", 18}}});
+    };
+    for (int i = 0; i < g; ++i)
+        branch(true, "gpu-" + std::to_string(i), i % numas);
+    for (int i = 0; i < k; ++i)
+        branch(false, "nic-" + std::to_string(i), i % numas);
+    return m;
+}
+
+struct Shape {
+    int gpus, nics, numas;
+};
+static constexpr Shape kBranchShapes[] = {{8, 8, 1}, {8, 8, 2}, {16, 0, 1}};
+
+// Sanitizer builds run several times slower (RFC-0003 Performance).
+#ifdef OSTIA_TOPO_SANITIZED
+static constexpr auto kBranchBudget = std::chrono::seconds(5);
+#else
+static constexpr auto kBranchBudget = std::chrono::seconds(1);
+#endif
+
+TEST(Identity, NonTwinBranchesAreFast) { // RFC-0003 Performance
+    for (const Shape& s : kBranchShapes) {
+        Model m = branches(s.gpus, s.nics, s.numas);
+        auto t0 = std::chrono::steady_clock::now();
+        EXPECT_NO_THROW(topo1(m)) << s.gpus << "+" << s.nics << "/" << s.numas; // no leaf_cap
+        EXPECT_LT(std::chrono::steady_clock::now() - t0, kBranchBudget)
+            << s.gpus << "+" << s.nics << "/" << s.numas;
+    }
+}
+
+TEST(Identity, SymmetricShapesAreInvariantUnderRenumbering) { // RFC-0003 Testing
+    for (const Shape& s : kBranchShapes) {
+        Model m = branches(s.gpus, s.nics, s.numas);
+        const std::string id = topo1(m);
+        for (unsigned seed = 1; seed <= 3; ++seed)
+            EXPECT_EQ(id, topo1(renumbered(m, seed))) << s.gpus << "+" << s.nics << "/" << s.numas;
+    }
+}
+
 TEST(Identity, NodeCapIsATypedError) {
     try {
         topo1(gpus_with_nvlinks(257, {}));

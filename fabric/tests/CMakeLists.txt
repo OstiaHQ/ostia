@@ -21,4 +21,8 @@ add_executable(
   topology/sha256_test.cpp
 )
 target_link_libraries(ostia_fabric_topology_tests PRIVATE ostia_fabric_topology GTest::gtest_main)
+# Timing tests widen their bound under sanitizers, as fabric.topo.replay_perf does.
+if(OSTIA_SANITIZE)
+  target_compile_definitions(ostia_fabric_topology_tests PRIVATE OSTIA_TOPO_SANITIZED)
+endif()
 gtest_discover_tests(ostia_fabric_topology_tests PROPERTIES LABELS cpu)
