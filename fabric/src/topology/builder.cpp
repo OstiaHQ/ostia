@@ -52,7 +52,7 @@ Model build(const Facts& facts) {
         for (const auto& g : facts.nvml["gpus"]) {
             const std::string id = g["bus_id"];
             find_device(id, "nvml.json");
-            Node node{NodeKind::gpu, id, {}};
+            Node node{.kind = NodeKind::gpu, .key = id, .attrs = {}};
             node.attrs["model"] = g["name"].get<std::string>();
             node.attrs["cc_major"] = integer(g["cc_major"]);
             node.attrs["cc_minor"] = integer(g["cc_minor"]);
@@ -71,7 +71,7 @@ Model build(const Facts& facts) {
     for (const auto& n : facts.nics["nics"]) {
         const std::string id = n["bus_id"];
         const PciFacts& dev = find_device(id, "nics.json");
-        Node node{NodeKind::nic, id, {}};
+        Node node{.kind = NodeKind::nic, .key = id, .attrs = {}};
         node.attrs["pci_vendor"] = std::int64_t{dev.pci_vendor};
         node.attrs["pci_device"] = std::int64_t{dev.pci_device};
         node.attrs["driver"] = n["driver"].get<std::string>();
@@ -103,7 +103,7 @@ Model build(const Facts& facts) {
             model.nodes.push_back({NodeKind::pcie_bridge, p.key, {}});
         }
         if (!p.parent_key.empty()) {
-            Edge e{EdgeKind::pcie, p.parent_key, p.key, {}};
+            Edge e{.kind = EdgeKind::pcie, .from = p.parent_key, .to = p.key, .attrs = {}};
             if (p.max_gen) {
                 e.attrs["gen"] = p.max_gen;
             }
@@ -140,9 +140,10 @@ Model build(const Facts& facts) {
                 } else if (l["remote_type"] == "gpu") {
                     const std::string remote = l.value("remote_bus_id", "");
                     if (!gpu_keys.count(remote)) {
-                        throw TopologyError("dangling_reference", "nvml.json",
-                                            "nvlink remote " + remote + " of " + self +
-                                                " is not a GPU in nvml.json");
+                        std::string message = "nvlink remote " + remote;
+                        message += " of " + self;
+                        message += " is not a GPU in nvml.json";
+                        throw TopologyError("dangling_reference", "nvml.json", message);
                     }
                     ++peers[remote];
                 }

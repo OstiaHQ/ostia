@@ -1,6 +1,9 @@
 # ADR-0013: C++ and Python code style. Run with `pixi run ostia-dev check tidy`.
+# easily-swappable-parameters is off: it flags every adjacent pair of ints, such as the vertex
+# pairs throughout the topology code, and has no fix beyond wrapper types.
 Checks: >
   bugprone-*,
+  -bugprone-easily-swappable-parameters,
   modernize-*,
   -modernize-use-trailing-return-type,
   performance-*,
@@ -14,4 +17,6 @@ CheckOptions:
   readability-identifier-naming.PrivateMemberSuffix: _
   readability-identifier-naming.GlobalConstantCase: CamelCase
   readability-identifier-naming.GlobalConstantPrefix: k
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: k
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

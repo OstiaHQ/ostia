@@ -1,6 +1,7 @@
 #include "topology/fixture_source.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -23,15 +24,15 @@ struct TopologyDeleter {
 using TopologyPtr = std::unique_ptr<hwloc_topology, TopologyDeleter>;
 
 std::string bus_id(unsigned domain, unsigned bus, unsigned dev, unsigned func) {
-    char buf[32];
-    std::snprintf(buf, sizeof buf, "%04x:%02x:%02x.%01x", domain, bus, dev, func);
-    return buf;
+    std::array<char, 32> buf{};
+    std::snprintf(buf.data(), buf.size(), "%04x:%02x:%02x.%01x", domain, bus, dev, func);
+    return buf.data();
 }
 
 std::string host_bridge_key(unsigned domain, unsigned bus) {
-    char buf[40];
-    std::snprintf(buf, sizeof buf, "hostbridge-%04x:%02x", domain, bus);
-    return buf;
+    std::array<char, 40> buf{};
+    std::snprintf(buf.data(), buf.size(), "hostbridge-%04x:%02x", domain, bus);
+    return buf.data();
 }
 
 // A PCI bridge has an upstream bus ID; a host bridge does not.
@@ -154,7 +155,7 @@ FixtureSource::FixtureSource(const fs::path& dir) {
          n = hwloc_get_next_obj_by_type(topo.get(), HWLOC_OBJ_NUMANODE, n)) {
         facts_.numa_nodes.push_back(static_cast<int>(n->os_index));
     }
-    std::sort(facts_.numa_nodes.begin(), facts_.numa_nodes.end());
+    std::ranges::sort(facts_.numa_nodes);
 
     for (hwloc_obj_t b = hwloc_get_next_bridge(topo.get(), nullptr); b;
          b = hwloc_get_next_bridge(topo.get(), b)) {

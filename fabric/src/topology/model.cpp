@@ -50,6 +50,8 @@ nlohmann::json node_json(const Node& node) {
     check_attr_names(node.attrs);
     nlohmann::json j = {{"key", node.key}, {"kind", to_string(node.kind)}};
     for (const auto& [name, value] : node.attrs) {
+        // The analyzer loses track of the active alternative inside libstdc++'s std::visit.
+        // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
         std::visit([&](const auto& v) { j[name] = v; }, value);
     }
     return j;
@@ -68,16 +70,17 @@ nlohmann::json edge_json(const Edge& edge) {
 
 nlohmann::json to_json(const Model& model) {
     std::vector<const Node*> nodes;
+    nodes.reserve(model.nodes.size());
     for (const Node& n : model.nodes)
         nodes.push_back(&n);
-    std::stable_sort(nodes.begin(), nodes.end(),
-                     [](const Node* a, const Node* b) { return a->key < b->key; });
+    std::ranges::stable_sort(nodes, [](const Node* a, const Node* b) { return a->key < b->key; });
 
     // Kinds order by their string names, not enum order: this fixes the golden edge order.
     std::vector<const Edge*> edges;
+    edges.reserve(model.edges.size());
     for (const Edge& e : model.edges)
         edges.push_back(&e);
-    std::stable_sort(edges.begin(), edges.end(), [](const Edge* a, const Edge* b) {
+    std::ranges::stable_sort(edges, [](const Edge* a, const Edge* b) {
         return std::make_tuple(to_string(a->kind), std::string_view(a->from),
                                std::string_view(a->to)) < std::make_tuple(to_string(b->kind),
                                                                           std::string_view(b->from),

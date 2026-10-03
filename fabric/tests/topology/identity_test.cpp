@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
@@ -16,9 +17,9 @@ using namespace ostia::fabric::topology;
 static Model gpus_with_nvlinks(int n, const std::vector<std::pair<int, int>>& links) {
     Model m;
     auto key = [](int i) {
-        char b[16];
-        std::snprintf(b, sizeof b, "0000:%02x:00.0", 0x10 + i);
-        return std::string(b);
+        std::array<char, 16> b{};
+        std::snprintf(b.data(), b.size(), "0000:%02x:00.0", 0x10 + i);
+        return std::string(b.data());
     };
     for (int i = 0; i < n; ++i)
         m.nodes.push_back({NodeKind::gpu,
@@ -36,6 +37,7 @@ static Model gpus_with_nvlinks(int n, const std::vector<std::pair<int, int>>& li
 // strip() numbers vertices by their place in model.nodes, so only a reordering reaches the search.
 static Model renumbered(const Model& m, unsigned seed) {
     std::vector<std::string> keys;
+    keys.reserve(m.nodes.size());
     for (auto& n : m.nodes)
         keys.push_back(n.key);
     auto shuffled = keys;
@@ -118,19 +120,19 @@ TEST(Identity, DiffersWhenAnNvlinkIsRemovedOrTheModelChanges) {
 
 TEST(Identity, IgnoresDataAttributes) { // RFC-0003 §5
     Model a, b;
-    a.nodes = {{NodeKind::nic,
-                "0000:3b:00.0",
-                {{"pci_vendor", 0x15b3},
-                 {"pci_device", 0x101b},
-                 {"link_layer", std::string("unknown")},
-                 {"rdma_probe", std::string("unavailable")}}}};
-    b.nodes = {{NodeKind::nic,
-                "0000:5e:00.0",
-                {{"pci_vendor", 0x15b3},
-                 {"pci_device", 0x101b},
-                 {"link_layer", std::string("infiniband")},
-                 {"port_speed_mbps", 200000},
-                 {"rdma_probe", std::string("ok")}}}};
+    a.nodes = {{.kind = NodeKind::nic,
+                .key = "0000:3b:00.0",
+                .attrs = {{"pci_vendor", 0x15b3},
+                          {"pci_device", 0x101b},
+                          {"link_layer", std::string("unknown")},
+                          {"rdma_probe", std::string("unavailable")}}}};
+    b.nodes = {{.kind = NodeKind::nic,
+                .key = "0000:5e:00.0",
+                .attrs = {{"pci_vendor", 0x15b3},
+                          {"pci_device", 0x101b},
+                          {"link_layer", std::string("infiniband")},
+                          {"port_speed_mbps", 200000},
+                          {"rdma_probe", std::string("ok")}}}};
     EXPECT_EQ(topo1(a), topo1(b));
 }
 
@@ -189,7 +191,9 @@ static Model branches(int g, int k, int numas) {
 struct Shape {
     int gpus, nics, numas;
 };
-static constexpr Shape kBranchShapes[] = {{8, 8, 1}, {8, 8, 2}, {16, 0, 1}};
+static constexpr std::array kBranchShapes = {Shape{.gpus = 8, .nics = 8, .numas = 1},
+                                             Shape{.gpus = 8, .nics = 8, .numas = 2},
+                                             Shape{.gpus = 16, .nics = 0, .numas = 1}};
 
 TEST(Identity, NonTwinBranchesAreFast) { // RFC-0003 Performance
     for (const Shape& s : kBranchShapes) {

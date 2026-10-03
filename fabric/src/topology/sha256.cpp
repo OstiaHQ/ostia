@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 namespace ostia::fabric::topology {
 namespace {
@@ -75,7 +76,7 @@ std::string sha256_hex(std::string_view data) {
     for (std::size_t off = 0; off < tail_len; off += 64)
         compress(h, tail.data() + off);
 
-    constexpr char kHex[] = "0123456789abcdef";
+    constexpr std::string_view kHex = "0123456789abcdef";
     std::string out;
     out.reserve(64);
     for (std::uint32_t word : h) {
