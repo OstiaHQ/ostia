@@ -32,6 +32,23 @@ EXEMPT = re.compile(
     r"|0x[0-9a-f]{8}(?:,0x[0-9a-f]{8})*"  # hwloc cpuset and nodeset
 )
 
+# hwloc info names that may be published (RFC-0003 §2.1, ruling R4). An allowlist fails
+# safe: a key the capture tool should have dropped, such as HostName or DMI*, is a leak.
+INFO_ALLOWED = {
+    "PCIVendor",
+    "PCIDevice",
+    "CPUVendor",
+    "CPUModel",
+    "CPUFamilyNumber",
+    "CPUModelNumber",
+    "GPUVendor",
+    "GPUModel",
+    "Backend",
+    "OstiaPCIeMaxGen",
+    "OstiaPCIeMaxWidth",
+}
+INFO_NAME = re.compile(r'<info\s+name="([^"]*)"')
+
 # Order matters: a line stops at its first kind, and a MAC is also a run of colon groups.
 PATTERNS = [
     ("gpu-uuid", re.compile(rf"\bGPU-{HEX}{{8}}-")),
@@ -78,6 +95,9 @@ def check_text(text: str, path: str) -> list[Finding]:
                 continue
             out.append(Finding(path, n, kind))
             break
+        else:
+            if any(g not in INFO_ALLOWED for g in INFO_NAME.findall(line)):
+                out.append(Finding(path, n, "hwloc-key"))
     return out
 
 
