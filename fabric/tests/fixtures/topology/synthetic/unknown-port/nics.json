@@ -1,0 +1,25 @@
+{
+  "nics": [
+    {
+      "bus_id": "0000:11:00.0",
+      "driver": "mlx5_core",
+      "link_layer": "unknown",
+      "max_pcie_gen": 4,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": "unknown"
+    },
+    {
+      "bus_id": "0000:11:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "unknown",
+      "max_pcie_gen": 4,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": "unknown"
+    }
+  ],
+  "rdma": [],
+  "rdma_probe": "unavailable",
+  "schema": 1
+}

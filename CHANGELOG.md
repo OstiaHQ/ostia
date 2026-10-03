@@ -6,6 +6,7 @@ All notable changes to Ostia are documented here. The format follows [Keep a Cha
 
 ### Added
 
+- Topology model and fixture replay (RFC-0003 §5–§6, §9, Rollout PR 6a): the internal `ostia_fabric_topology` library, the `topo1` structural identity, closed fixture schemas, synthetic fixtures with golden tests, `ostia-topo` and `ostia-dev topo show|golden`, the `fixture-leaks` lint check, and the `OSTIA_BUILD_TOOLS` option. New dependencies: hwloc ≥ 2.4 (pixi and distro), nlohmann/json 3.12.0 (CPM).
 - Build system (RFC-0001 §1–§3): CMake 4.1+ with presets `dev`, `release`, `asan-ubsan`, `tsan` and `level-*`; the `ostia_add_component` helper; skeleton `telemetry` and `fabric` components with placeholders for `exchange`, `runtime` and `query`; `ostia::Result<T>`.
 - pixi environments `default`, `cuda-12` and `cuda-13`, and the `ostia-dev` contributor CLI (RFC-0005) with `build`, `test`, `check`, `lint`, `fmt`, `py-dev`, `doctor`, `clean` and `remote`.
 - Layering enforcement: configure-time `DEPENDS` check, link walk, resolved-graph check and include scan, all reading `cmake/layering.json`.

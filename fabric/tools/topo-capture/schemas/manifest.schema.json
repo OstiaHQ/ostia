@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ostia-topology-manifest",
+  "title": "manifest.json",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "failed"
+      ]
+    },
+    "sanitized": {
+      "type": "boolean"
+    },
+    "leak_check": {
+      "enum": [
+        "not_run",
+        "passed",
+        "failed"
+      ]
+    },
+    "topology_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^topo1:sha256:[0-9a-f]{64}$"
+    },
+    "files": {
+      "type": "object",
+      "properties": {
+        "hwloc.xml": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "nvml.json": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "nics.json": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "links.json": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "meta.json": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "tool_version",
+    "status",
+    "sanitized",
+    "leak_check",
+    "topology_id",
+    "files",
+    "missing",
+    "errors"
+  ],
+  "additionalProperties": false
+}

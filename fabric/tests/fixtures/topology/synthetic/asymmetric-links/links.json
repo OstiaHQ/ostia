@@ -1,0 +1,33 @@
+{
+  "links": [
+    {
+      "bw_mbps": 230000,
+      "direction": "forward",
+      "from": "0000:11:00.0",
+      "kind": "nvlink",
+      "latency_ns": 1800,
+      "samples": 20,
+      "test": {
+        "bench": "p2p_copy",
+        "bytes": 268435456,
+        "concurrency": 1
+      },
+      "to": "0000:11:01.0"
+    },
+    {
+      "bw_mbps": 190000,
+      "direction": "reverse",
+      "from": "0000:11:00.0",
+      "kind": "nvlink",
+      "latency_ns": 1900,
+      "samples": 20,
+      "test": {
+        "bench": "p2p_copy",
+        "bytes": 268435456,
+        "concurrency": 1
+      },
+      "to": "0000:11:01.0"
+    }
+  ],
+  "schema": 1
+}

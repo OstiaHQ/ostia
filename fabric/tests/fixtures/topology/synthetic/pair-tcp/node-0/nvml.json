@@ -1,0 +1,15 @@
+{
+  "gpus": [
+    {
+      "bus_id": "0000:11:00.0",
+      "cc_major": 8,
+      "cc_minor": 9,
+      "cuda_ordinal": 0,
+      "memory_bytes": 25769803776,
+      "name": "NVIDIA L4",
+      "nvlinks": "not_supported"
+    }
+  ],
+  "p2p": [],
+  "schema": 1
+}

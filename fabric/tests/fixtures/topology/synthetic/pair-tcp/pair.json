@@ -1,0 +1,26 @@
+{
+  "link_class": "tcp",
+  "measured": [
+    {
+      "bw_mbps": 2900,
+      "direction": "forward",
+      "rail": 0,
+      "test": "tcp-stream"
+    }
+  ],
+  "nodes": [
+    "node-0",
+    "node-1"
+  ],
+  "rails": [
+    {
+      "node-0": {
+        "nic_index": 0
+      },
+      "node-1": {
+        "nic_index": 0
+      }
+    }
+  ],
+  "schema": 1
+}

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ostia-topology-nics",
+  "title": "nics.json",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "rdma_probe": {
+      "enum": [
+        "ok",
+        "unavailable"
+      ]
+    },
+    "nics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bus_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "driver": {
+            "type": "string"
+          },
+          "link_layer": {
+            "enum": [
+              "ethernet",
+              "infiniband",
+              "unknown"
+            ]
+          },
+          "max_pcie_gen": {
+            "type": "integer"
+          },
+          "max_pcie_width": {
+            "type": "integer"
+          },
+          "numa_node": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "port_speed_mbps": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "const": "unknown"
+              }
+            ]
+          }
+        },
+        "required": [
+          "bus_id",
+          "driver",
+          "link_layer",
+          "max_pcie_gen",
+          "max_pcie_width",
+          "numa_node",
+          "port_speed_mbps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rdma": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bus_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "device": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "link_layer": {
+            "enum": [
+              "ethernet",
+              "infiniband",
+              "unknown"
+            ]
+          },
+          "active_speed": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "active_width": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "gpudirect": {
+            "enum": [
+              "nvidia_peermem",
+              "dmabuf",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "bus_id",
+          "device",
+          "port",
+          "state",
+          "link_layer",
+          "active_speed",
+          "active_width",
+          "gpudirect"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "rdma_probe",
+    "nics",
+    "rdma"
+  ],
+  "additionalProperties": false
+}

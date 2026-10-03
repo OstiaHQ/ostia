@@ -1,0 +1,1175 @@
+{
+  "gpus": [
+    {
+      "bus_id": "0000:12:00.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 0,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:12:01.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 1,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:22:00.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 2,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:22:01.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 3,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:32:00.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 4,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:32:01.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 5,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:42:00.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 6,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:42:01.0",
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 7,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA H100 80GB HBM3",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 1,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 2,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 3,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 4,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 5,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 6,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 7,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 8,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 9,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 10,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 11,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 12,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 13,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 14,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 15,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 16,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        },
+        {
+          "link": 17,
+          "remote_type": "switch",
+          "state": "active",
+          "version": 4
+        }
+      ]
+    }
+  ],
+  "p2p": [
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:12:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:22:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:22:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:32:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:32:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:42:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:00.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:01.0",
+      "atomics": "ok",
+      "b": "0000:22:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:01.0",
+      "atomics": "ok",
+      "b": "0000:22:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:01.0",
+      "atomics": "ok",
+      "b": "0000:32:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:01.0",
+      "atomics": "ok",
+      "b": "0000:32:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:01.0",
+      "atomics": "ok",
+      "b": "0000:42:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:12:01.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:00.0",
+      "atomics": "ok",
+      "b": "0000:22:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:00.0",
+      "atomics": "ok",
+      "b": "0000:32:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:00.0",
+      "atomics": "ok",
+      "b": "0000:32:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:00.0",
+      "atomics": "ok",
+      "b": "0000:42:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:00.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:01.0",
+      "atomics": "ok",
+      "b": "0000:32:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:01.0",
+      "atomics": "ok",
+      "b": "0000:32:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:01.0",
+      "atomics": "ok",
+      "b": "0000:42:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:22:01.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:32:00.0",
+      "atomics": "ok",
+      "b": "0000:32:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:32:00.0",
+      "atomics": "ok",
+      "b": "0000:42:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:32:00.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:32:01.0",
+      "atomics": "ok",
+      "b": "0000:42:00.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:32:01.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:42:00.0",
+      "atomics": "ok",
+      "b": "0000:42:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    }
+  ],
+  "schema": 1
+}

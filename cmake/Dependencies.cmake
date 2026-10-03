@@ -44,6 +44,41 @@ macro(ostia_dep_nanobind)
   )
 endmacro()
 
+# nlohmann/json for the topology model and fixtures (RFC-0003 §1). Header-only.
+function(ostia_dep_nlohmann_json)
+  ostia_cpm_add(
+    NAME nlohmann_json
+    GITHUB_REPOSITORY
+    nlohmann/json
+    VERSION 3.12.0
+    GIT_TAG 55f93686c01528224f448c19128836e7df245f72
+    OPTIONS
+    "JSON_BuildTests OFF"
+    "JSON_Install OFF"
+  )
+endfunction()
+
+# hwloc from pixi or the distro (RFC-0001 §2.3), floor 2.4 (the oldest tier-2 distro,
+# Rocky 9, whose XML import the goldens are checked against).
+macro(ostia_dep_hwloc)
+  find_package(hwloc 2.4 MODULE)
+  if(NOT hwloc_FOUND)
+    if(hwloc_VERSION)
+      set(_hwloc_found "${hwloc_VERSION}")
+    else()
+      set(_hwloc_found "none")
+    endif()
+    ostia_fail(
+      PROBLEM "hwloc 2.4 or newer was not found (found: ${_hwloc_found})"
+      DETAILS "the topology model replays hwloc XML on every platform (RFC-0001 §3.4)"
+      RULE "ostia-fabric's topology target needs hwloc >= 2.4"
+      FIX
+        "use pixi (pixi install), or install libhwloc-dev (Debian/Ubuntu) or hwloc-devel (Rocky/RHEL, CRB repository)"
+      SEE "RFC-0003 §9"
+    )
+  endif()
+endmacro()
+
 # CUDA benchmark dependencies (RFC-0001 §2.3, §6.1): CCCL from GitHub, and nvbench.
 # nvbench has no C++ release tags; its python-X.Y.Z tags mark the whole repository.
 function(ostia_dep_cccl)

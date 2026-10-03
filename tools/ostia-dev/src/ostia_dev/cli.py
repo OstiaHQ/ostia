@@ -17,6 +17,7 @@ from ostia_dev.contract import violation
 from ostia_dev.dev import cli as dev_cli
 from ostia_dev.docs import cli as docs_cli
 from ostia_dev.remote.cli import app as remote_app
+from ostia_dev.topo import cli as topo_cli
 
 
 def _verbose_requested() -> bool:
@@ -61,6 +62,7 @@ dev_cli.register(app)
 ci_cli.register(app)
 docs_cli.register(app)
 bench_cli.register(app)
+topo_cli.register(app)
 app.add_typer(remote_app, name="remote")
 
 

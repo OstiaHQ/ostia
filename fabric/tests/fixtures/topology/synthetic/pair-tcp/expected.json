@@ -1,0 +1,131 @@
+{
+  "nodes": [
+    {
+      "edges": [
+        {
+          "from": "0000:11:00.0",
+          "kind": "numa_local",
+          "to": "numa-0"
+        },
+        {
+          "from": "0000:11:01.0",
+          "kind": "numa_local",
+          "to": "numa-0"
+        },
+        {
+          "from": "hostbridge-0000:10",
+          "gen": 4,
+          "kind": "pcie",
+          "to": "0000:11:00.0",
+          "width": 16
+        },
+        {
+          "from": "hostbridge-0000:10",
+          "gen": 4,
+          "kind": "pcie",
+          "to": "0000:11:01.0",
+          "width": 16
+        }
+      ],
+      "nodes": [
+        {
+          "cc_major": 8,
+          "cc_minor": 9,
+          "cuda_ordinal": 0,
+          "key": "0000:11:00.0",
+          "kind": "gpu",
+          "memory_bytes": 25769803776,
+          "model": "NVIDIA L4"
+        },
+        {
+          "driver": "mlx5_core",
+          "key": "0000:11:01.0",
+          "kind": "nic",
+          "link_layer": "ethernet",
+          "numa_node": 0,
+          "pci_device": 4125,
+          "pci_vendor": 5555,
+          "port_speed_mbps": 25000,
+          "rdma": 0,
+          "rdma_probe": "ok"
+        },
+        {
+          "key": "hostbridge-0000:10",
+          "kind": "pcie_bridge"
+        },
+        {
+          "key": "numa-0",
+          "kind": "numa"
+        },
+        {
+          "key": "package-0",
+          "kind": "package"
+        }
+      ]
+    },
+    {
+      "edges": [
+        {
+          "from": "0000:11:00.0",
+          "kind": "numa_local",
+          "to": "numa-0"
+        },
+        {
+          "from": "0000:11:01.0",
+          "kind": "numa_local",
+          "to": "numa-0"
+        },
+        {
+          "from": "hostbridge-0000:10",
+          "gen": 4,
+          "kind": "pcie",
+          "to": "0000:11:00.0",
+          "width": 16
+        },
+        {
+          "from": "hostbridge-0000:10",
+          "gen": 4,
+          "kind": "pcie",
+          "to": "0000:11:01.0",
+          "width": 16
+        }
+      ],
+      "nodes": [
+        {
+          "cc_major": 8,
+          "cc_minor": 9,
+          "cuda_ordinal": 0,
+          "key": "0000:11:00.0",
+          "kind": "gpu",
+          "memory_bytes": 25769803776,
+          "model": "NVIDIA L4"
+        },
+        {
+          "driver": "mlx5_core",
+          "key": "0000:11:01.0",
+          "kind": "nic",
+          "link_layer": "ethernet",
+          "numa_node": 0,
+          "pci_device": 4125,
+          "pci_vendor": 5555,
+          "port_speed_mbps": 25000,
+          "rdma": 0,
+          "rdma_probe": "ok"
+        },
+        {
+          "key": "hostbridge-0000:10",
+          "kind": "pcie_bridge"
+        },
+        {
+          "key": "numa-0",
+          "kind": "numa"
+        },
+        {
+          "key": "package-0",
+          "kind": "package"
+        }
+      ]
+    }
+  ],
+  "pair_id": "topo1:sha256:3fbf50b6f1bf9332ce47d3db2ba3f6eaf1b60b646b0bfe1c41da74620ede75ca"
+}

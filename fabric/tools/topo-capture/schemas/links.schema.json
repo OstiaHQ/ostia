@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ostia-topology-links",
+  "title": "links.json",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "kind": {
+            "enum": [
+              "nvlink",
+              "pcie",
+              "c2c"
+            ]
+          },
+          "direction": {
+            "enum": [
+              "forward",
+              "reverse"
+            ]
+          },
+          "bw_mbps": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "latency_ns": {
+            "type": "integer"
+          },
+          "test": {
+            "type": "object",
+            "properties": {
+              "bench": {
+                "type": "string"
+              },
+              "bytes": {
+                "type": "integer"
+              },
+              "concurrency": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "bench",
+              "bytes",
+              "concurrency"
+            ],
+            "additionalProperties": false
+          },
+          "samples": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "kind",
+          "direction",
+          "bw_mbps",
+          "test",
+          "samples"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "links"
+  ],
+  "additionalProperties": false
+}

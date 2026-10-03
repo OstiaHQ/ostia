@@ -163,6 +163,8 @@ Every command below runs as `pixi run ostia-dev …`, or as plain `ostia-dev …
 | `pixi run rent …` (RFC-0004, Rollout PR 7) | `ostia-dev rent …`, and later a `remote` backend (§3.1) |
 | `pixi run topo-show`, the capture tool (RFC-0003, Rollout PR 6) | `ostia-dev topo show|capture` |
 
+*(update: Rollout PR 6a: `ostia-dev topo show|golden [--update]` is new (`topo capture` follows in PR 6b), and `ostia-dev check fixture-leaks` is a new lint check (#32).)*
+
 *(update: Rollout PR B: the migration also names what the table leaves out. `install-native` is part of `py-dev`. `check comments [FILES|--hook]`, `check graph --dot FILE`, `check macros --public|--build DIR` and `check tidy [FILES]` take the old scripts' arguments, and `lint` and `fmt` keep `--root` and `--only`. `bench oracles`, `bounds`, `capabilities` and `evidence` are the other benchmark scripts. `docs figures` defaults to the PRD's figures. `test -L <label>` runs ctest only, as `test-multiprocess` did. `check-cuda` becomes `ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile`, because `--preset release --no-test` would not compile the benchmarks that `check-cuda` compiled (§3.3).)*
 
 The quick start in `docs/guides/building.md` becomes `pixi install`, `pixi run ostia-dev build`, `pixi run ostia-dev test`. This amends the wording of RFC-0001's first goal ("three commands"), not its intent.

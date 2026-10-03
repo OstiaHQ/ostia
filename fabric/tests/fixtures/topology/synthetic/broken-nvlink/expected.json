@@ -1,0 +1,162 @@
+{
+  "edges": [
+    {
+      "from": "0000:21:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:21:01.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:21:02.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:21:03.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:21:04.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:21:00.0",
+      "kind": "nvlink",
+      "links": 3,
+      "to": "0000:21:01.0"
+    },
+    {
+      "from": "0000:21:00.0",
+      "kind": "nvlink",
+      "links": 4,
+      "to": "0000:21:02.0"
+    },
+    {
+      "from": "0000:21:00.0",
+      "kind": "nvlink",
+      "links": 4,
+      "to": "0000:21:03.0"
+    },
+    {
+      "from": "0000:21:01.0",
+      "kind": "nvlink",
+      "links": 4,
+      "to": "0000:21:02.0"
+    },
+    {
+      "from": "0000:21:01.0",
+      "kind": "nvlink",
+      "links": 4,
+      "to": "0000:21:03.0"
+    },
+    {
+      "from": "0000:21:02.0",
+      "kind": "nvlink",
+      "links": 4,
+      "to": "0000:21:03.0"
+    },
+    {
+      "from": "hostbridge-0000:20",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:21:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:20",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:21:01.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:20",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:21:02.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:20",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:21:03.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:20",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:21:04.0",
+      "width": 16
+    }
+  ],
+  "nodes": [
+    {
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 0,
+      "key": "0000:21:00.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA A100-SXM4-80GB"
+    },
+    {
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 1,
+      "key": "0000:21:01.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA A100-SXM4-80GB"
+    },
+    {
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 2,
+      "key": "0000:21:02.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA A100-SXM4-80GB"
+    },
+    {
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 3,
+      "key": "0000:21:03.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA A100-SXM4-80GB"
+    },
+    {
+      "driver": "mlx5_core",
+      "key": "0000:21:04.0",
+      "kind": "nic",
+      "link_layer": "infiniband",
+      "numa_node": 0,
+      "pci_device": 4129,
+      "pci_vendor": 5555,
+      "port_speed_mbps": 400000,
+      "rdma": 1,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "hostbridge-0000:20",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "numa-0",
+      "kind": "numa"
+    },
+    {
+      "key": "package-0",
+      "kind": "package"
+    }
+  ]
+}

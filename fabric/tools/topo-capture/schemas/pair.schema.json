@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ostia-topology-pair",
+  "title": "pair.json",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "link_class": {
+      "enum": [
+        "infiniband",
+        "roce",
+        "efa",
+        "tcp"
+      ]
+    },
+    "rails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "node-0": {
+            "type": "object",
+            "properties": {
+              "nic_index": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "nic_index"
+            ],
+            "additionalProperties": false
+          },
+          "node-1": {
+            "type": "object",
+            "properties": {
+              "nic_index": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "nic_index"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "node-0",
+          "node-1"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "measured": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rail": {
+            "type": "integer"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "bw_mbps": {
+            "type": "integer"
+          },
+          "test": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rail",
+          "direction",
+          "bw_mbps",
+          "test"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "nodes",
+    "link_class",
+    "rails",
+    "measured"
+  ],
+  "additionalProperties": false
+}

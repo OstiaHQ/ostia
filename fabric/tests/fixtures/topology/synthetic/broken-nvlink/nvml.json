@@ -1,0 +1,431 @@
+{
+  "gpus": [
+    {
+      "bus_id": "0000:21:00.0",
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 0,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA A100-SXM4-80GB",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "inactive",
+          "version": 3
+        },
+        {
+          "link": 1,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 2,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 3,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 4,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 5,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 6,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 7,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 8,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 9,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 10,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 11,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:21:01.0",
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 1,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA A100-SXM4-80GB",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 1,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 2,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 3,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 4,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 5,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 6,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 7,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 8,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 9,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 10,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 11,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:21:02.0",
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 2,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA A100-SXM4-80GB",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 1,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 2,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 3,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 4,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 5,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 6,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 7,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 8,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 9,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 10,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 11,
+          "remote_bus_id": "0000:21:03.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        }
+      ]
+    },
+    {
+      "bus_id": "0000:21:03.0",
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 3,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA A100-SXM4-80GB",
+      "nvlinks": [
+        {
+          "link": 0,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 1,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 2,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 3,
+          "remote_bus_id": "0000:21:00.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 4,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 5,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 6,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 7,
+          "remote_bus_id": "0000:21:01.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 8,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 9,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 10,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        },
+        {
+          "link": 11,
+          "remote_bus_id": "0000:21:02.0",
+          "remote_type": "gpu",
+          "state": "active",
+          "version": 3
+        }
+      ]
+    }
+  ],
+  "p2p": [
+    {
+      "a": "0000:21:00.0",
+      "atomics": "ok",
+      "b": "0000:21:01.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:21:00.0",
+      "atomics": "ok",
+      "b": "0000:21:02.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:21:00.0",
+      "atomics": "ok",
+      "b": "0000:21:03.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:21:01.0",
+      "atomics": "ok",
+      "b": "0000:21:02.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:21:01.0",
+      "atomics": "ok",
+      "b": "0000:21:03.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    },
+    {
+      "a": "0000:21:02.0",
+      "atomics": "ok",
+      "b": "0000:21:03.0",
+      "nvlink": "ok",
+      "read": "ok",
+      "write": "ok"
+    }
+  ],
+  "schema": 1
+}

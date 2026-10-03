@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ostia-topology-meta",
+  "title": "meta.json",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "provider": {
+      "type": "string"
+    },
+    "instance_type": {
+      "type": "string"
+    },
+    "driver_version": {
+      "type": "string"
+    },
+    "cuda_version": {
+      "type": "string"
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "captured_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "provider",
+    "instance_type",
+    "driver_version",
+    "cuda_version",
+    "tool_version",
+    "captured_at"
+  ],
+  "additionalProperties": false
+}
