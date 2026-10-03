@@ -102,7 +102,8 @@ TEST(Builder, InactiveLinksAreNotCounted) { // R7, broken-nvlink
     auto f = two_gpus_one_nic();
     f.nvml["gpus"][0]["nvlinks"][0]["state"] = "inactive";
     f.nvml["gpus"][1]["nvlinks"][0]["state"] = "inactive";
-    for (auto& e : build(f).edges)
+    const auto model = build(f);
+    for (auto& e : model.edges)
         if (e.kind == EdgeKind::nvlink)
             EXPECT_EQ(e.attrs.at("links"), 3);
 }
@@ -121,7 +122,8 @@ TEST(Builder, SwitchLinksFormOneSwitchGroup) { // R7, nvswitch-hidden
 }
 
 TEST(Builder, UnknownPortFactsAreRecordedAsUnknown) { // D4, R8
-    for (auto& n : to_json(build(two_gpus_one_nic()))["nodes"])
+    const auto j = to_json(build(two_gpus_one_nic()));
+    for (auto& n : j["nodes"])
         if (n["kind"] == "nic") {
             EXPECT_EQ(n["port_speed_mbps"], "unknown");
             EXPECT_EQ(n["link_layer"], "unknown");
@@ -132,7 +134,8 @@ TEST(Builder, NotSupportedNvlinksGiveNoNvlinkEdges) { // partial-discovery
     auto f = two_gpus_one_nic();
     for (auto& g : f.nvml["gpus"])
         g["nvlinks"] = "not_supported";
-    for (auto& e : build(f).edges)
+    const auto model = build(f);
+    for (auto& e : model.edges)
         EXPECT_NE(e.kind, EdgeKind::nvlink);
 }
 
@@ -153,7 +156,8 @@ TEST(Builder, OneSidedInactiveLinkReducesCount) { // an NVLink needs both ends a
     auto f = two_gpus_one_nic();
     f.nvml["gpus"][0]["nvlinks"][0]["state"] = "inactive";
     int seen = 0;
-    for (auto& e : build(f).edges)
+    const auto model = build(f);
+    for (auto& e : model.edges)
         if (e.kind == EdgeKind::nvlink) {
             ++seen;
             EXPECT_EQ(e.attrs.at("links"), 3);
