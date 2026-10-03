@@ -11,7 +11,9 @@ endif()
 
 add_executable(
   ostia_fabric_topology_tests
+  topology/builder_test.cpp
   topology/deps_test.cpp
+  topology/fixture_source_test.cpp
   topology/model_test.cpp
   topology/schema_test.cpp
   topology/sha256_test.cpp

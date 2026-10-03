@@ -28,6 +28,8 @@ add_custom_command(
 add_library(
   ostia_fabric_topology
   STATIC
+  builder.cpp
+  fixture_source.cpp
   model.cpp
   schema.cpp
   sha256.cpp
