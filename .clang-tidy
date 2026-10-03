@@ -5,7 +5,7 @@ Checks: >
   -modernize-use-trailing-return-type,
   performance-*,
   readability-identifier-naming
-WarningsAsErrors: ''
+WarningsAsErrors: '*'
 CheckOptions:
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase

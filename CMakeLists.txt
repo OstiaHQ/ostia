@@ -295,6 +295,8 @@ ostia_check_layering()
 if(OSTIA_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
+include(OstiaWarnings)
+ostia_apply_warnings(${CMAKE_CURRENT_SOURCE_DIR})
 
 # Package config (RFC-0001 §3.1–§3.2). A component is real unless it declared itself a
 # placeholder; a real component that was disabled simply has no targets file.
