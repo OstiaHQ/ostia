@@ -120,14 +120,17 @@ Model build(const Facts& facts) {
     }
 
     if (facts.nvml.is_object()) {
-        std::map<std::pair<std::string, std::string>, std::int64_t> pairs;
+        // An NVLink is usable only when both ends are active (RFC-0003 §6), so a pair counts its
+        // weaker reporting side; a side with no nvlinks array is not evidence and is skipped.
+        std::map<std::string, std::map<std::string, std::int64_t>> reported;
+        std::set<std::pair<std::string, std::string>> pairs;
         std::map<std::string, std::int64_t> to_switch;
         for (const auto& g : facts.nvml["gpus"]) {
             if (!g["nvlinks"].is_array()) {
                 continue;
             }
             const std::string self = g["bus_id"];
-            std::map<std::string, std::int64_t> peers;
+            auto& peers = reported[self];
             for (const auto& l : g["nvlinks"]) {
                 if (l["state"] != "active") {
                     continue;
@@ -146,12 +149,24 @@ Model build(const Facts& facts) {
             }
             for (const auto& [remote, count] : peers) {
                 auto key = std::minmax(self, remote);
-                auto& slot = pairs[{key.first, key.second}];
-                slot = std::max(slot, count);
+                pairs.insert({key.first, key.second});
             }
         }
-        for (const auto& [pair, count] : pairs) {
-            model.edges.push_back({EdgeKind::nvlink, pair.first, pair.second, {{"links", count}}});
+        for (const auto& [a, b] : pairs) {
+            std::int64_t links = -1;
+            for (const std::string* side : {&a, &b}) {
+                auto it = reported.find(*side);
+                if (it == reported.end()) {
+                    continue;
+                }
+                const std::string& other = side == &a ? b : a;
+                auto c = it->second.find(other);
+                const std::int64_t n = c == it->second.end() ? 0 : c->second;
+                links = links < 0 ? n : std::min(links, n);
+            }
+            if (links > 0) {
+                model.edges.push_back({EdgeKind::nvlink, a, b, {{"links", links}}});
+            }
         }
         if (!to_switch.empty()) {
             model.nodes.push_back({NodeKind::switch_group, kSwitchGroup, {}});

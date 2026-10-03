@@ -148,3 +148,15 @@ TEST(Builder, DanglingGpuBusIdNamesFileAndBusId) { // Review Focus 2
         EXPECT_NE(std::string(e.what()).find("0000:99:00.0"), std::string::npos);
     }
 }
+
+TEST(Builder, OneSidedInactiveLinkReducesCount) { // an NVLink needs both ends active
+    auto f = two_gpus_one_nic();
+    f.nvml["gpus"][0]["nvlinks"][0]["state"] = "inactive";
+    int seen = 0;
+    for (auto& e : build(f).edges)
+        if (e.kind == EdgeKind::nvlink) {
+            ++seen;
+            EXPECT_EQ(e.attrs.at("links"), 3);
+        }
+    EXPECT_EQ(seen, 1);
+}
