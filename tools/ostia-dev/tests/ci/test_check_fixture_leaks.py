@@ -18,6 +18,9 @@ PLANTED = [
     ('"serial": "1652520012345"', "serial"),
     ('<info name="HostName" value="x"/>', "hwloc-key"),
     ('<info name="DMIProductUUID" value="x"/>', "hwloc-key"),
+    ('<info value="x" name="HostName"/>', "hwloc-key"),
+    ("<info name='HostName' value=\"x\"/>", "hwloc-key"),
+    ('<info name = "HostName" value="x"/>', "hwloc-key"),
     ('"0000:00:02.0 aa:bb:cc:dd:ee:ff"', "mac"),
 ]
 
@@ -36,6 +39,7 @@ LEGITIMATE = [
     '"time": "12:00:00"',
     '"addr": "999.1.1.1"',
     '<info name="OstiaPCIeMaxGen" value="4"/>',
+    "<info value=\"4\" name='OstiaPCIeMaxGen'/>",
     '<info name="CPUModel" value="Fictional CPU"/>',
 ]
 

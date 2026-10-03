@@ -47,7 +47,8 @@ INFO_ALLOWED = {
     "OstiaPCIeMaxGen",
     "OstiaPCIeMaxWidth",
 }
-INFO_NAME = re.compile(r'<info\s+name="([^"]*)"')
+INFO_TAG = re.compile(r"<info\b[^>]*>")
+INFO_NAME = re.compile(r"""\bname\s*=\s*(["'])(.*?)\1""")
 
 # Order matters: a line stops at its first kind, and a MAC is also a run of colon groups.
 PATTERNS = [
@@ -96,7 +97,8 @@ def check_text(text: str, path: str) -> list[Finding]:
             out.append(Finding(path, n, kind))
             break
         else:
-            if any(g not in INFO_ALLOWED for g in INFO_NAME.findall(line)):
+            names = [m[1] for tag in INFO_TAG.findall(line) for m in INFO_NAME.findall(tag)]
+            if any(n not in INFO_ALLOWED for n in names):
                 out.append(Finding(path, n, "hwloc-key"))
     return out
 
