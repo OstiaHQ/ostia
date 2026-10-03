@@ -8,15 +8,18 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
-permissions:
-  actions: write
-  contents: write
-  pull-requests: write
-  statuses: write
+permissions: {}
 
 jobs:
   cla:
     runs-on: ubuntu-latest
+    # Job-scoped so no other job can inherit write access (OpenSSF Scorecard Token-Permissions).
+    # The action commits signatures to cla-signatures, comments on the PR and sets the cla status.
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
     steps:
       - name: Check or record CLA signature
         if: >-
