@@ -3,6 +3,7 @@
 import subprocess
 
 from ostia_dev.cli import app
+from ostia_dev.errors import InfraError, UsageError
 from typer.testing import CliRunner
 
 
@@ -21,8 +22,8 @@ def test_show_builds_then_runs_ostia_topo(monkeypatch, tmp_path):
 def test_show_missing_fixture_is_a_usage_error(monkeypatch):
     monkeypatch.setattr("ostia_dev.topo.cli.steps.env_or_exit", lambda cmd: "default")
     r = CliRunner().invoke(app, ["topo", "show", "no/such/dir"])
-    assert r.exit_code == 2
-    assert "fix:" in r.output
+    assert isinstance(r.exception, UsageError) and r.exception.code == 2
+    assert "fix:" in r.exception.message
 
 
 def _fake_fixture(monkeypatch, tmp_path):
@@ -109,8 +110,8 @@ def test_ambiguous_case_name_is_a_usage_error(monkeypatch, tmp_path):
     other.mkdir(parents=True)
     (other / "hwloc.xml").write_text("x")
     r = CliRunner().invoke(app, ["topo", "show", "one"])
-    assert r.exit_code == 2
-    assert "synthetic/one" in r.output and "real/one" in r.output
+    assert isinstance(r.exception, UsageError) and r.exception.code == 2
+    assert "synthetic/one" in r.exception.message and "real/one" in r.exception.message
 
 
 def test_named_fixtures_narrow_the_ctest_regex(monkeypatch, tmp_path):
@@ -133,6 +134,7 @@ def test_golden_update_model_failure_changes_nothing(monkeypatch, tmp_path):
 
     monkeypatch.setattr("ostia_dev.topo.cli.subprocess.run", fake_run)
     r = CliRunner().invoke(app, ["topo", "golden", "--update"])
-    assert r.exit_code == 3
-    assert "pair-tcp" in r.output and "cannot replay pair.json" in r.output
+    assert isinstance(r.exception, InfraError) and r.exception.code == 3
+    assert "pair-tcp" in r.exception.message
+    assert "cannot replay pair.json" in r.exception.message
     assert not list(tmp_path.rglob("expected.json"))
