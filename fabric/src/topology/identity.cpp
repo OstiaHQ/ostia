@@ -363,6 +363,7 @@ class StabiliserChain {
                 const std::size_t j = sift(h, i + 1);
                 if (j == base_.size() && is_identity(h))
                     continue;
+                // Growing levels_ and strong_ invalidates level, u and gens: return at once.
                 if (j == base_.size()) {
                     base_.push_back(first_moved(h));
                     levels_.emplace_back();
@@ -459,8 +460,10 @@ class PermGroup {
 // minimum (RFC-0003 §5, Performance), by McKay's argument ("Practical graph isomorphism",
 // 1981): refinement and the target cell commute with automorphisms, so an automorphism fixing
 // a node's path maps child subtrees onto child subtrees with the same certificates.
-//   - Equal certificates at two leaves give an automorphism γ (leaf orderings are permutations,
-//     and distinct leaves have distinct orderings), which maps one path onto the other.
+//   - Equal certificates at two leaves give an automorphism γ between their orderings. A leaf's
+//     ordering determines its path: every cell before the target cell is a singleton, so the
+//     vertex individualised at each depth holds the first place of its cell's block. γ therefore
+//     maps one path onto the other position by position.
 //   - Backjump: γ fixes the paths' common prefix ν and maps the current child of ν onto the
 //     stored leaf's, explored earlier, so the rest of the current child is redundant.
 //   - Orbits: a child in the same orbit as an explored child, under the stabiliser of the path

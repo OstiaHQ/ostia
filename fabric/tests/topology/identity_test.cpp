@@ -32,7 +32,8 @@ static Model gpus_with_nvlinks(int n, const std::vector<std::pair<int, int>>& li
     return m;
 }
 
-// Same shape, new bus IDs and ordinals.
+// Same shape, new bus IDs and ordinals, nodes and edges in a new order, NVLink ends swapped.
+// strip() numbers vertices by their place in model.nodes, so only a reordering reaches the search.
 static Model renumbered(const Model& m, unsigned seed) {
     std::vector<std::string> keys;
     for (auto& n : m.nodes)
@@ -41,9 +42,13 @@ static Model renumbered(const Model& m, unsigned seed) {
     // Fisher-Yates over a 32-bit LCG: libstdc++'s <random> pulls in SSE intrinsics that
     // `ostia-dev check macros` (libclang) cannot parse.
     std::uint32_t x = seed;
-    for (std::size_t i = shuffled.size(); i > 1; --i) {
+    auto draw = [&x](std::size_t bound) {
         x = x * 1664525u + 1013904223u;
-        std::swap(shuffled[i - 1], shuffled[(x >> 16) % i]);
+        return std::size_t(x >> 16) % bound;
+    };
+    for (std::size_t i = shuffled.size(); i > 1; --i) {
+        const std::size_t j = draw(i);
+        std::swap(shuffled[i - 1], shuffled[j]);
     }
     std::map<std::string, std::string> map;
     for (size_t i = 0; i < keys.size(); ++i)
@@ -56,6 +61,19 @@ static Model renumbered(const Model& m, unsigned seed) {
     for (auto& e : r.edges) {
         e.from = map[e.from];
         e.to = map[e.to];
+    }
+    for (std::size_t i = r.nodes.size(); i > 1; --i) {
+        const std::size_t j = draw(i);
+        std::swap(r.nodes[i - 1], r.nodes[j]);
+    }
+    for (std::size_t i = r.edges.size(); i > 1; --i) {
+        const std::size_t j = draw(i);
+        std::swap(r.edges[i - 1], r.edges[j]);
+    }
+    for (auto& e : r.edges) {
+        const std::size_t flip = draw(2);
+        if (e.kind == EdgeKind::nvlink && flip == 1)
+            std::swap(e.from, e.to);
     }
     return r;
 }
