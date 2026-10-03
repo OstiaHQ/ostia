@@ -138,7 +138,7 @@ FixtureSource::FixtureSource(const fs::path& dir) {
         throw TopologyError("xml", "hwloc.xml", "hwloc_topology_init failed");
     }
     TopologyPtr topo(raw);
-    // D6: keep PUs the capture host's cgroup disallowed, so replay is host-independent.
+    // RFC-0003 §2.1: keep PUs the capture host's cgroup disallowed, so replay is host-independent.
     hwloc_topology_set_flags(topo.get(), HWLOC_TOPOLOGY_FLAG_INCLUDE_DISALLOWED);
     hwloc_topology_set_io_types_filter(topo.get(), HWLOC_TYPE_FILTER_KEEP_IMPORTANT);
     if (hwloc_topology_set_xml(topo.get(), xml.c_str()) != 0 ||

@@ -98,7 +98,7 @@ TEST(Builder, NvlinkPairIsOneEdgeWithLinkCount) {
     EXPECT_EQ(nvlink, 1);
 }
 
-TEST(Builder, InactiveLinksAreNotCounted) { // R7, broken-nvlink
+TEST(Builder, InactiveLinksAreNotCounted) { // RFC-0003 §6, broken-nvlink
     auto f = two_gpus_one_nic();
     f.nvml["gpus"][0]["nvlinks"][0]["state"] = "inactive";
     f.nvml["gpus"][1]["nvlinks"][0]["state"] = "inactive";
@@ -108,7 +108,7 @@ TEST(Builder, InactiveLinksAreNotCounted) { // R7, broken-nvlink
             EXPECT_EQ(e.attrs.at("links"), 3);
 }
 
-TEST(Builder, SwitchLinksFormOneSwitchGroup) { // R7, nvswitch-hidden
+TEST(Builder, SwitchLinksFormOneSwitchGroup) { // RFC-0003 §6, nvswitch-hidden
     auto f = two_gpus_one_nic();
     for (auto& g : f.nvml["gpus"])
         for (auto& l : g["nvlinks"]) {
@@ -121,7 +121,7 @@ TEST(Builder, SwitchLinksFormOneSwitchGroup) { // R7, nvswitch-hidden
               1);
 }
 
-TEST(Builder, UnknownPortFactsAreRecordedAsUnknown) { // D4, R8
+TEST(Builder, UnknownPortFactsAreRecordedAsUnknown) { // RFC-0003 §2
     const auto j = to_json(build(two_gpus_one_nic()));
     for (auto& n : j["nodes"])
         if (n["kind"] == "nic") {
@@ -139,7 +139,7 @@ TEST(Builder, NotSupportedNvlinksGiveNoNvlinkEdges) { // partial-discovery
         EXPECT_NE(e.kind, EdgeKind::nvlink);
 }
 
-TEST(Builder, DanglingGpuBusIdNamesFileAndBusId) { // Review Focus 2
+TEST(Builder, DanglingGpuBusIdNamesFileAndBusId) { // RFC-0003 Testing
     auto f = two_gpus_one_nic();
     f.nvml["gpus"][1]["bus_id"] = "0000:99:00.0";
     try {

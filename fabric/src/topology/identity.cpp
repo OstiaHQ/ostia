@@ -1,4 +1,4 @@
-// topo1: an exact canonical form of the stripped topology graph (RFC-0003 §5, D12, R5).
+// topo1: an exact canonical form of the stripped topology graph (RFC-0003 §5).
 //
 //   labels ──► refine to a stable partition ──► all cells singletons? ──yes──► leaf certificate
 //                     ▲                                │ no
@@ -27,7 +27,8 @@ namespace ostia::fabric::topology {
 
 namespace {
 
-// R6: identity attributes per kind; every other attribute is data and never reaches topo1.
+// Identity attributes per kind (RFC-0003 §5); every other attribute is data and never reaches
+// topo1.
 std::vector<std::string> identity_attrs(NodeKind kind) {
     switch (kind) {
     case NodeKind::gpu:
@@ -227,6 +228,10 @@ std::string certificate(const Graph& g, const std::vector<int>& position) {
     return out.dump();
 }
 
+// The search defines topo1: branch on the first non-singleton cell, refine to a fixed point,
+// keep the smallest certificate. Changing any of the three changes every id. Pruning may change
+// only if it keeps that minimum; orbit pruning for symmetric shapes that are not twins is a
+// planned follow-up (RFC-0003 Performance).
 struct Search {
     const Graph& g;
     std::size_t leaves = 0;
@@ -316,7 +321,7 @@ std::string pair_id(const std::string& id0, const std::string& id1, const nlohma
         return doc.dump();
     };
     // Sorting the ids renames the endpoints, so each rail's node-0/node-1 must follow its id
-    // (ruling J). Rail order stays: pair.json's `measured` refers to rails by index.
+    // (RFC-0003 §7). Rail order stays: pair.json's `measured` refers to rails by index.
     if (id0 != id1)
         return "topo1:sha256:" + sha256_hex(structural(id1 < id0 ? swap_ends(rails) : rails));
     // Equal ids leave no order to follow, so take the smaller of the two orientations.

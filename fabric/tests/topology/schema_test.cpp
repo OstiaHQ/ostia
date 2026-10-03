@@ -70,18 +70,18 @@ TEST(Schema, WrongVersionAndBadEnumAreRejected) {
     doc["schema"] = 2;
     EXPECT_FALSE(validate("nvml", doc).empty());
     doc = minimal_nvml();
-    doc["gpus"][0]["nvlinks"] = "maybe"; // neither an array nor "not_supported" (R8 oneOf)
+    doc["gpus"][0]["nvlinks"] = "maybe"; // neither an array nor "not_supported" (RFC-0003 §2)
     EXPECT_FALSE(validate("nvml", doc).empty());
 }
 
-TEST(Schema, NicPortFactsMayBeUnknown) { // D4, R8
+TEST(Schema, NicPortFactsMayBeUnknown) { // RFC-0003 §2
     auto nics = json::parse(R"({"schema":1,"rdma_probe":"unavailable","rdma":[],"nics":[
     {"bus_id":"0000:3b:00.0","driver":"mlx5_core","link_layer":"unknown",
      "max_pcie_gen":4,"max_pcie_width":16,"numa_node":0,"port_speed_mbps":"unknown"}]})");
     EXPECT_TRUE(validate("nics", nics).empty());
     nics["nics"][0]["port_speed_mbps"] = "fast";
     EXPECT_FALSE(validate("nics", nics).empty());
-    nics["nics"][0].erase("port_speed_mbps"); // always present (R8)
+    nics["nics"][0].erase("port_speed_mbps"); // always present (RFC-0003 §2)
     EXPECT_FALSE(validate("nics", nics).empty());
 }
 

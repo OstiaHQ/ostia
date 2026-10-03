@@ -66,7 +66,7 @@ TEST(Identity, HasPrefixAndIsStable) {
     EXPECT_EQ(topo1(m), topo1(m));
 }
 
-TEST(Identity, EqualAcrossRenumberingAndPermutations) { // RFC-0003 Testing; D12
+TEST(Identity, EqualAcrossRenumberingAndPermutations) { // RFC-0003 Testing
     auto ring8 = gpus_with_nvlinks(8, {{0, 1},
                                        {1, 2},
                                        {2, 3},
@@ -83,7 +83,7 @@ TEST(Identity, EqualAcrossRenumberingAndPermutations) { // RFC-0003 Testing; D12
         EXPECT_EQ(topo1(ring8), topo1(renumbered(ring8, seed))) << seed;
 }
 
-TEST(Identity, CycleOfSixDiffersFromTwoTriangles) { // the WL collision D12 fixes
+TEST(Identity, CycleOfSixDiffersFromTwoTriangles) { // a WL collision (RFC-0003 §5)
     auto cycle = gpus_with_nvlinks(6, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 0}});
     auto triangles = gpus_with_nvlinks(6, {{0, 1}, {1, 2}, {2, 0}, {3, 4}, {4, 5}, {5, 3}});
     EXPECT_NE(topo1(cycle), topo1(triangles));
@@ -98,7 +98,7 @@ TEST(Identity, DiffersWhenAnNvlinkIsRemovedOrTheModelChanges) {
     EXPECT_NE(topo1(m), topo1(other));
 }
 
-TEST(Identity, IgnoresDataAttributes) { // R6, D15
+TEST(Identity, IgnoresDataAttributes) { // RFC-0003 §5
     Model a, b;
     a.nodes = {{NodeKind::nic,
                 "0000:3b:00.0",
@@ -116,7 +116,7 @@ TEST(Identity, IgnoresDataAttributes) { // R6, D15
     EXPECT_EQ(topo1(a), topo1(b));
 }
 
-TEST(Identity, SymmetricEightGpuSwitchIsFast) { // R5 twin pruning; Review Focus 1
+TEST(Identity, SymmetricEightGpuSwitchIsFast) { // twin pruning (RFC-0003 §5)
     Model m = gpus_with_nvlinks(8, {});
     m.nodes.push_back({NodeKind::switch_group, "switch-group-0", {}});
     for (auto& n : std::vector<Node>(m.nodes.begin(), m.nodes.end() - 1))
@@ -147,7 +147,7 @@ TEST(Identity, PairIdIsOrderIndependentAndSeesRails) {
     EXPECT_EQ(p.rfind("topo1:sha256:", 0), 0u);
 }
 
-TEST(Identity, PairIdKeepsRailEndpointsWithTheirNode) { // ruling J
+TEST(Identity, PairIdKeepsRailEndpointsWithTheirNode) { // RFC-0003 §7
     nlohmann::json r = {
         {"link_class", "infiniband"},
         {"rails", {{{"node-0", {{"nic_index", 0}}}, {"node-1", {{"nic_index", 1}}}}}}};

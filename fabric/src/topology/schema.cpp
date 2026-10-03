@@ -15,7 +15,7 @@ namespace {
 using nlohmann::json;
 using Errors = std::vector<SchemaError>;
 
-// Decision T2: a deliberate subset of JSON Schema, only what the fixture schemas need.
+// RFC-0003 §2: a deliberate subset of JSON Schema, only what the fixture schemas need.
 // A test rejects any other keyword in an embedded schema.
 const std::map<std::string_view, json>& load() {
     static const std::map<std::string_view, json> schemas = [] {

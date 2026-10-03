@@ -10,7 +10,7 @@ namespace {
 
 using nlohmann::json;
 
-constexpr const char* kSwitchGroup = "switch-group-0"; // R7: one per machine
+constexpr const char* kSwitchGroup = "switch-group-0"; // RFC-0003 §6: one per machine
 
 std::string numa_key(int os_index) { return "numa-" + std::to_string(os_index); }
 

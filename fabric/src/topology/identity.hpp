@@ -8,8 +8,8 @@
 
 namespace ostia::fabric::topology {
 
-inline constexpr std::size_t kMaxNodes = 256;        // D12
-inline constexpr std::size_t kMaxLeaves = 1'000'000; // R5: search-tree leaves per topo1 call
+inline constexpr std::size_t kMaxNodes = 256;        // RFC-0003 §5: model nodes per call
+inline constexpr std::size_t kMaxLeaves = 1'000'000; // RFC-0003 §5: search-tree leaves per call
 
 // "topo1:sha256:<64 hex>" (RFC-0003 §5): equal for isomorphic models once keys and data
 // attributes are dropped, different otherwise. Throws TopologyError "node_cap" above kMaxNodes,
