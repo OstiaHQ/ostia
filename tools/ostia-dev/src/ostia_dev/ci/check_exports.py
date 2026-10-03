@@ -17,6 +17,9 @@ from pathlib import Path
 
 # Symbols the linker defines in every ELF shared object.
 LINKER = {"_init", "_fini", "__bss_start", "_edata", "_end", "__end__", "_etext"}
+# The bounds the linker defines for each section named like a C identifier, e.g. the
+# __llvm_prf_* sections of a coverage build.
+SECTION_BOUND = re.compile(r"__(start|stop)_[A-Za-z_][A-Za-z0-9_]*")
 DEFINED = set("TDBRVWSGI")
 RUNTIME = re.compile(
     r"opentelemetry|(?<![a-z])otel(?![a-z])|(?<![a-z])counter(?![a-z])|trace_ring|ring_buffer|exporter",
@@ -33,7 +36,7 @@ def exported(nm_output: str, platform: str) -> list[str]:
         name = parts[-1]
         if platform == "darwin" and name.startswith("_"):
             name = name[1:]  # Mach-O prefixes C symbols with an underscore
-        if name not in LINKER:
+        if name not in LINKER and not SECTION_BOUND.fullmatch(name):
             names.append(name)
     return sorted(set(names))
 

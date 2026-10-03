@@ -1,4 +1,4 @@
-"""build, test, fuzz, py-dev, clean, doctor and hooks (RFC-0005 §2.2)."""
+"""build, test, fuzz, coverage, py-dev, clean, doctor and hooks (RFC-0005 §2.2)."""
 
 from typing import Annotated
 
@@ -119,6 +119,12 @@ def register(app: typer.Typer) -> None:
         extra arguments go to libFuzzer, e.g. -runs=1000."""
         steps.env_or_exit("fuzz")
         raise typer.Exit(steps.run(steps.fuzz(seconds, *ctx.args)))
+
+    @app.command()
+    def coverage() -> None:
+        """C++ and Python tests with coverage (Clang: pixi run -e clang ostia-dev coverage);
+        writes cpp.lcov and python.xml under build/<env>/coverage."""
+        raise typer.Exit(steps.run(steps.coverage(steps.env_or_exit("coverage"))))
 
     passthrough.command(app, "clean", "dev.clean", "Remove build output and what py-dev installed.")
     passthrough.command(app, "doctor", "dev.doctor", "Print the environment and diagnose problems.")

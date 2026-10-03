@@ -101,6 +101,57 @@ jobs:
             echo "Reproduce: \`pixi run -e clang ostia-dev fuzz --time 120\`; replay a crash file with \`build/clang/fuzz/fabric/fuzz/ostia_fabric_topology_fuzz <file>\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  coverage:
+    name: coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # OIDC token for the Codecov upload, so the repository needs no Codecov secret.
+      id-token: write
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          environment: clang
+          ccache-key: coverage
+      - name: pixi run -e clang ostia-dev coverage
+        run: pixi run -e clang ostia-dev coverage
+      # Report only: a Codecov outage or a missing upload never fails CI.
+      - name: Upload C++ coverage
+        # codecov/codecov-action v7.1.1
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5
+        with:
+          files: build/clang/coverage/cpp.lcov
+          disable_search: true
+          flags: cpp
+          # Fork pull requests get no OIDC token; Codecov accepts their upload tokenless.
+          use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
+          fail_ci_if_error: false
+      - name: Upload Python coverage
+        # codecov/codecov-action v7.1.1
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5
+        with:
+          files: build/clang/coverage/python.xml
+          disable_search: true
+          flags: python
+          use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
+          fail_ci_if_error: false
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### coverage"
+            echo "Reproduce: \`pixi run -e clang ostia-dev coverage\`"
+            echo '```'
+            tail -n 3 build/clang/coverage/cpp-summary.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   nvcc:
     name: nvcc-${{ matrix.cuda }}
     runs-on: ubuntu-24.04

@@ -9,6 +9,18 @@ markers = [
     "kind: needs a kind cluster (RFC-0005 Testing); the remote.yml kind job runs them",
 ]
 
+# `ostia-dev coverage` (Python half); relative paths so Codecov can map them to the repository.
+[tool.coverage.run]
+source = [
+    "tools/ostia-dev/src",
+    "fabric/python/src",
+    "telemetry/python/src",
+    "telemetry/tools",
+]
+omit = ["*/tests/*", "*/test_*.py"]
+relative_files = true
+data_file = "build/.coverage"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

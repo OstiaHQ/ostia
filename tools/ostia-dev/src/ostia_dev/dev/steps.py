@@ -122,6 +122,25 @@ def fuzz(seconds: int, *args: str) -> list[list[str]]:
     ]
 
 
+def coverage(env: str) -> list[list[str]]:
+    """C++ tests under Clang source-based coverage, then the Python tests under coverage.py.
+    Leaves cpp.lcov and python.xml in the coverage tree for the Codecov upload."""
+    tree = f"{build_root()}/coverage"
+    return [
+        ["cmake", "--preset", "coverage"],
+        ["cmake", "--build", "--preset", "coverage"],
+        # Profiles from an earlier run would be merged into this one.
+        ["cmake", "-E", "rm", "-rf", f"{tree}/profiles"],
+        ["ctest", "--preset", "coverage"],
+        py("dev.coverage", "--build", tree),
+        *py_dev(env),
+        ["coverage", "erase"],
+        ["coverage", "run", "-m", "pytest"],
+        ["coverage", "xml", "-o", f"{tree}/python.xml"],
+        ["coverage", "report"],
+    ]
+
+
 def graph(env: str) -> list[list[str]]:
     dot = f"{build_root()}/dev/ostia.dot"
     return [

@@ -20,6 +20,12 @@ def test_normalizes_macos_and_linux():
     assert exported(LINUX, "linux") == ["ostia_telemetry_build_level"]
 
 
+def test_linker_section_bounds_are_not_exports():
+    coverage = LINUX + "0000000000004020 D __start___llvm_prf_cnts\n"
+    coverage += "0000000000004040 D __stop___llvm_prf_cnts\n"
+    assert exported(coverage, "linux") == ["ostia_telemetry_build_level"]
+
+
 def test_matching_exports_pass():
     assert check(["ostia_telemetry_build_level"], ["ostia_telemetry_build_level"], level=1) == []
 
