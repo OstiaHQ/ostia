@@ -8,7 +8,7 @@ import { join, basename, resolve } from "path";
 const [inDir, outDir] = process.argv.slice(2).map((p) => resolve(p));
 mkdirSync(outDir, { recursive: true });
 
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const kebab = (k) => (/^(viewBox|refX|refY|markerWidth|markerHeight)$/.test(k) ? k : k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase()));
 const flat = (a) => a.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false && c !== true);
 
