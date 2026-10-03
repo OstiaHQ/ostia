@@ -17,6 +17,7 @@ function(ostia_print_summary)
     architectures
     telemetry_level
     components
+    tools
     dependencies
     ccache
   )

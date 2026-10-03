@@ -17,6 +17,7 @@ Dependency          License                          Use                        
 CPM.cmake           MIT                              Vendored (cmake/CPM.cmake), build only    M0 (now)
 GoogleTest          BSD-3-Clause                     Fetched, tests only                       M0 (now)
 nanobind            BSD-3-Clause                     Fetched, Python bindings                  M0 (now)
+nlohmann/json       MIT                              Fetched, header-only, topology model      M0
 hwloc               BSD-3-Clause                     System (pixi), topology discovery         M0/M1
 UCX                 BSD-3-Clause                     System (pixi, Linux), transports          M0/M1
 rdma-core           BSD-2-Clause or GPL-2.0          System (pixi, Linux), with UCX            M0/M1
@@ -36,6 +37,7 @@ Upstream projects
 CPM.cmake          https://github.com/cpm-cmake/CPM.cmake
 GoogleTest         https://github.com/google/googletest
 nanobind           https://github.com/wjakob/nanobind
+nlohmann/json      https://github.com/nlohmann/json
 hwloc              https://www.open-mpi.org/projects/hwloc/
 UCX                https://github.com/openucx/ucx
 rdma-core          https://github.com/linux-rdma/rdma-core
@@ -56,6 +58,76 @@ CPM.cmake (vendored in cmake/CPM.cmake)
 MIT License
 
 Copyright (c) 2019-2023 Lars Melchior and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+hwloc (system, from conda-forge's libhwloc; https://www.open-mpi.org/projects/hwloc/)
+----------------------------------------------------------------------
+
+Copyright © 2004-2006 The Trustees of Indiana University and Indiana University Research and Technology Corporation.  All rights reserved.
+Copyright © 2004-2005 The University of Tennessee and The University of Tennessee Research Foundation.  All rights reserved.
+Copyright © 2004-2005 High Performance Computing Center Stuttgart, University of Stuttgart.  All rights reserved.
+Copyright © 2004-2005 The Regents of the University of California. All rights reserved.
+Copyright © 2009      CNRS
+Copyright © 2009-2016 Inria.  All rights reserved.
+Copyright © 2009-2015 Université Bordeaux
+Copyright © 2009-2015 Cisco Systems, Inc.  All rights reserved.
+Copyright © 2009-2012 Oracle and/or its affiliates.  All rights reserved.
+Copyright © 2010      IBM
+Copyright © 2010      Jirka Hladky
+Copyright © 2012      Aleksej Saushev, The NetBSD Foundation
+Copyright © 2012      Blue Brain Project, EPFL. All rights reserved.
+Copyright © 2013-2014 University of Wisconsin-La Crosse. All rights reserved.
+Copyright © 2015      Research Organization for Information Science and Technology (RIST). All rights reserved.
+Copyright © 2015-2016 Intel, Inc.  All rights reserved.
+See COPYING in top-level directory.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. The name of the author may not be used to endorse or promote products
+   derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+nlohmann/json (fetched at 55f93686c01528224f448c19128836e7df245f72; https://github.com/nlohmann/json)
+----------------------------------------------------------------------
+
+MIT License 
+
+Copyright (c) 2013-2025 Niels Lohmann
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
