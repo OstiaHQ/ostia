@@ -45,7 +45,8 @@ def _model(fixture: Path) -> str:
 
 def _fixtures() -> list[Path]:
     found = {p.parent for name in INPUTS for p in FIXTURES.glob(f"*/*/{name}")}
-    return sorted(found)
+    # node-0/ and node-1/ belong to their pair, which is the fixture (RFC-0003 §9).
+    return sorted(d for d in found if not d.name.startswith("node-"))
 
 
 def _is_fixture(d: Path) -> bool:
@@ -79,6 +80,10 @@ def _resolve(arg: Path) -> Path:
     raise _bad_fixture(arg)
 
 
+def _shown(path: Path) -> str:
+    return path.relative_to(FIXTURES).as_posix() if path.is_relative_to(FIXTURES) else str(path)
+
+
 @topo_app.command()
 def show(
     fixture: Annotated[Path, typer.Argument(help="A fixture directory.")],
@@ -107,7 +112,8 @@ def golden(
         if fixtures:
             names = "|".join(re.escape(f.name) for f in chosen)
             pattern += f"({names})$"
-        code = steps.run([*steps.build(env), ["ctest", "--preset", "dev", "-R", pattern]])
+        ctest = ["ctest", "--preset", "dev", "--no-tests=error", "-R", pattern]
+        code = steps.run([*steps.build(env), ctest])
         raise typer.Exit(code)
     code = steps.run(steps.build(env, "--target", "ostia-topo"))
     if code:
@@ -122,9 +128,9 @@ def golden(
             target.write_text(new, encoding="utf-8")
             changed.append(target)
     for t in changed:
-        typer.echo(f"updated {t.relative_to(FIXTURES)}")
+        typer.echo(f"updated {_shown(t)}")
     for t in same:
-        typer.echo(f"unchanged {t.relative_to(FIXTURES)}")
+        typer.echo(f"unchanged {_shown(t)}")
     typer.echo(f"{len(changed)} changed, {len(same)} unchanged")
 
 

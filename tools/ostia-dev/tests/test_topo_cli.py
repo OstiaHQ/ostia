@@ -4,6 +4,7 @@ import subprocess
 
 from ostia_dev.cli import app
 from ostia_dev.errors import InfraError, UsageError
+from ostia_dev.topo import cli
 from typer.testing import CliRunner
 
 
@@ -61,7 +62,14 @@ def test_golden_runs_ctest_by_default(monkeypatch, tmp_path):
     monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: calls.extend(plan) or 0)
     r = CliRunner().invoke(app, ["topo", "golden"])
     assert r.exit_code == 0
-    assert calls[-1] == ["ctest", "--preset", "dev", "-R", r"^fabric\.topo\.golden\."]
+    assert calls[-1] == [
+        "ctest",
+        "--preset",
+        "dev",
+        "--no-tests=error",
+        "-R",
+        r"^fabric\.topo\.golden\.",
+    ]
 
 
 def _two_fixtures(monkeypatch, tmp_path):
@@ -120,6 +128,7 @@ def test_named_fixtures_narrow_the_ctest_regex(monkeypatch, tmp_path):
     monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: calls.extend(plan) or 0)
     r = CliRunner().invoke(app, ["topo", "golden", "one", "pair-tcp"])
     assert r.exit_code == 0
+    assert "--no-tests=error" in calls[-1]
     assert calls[-1][-1] == r"^fabric\.topo\.golden\.(one|pair\-tcp)$"
 
 
@@ -138,3 +147,23 @@ def test_golden_update_model_failure_changes_nothing(monkeypatch, tmp_path):
     assert "pair-tcp" in r.exception.message
     assert "cannot replay pair.json" in r.exception.message
     assert not list(tmp_path.rglob("expected.json"))
+
+
+def test_pair_members_are_listed_only_as_the_pair(monkeypatch, tmp_path):
+    pair = tmp_path / "captured" / "rdma-pair"
+    for node in ("node-0", "node-1"):
+        (pair / node).mkdir(parents=True)
+        (pair / node / "hwloc.xml").write_text("x")
+    (pair / "pair.json").write_text("x")
+    monkeypatch.setattr("ostia_dev.topo.cli.FIXTURES", tmp_path)
+    assert cli._fixtures() == [pair]
+
+
+def test_golden_update_outside_fixtures_prints_the_absolute_path(monkeypatch, tmp_path):
+    _fake_fixture(monkeypatch, tmp_path / "fixtures")
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    (outside / "hwloc.xml").write_text("<topology/>")
+    r = CliRunner().invoke(app, ["topo", "golden", "--update", str(outside)])
+    assert r.exit_code == 0, r.output
+    assert f"updated {outside.resolve() / 'expected.json'}" in r.output

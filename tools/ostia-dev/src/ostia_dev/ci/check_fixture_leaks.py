@@ -32,7 +32,7 @@ EXEMPT = re.compile(
     r"|0x[0-9a-f]{8}(?:,0x[0-9a-f]{8})*"  # hwloc cpuset and nodeset
 )
 
-# hwloc info names that may be published (RFC-0003 §2.1, ruling R4). An allowlist fails
+# hwloc info names that may be published (RFC-0003 §2.1). An allowlist fails
 # safe: a key the capture tool should have dropped, such as HostName or DMI*, is a leak.
 INFO_ALLOWED = {
     "PCIVendor",
@@ -98,7 +98,7 @@ def check_text(text: str, path: str) -> list[Finding]:
             break
         else:
             names = [m[1] for tag in INFO_TAG.findall(line) for m in INFO_NAME.findall(tag)]
-            if any(n not in INFO_ALLOWED for n in names):
+            if any(name not in INFO_ALLOWED for name in names):
                 out.append(Finding(path, n, "hwloc-key"))
     return out
 
@@ -118,13 +118,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--files", nargs="+", type=Path, help="scan these files instead")
     args = parser.parse_args(argv)
+    missing = [f for f in args.files or [] if not f.is_file()]
+    if missing:
+        print(
+            violation(
+                "fixture-leaks was given files that do not exist",
+                [f"missing: {f}" for f in missing],
+                "--files names existing fixture files",
+                "pass paths to files, or drop --files to scan every tracked fixture",
+                "RFC-0003 §3",
+            ),
+            file=sys.stderr,
+        )
+        return 2
     files = args.files if args.files else tracked_fixtures(ROOT)
     findings = []
     for f in files:
         try:
-            text = f.read_text()
-        except UnicodeDecodeError:
-            continue  # binary; fixtures are text
+            text = f.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            # Fixtures are UTF-8 text; a file that cannot be scanned cannot be shown clean.
+            findings.append(Finding(str(f), 0, "unreadable"))
+            continue
         findings += check_text(text, str(f))
     for f in findings:
         print(f"{f.path}:{f.line}: {f.kind}")

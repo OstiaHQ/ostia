@@ -65,3 +65,17 @@ def test_output_names_line_and_kind_but_never_the_value(tmp_path, capsys):
 
 def test_committed_fixtures_are_clean():
     assert main([]) == 0
+
+
+def test_undecodable_file_is_reported_unreadable(tmp_path, capsys):
+    f = tmp_path / "nvml.json"
+    f.write_bytes(b"\xff\xfe\x00")
+    assert main(["--files", str(f)]) == 1
+    assert f"{f}:0: unreadable" in capsys.readouterr().out
+
+
+def test_missing_file_is_a_contract_error(tmp_path, capsys):
+    missing = tmp_path / "nope.json"
+    assert main(["--files", str(missing)]) == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error: ") and f"missing: {missing}" in err and "fix:" in err
