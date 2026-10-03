@@ -140,7 +140,7 @@ This RFC is the approval that docs/README.md requires for new dependencies.
 
 | Dependency | Licence | Purpose | Source | Integration milestone | Required by |
 | --- | --- | --- | --- | --- | --- |
-| hwloc | BSD-3-Clause | Topology discovery *(update: Rollout PR 6a: version 2.4 or newer, found by `cmake/Findhwloc.cmake`, D9, R2)* | pixi | M0 (fixture replay), M1 (live) | fabric |
+| hwloc | BSD-3-Clause | Topology discovery *(update: Rollout PR 6a: version 2.4 or newer, found by `cmake/Findhwloc.cmake`: pixi's `libhwloc`, `libhwloc-dev` on Ubuntu, `hwloc-devel` from CRB on Rocky. PR 6a, #32.)* | pixi | M0 (fixture replay), M1 (live) | fabric |
 | UCX + rdma-core | BSD-3-Clause, BSD/GPL-2.0 dual | Transports, multi-process tests | pixi, Linux | M0 (tests), M1 | fabric tests |
 | opentelemetry-cpp, protobuf, abseil | Apache-2.0, BSD-3-Clause, Apache-2.0 | Metrics and span export | CPM, static PIC, symbols hidden (RFC-0002 §4) | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
 | libcurl | curl (MIT-style) | OTLP over HTTP | pixi or system, shared | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
@@ -153,7 +153,7 @@ This RFC is the approval that docs/README.md requires for new dependencies.
 | nvCOMP | NVIDIA proprietary, optional | Compression pushdown | `dlopen`, never bundled | M2 | exchange; out of default M0 resolution |
 
 - CCCL is taken from GitHub rather than the toolkit, which CCCL supports ("a newer CCCL with an older CUDA Toolkit"), so the CCCL version does not change with the CUDA version. CCCL 3.x supports CUDA 12.x and 13.x at their latest patch releases, which includes CUDA 12.8 (its latest patch is what CI pins).
-- RFC-0002 approves xxHash and RFC-0003 approves nlohmann/json, each for its own use. *(update: RFC-0003 Rollout PR 6a: nlohmann/json 3.12.0 comes from CPM, R3.)*
+- RFC-0002 approves xxHash and RFC-0003 approves nlohmann/json, each for its own use. *(update: Rollout PR 6a: nlohmann/json 3.12.0 comes from CPM. PR 6a, #32.)*
 - nvCOMP is approved now and integrated with compression pushdown in M2. When integrated, it reports its capability explicitly, and any benchmark or test that requires it fails, rather than silently falling back, when it is missing or incompatible. Its redistribution terms are checked before any binary release (PRD, Third-party code).
 
 #### 2.4 Pinning and updates
