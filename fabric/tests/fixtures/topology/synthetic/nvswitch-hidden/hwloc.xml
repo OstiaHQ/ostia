@@ -29,7 +29,7 @@
         <object type="PU" os_index="7" cpuset="0x00000080" complete_cpuset="0x00000080" nodeset="0x00000001" complete_nodeset="0x00000001" gp_index="19"/>
       </object>
       <object type="Bridge" gp_index="20" bridge_type="0-1" depth="0" bridge_pci="0000:[10-1f]">
-        <object type="Bridge" gp_index="21" bridge_type="1-1" depth="1" bridge_pci="0000:[11-11]" pci_busid="0000:11:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
+        <object type="Bridge" gp_index="21" bridge_type="1-1" depth="1" bridge_pci="0000:[12-12]" pci_busid="0000:11:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
           <info name="OstiaPCIeMaxGen" value="5"/>
           <info name="OstiaPCIeMaxWidth" value="16"/>
           <object type="PCIDev" gp_index="22" pci_busid="0000:12:00.0" pci_type="0302 [10de:2330] [10de:0000] a1" pci_link_speed="63.015385">
@@ -47,7 +47,7 @@
         </object>
       </object>
       <object type="Bridge" gp_index="25" bridge_type="0-1" depth="0" bridge_pci="0000:[20-2f]">
-        <object type="Bridge" gp_index="26" bridge_type="1-1" depth="1" bridge_pci="0000:[21-21]" pci_busid="0000:21:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
+        <object type="Bridge" gp_index="26" bridge_type="1-1" depth="1" bridge_pci="0000:[22-22]" pci_busid="0000:21:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
           <info name="OstiaPCIeMaxGen" value="5"/>
           <info name="OstiaPCIeMaxWidth" value="16"/>
           <object type="PCIDev" gp_index="27" pci_busid="0000:22:00.0" pci_type="0302 [10de:2330] [10de:0000] a1" pci_link_speed="63.015385">
@@ -92,7 +92,7 @@
         <object type="PU" os_index="15" cpuset="0x00008000" complete_cpuset="0x00008000" nodeset="0x00000002" complete_nodeset="0x00000002" gp_index="47"/>
       </object>
       <object type="Bridge" gp_index="48" bridge_type="0-1" depth="0" bridge_pci="0000:[30-3f]">
-        <object type="Bridge" gp_index="49" bridge_type="1-1" depth="1" bridge_pci="0000:[31-31]" pci_busid="0000:31:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
+        <object type="Bridge" gp_index="49" bridge_type="1-1" depth="1" bridge_pci="0000:[32-32]" pci_busid="0000:31:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
           <info name="OstiaPCIeMaxGen" value="5"/>
           <info name="OstiaPCIeMaxWidth" value="16"/>
           <object type="PCIDev" gp_index="50" pci_busid="0000:32:00.0" pci_type="0302 [10de:2330] [10de:0000] a1" pci_link_speed="63.015385">
@@ -110,7 +110,7 @@
         </object>
       </object>
       <object type="Bridge" gp_index="53" bridge_type="0-1" depth="0" bridge_pci="0000:[40-4f]">
-        <object type="Bridge" gp_index="54" bridge_type="1-1" depth="1" bridge_pci="0000:[41-41]" pci_busid="0000:41:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
+        <object type="Bridge" gp_index="54" bridge_type="1-1" depth="1" bridge_pci="0000:[42-42]" pci_busid="0000:41:00.0" pci_type="0604 [10b5:9797] [0000:0000] a1" pci_link_speed="63.015385">
           <info name="OstiaPCIeMaxGen" value="5"/>
           <info name="OstiaPCIeMaxWidth" value="16"/>
           <object type="PCIDev" gp_index="55" pci_busid="0000:42:00.0" pci_type="0302 [10de:2330] [10de:0000] a1" pci_link_speed="63.015385">

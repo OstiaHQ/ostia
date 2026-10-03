@@ -61,6 +61,8 @@ class Bridge:
     devices: list[str]
     # Bus ID of a PCI-to-PCI bridge between the host bridge and devices, if any.
     upstream: str | None = None
+    # (bus ID, pci_type) of devices that are neither GPU nor NIC, which the builder must drop.
+    strays: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -192,7 +194,8 @@ def hwloc_xml(m: Machine) -> str:
                 },
             )
             if br.upstream:
-                secondary = f"{int(lo, 16) + 1:02x}"
+                buses = [int(d[5:7], 16) for d in br.devices]
+                low, high = f"{min(buses):02x}", f"{max(buses):02x}"
                 w.open(
                     "object",
                     {
@@ -200,7 +203,7 @@ def hwloc_xml(m: Machine) -> str:
                         "gp_index": w.next_gp(),
                         "bridge_type": "1-1",
                         "depth": 1,
-                        "bridge_pci": f"0000:[{secondary}-{secondary}]",
+                        "bridge_pci": f"0000:[{low}-{high}]",
                         "pci_busid": br.upstream,
                         "pci_type": "0604 [10b5:9797] [0000:0000] a1",
                         "pci_link_speed": link_speed(5, 16),
@@ -212,6 +215,8 @@ def hwloc_xml(m: Machine) -> str:
                 pci_id, cls, gen, width = devices[bus]
                 vendor, device = pci_id.split(":")
                 pci_object(w, bus, f"{cls} [{vendor}:{device}] [{vendor}:0000] a1", gen, width)
+            for bus, pci_type in br.strays:
+                pci_object(w, bus, pci_type, 4, 4)
             if br.upstream:
                 w.close("object")
             w.close("object")
@@ -474,6 +479,7 @@ def case_multi_numa() -> dict[str, str]:
             (3, 0x70, [m.gpus[3]], False),
         ],
     )
+    m.bridges[1].strays.append(("0000:31:01.0", "0108 [1b36:0010] [1b36:0000] a1"))
     for a, b in ((0, 1), (2, 3)):
         pair = [m.gpus[a], m.gpus[b]]
         mesh(pair, 12)
