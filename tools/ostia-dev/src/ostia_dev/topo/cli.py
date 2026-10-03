@@ -15,7 +15,6 @@ topo_app = typer.Typer(help="Topology fixtures (RFC-0003).", no_args_is_help=Tru
 
 FIXTURES = paths.ROOT / "fabric/tests/fixtures/topology"
 INPUTS = ("hwloc.xml", "pair.json")
-BUILD_TOPO = ["cmake", "--build", "--preset", "dev", "--target", "ostia-topo"]
 
 
 def _binary() -> Path:
@@ -23,9 +22,25 @@ def _binary() -> Path:
 
 
 def _model(fixture: Path) -> str:
-    return subprocess.run(
-        [str(_binary()), "model", str(fixture)], check=True, capture_output=True, text=True
-    ).stdout
+    try:
+        return subprocess.run(
+            [str(_binary()), "model", str(fixture)],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        raise errors.InfraError(
+            violation(
+                f"ostia-topo could not model {fixture.name}",
+                [f"exit code: {e.returncode}", *(e.stderr or "").strip().splitlines()],
+                "a fixture must be readable and replayable for its golden to be regenerated",
+                f"pixi run ostia-dev topo show {fixture.name}",
+                "RFC-0003 §9",
+            ),
+            e.returncode,
+        ) from e
 
 
 def _fixtures() -> list[Path]:
@@ -37,21 +52,31 @@ def _is_fixture(d: Path) -> bool:
     return d.is_dir() and any((d / name).is_file() for name in INPUTS)
 
 
-def _resolve(arg: Path) -> Path:
-    return arg if arg.is_absolute() or arg.exists() else paths.ROOT / arg
-
-
-def _bad_fixture(arg: Path) -> errors.UsageError:
-    available = [str(p.relative_to(FIXTURES)) for p in _fixtures()] if FIXTURES.is_dir() else []
+def _bad_fixture(arg: Path, why: str | None = None, matches: list[Path] | None = None):
+    names = matches or _fixtures()
     return errors.UsageError(
         violation(
-            f"{arg} is not a topology fixture",
-            [f"available: {a}" for a in available],
+            why or f"{arg} is not a topology fixture",
+            [f"available: {p.relative_to(FIXTURES).as_posix()}" for p in names],
             "a fixture is a directory holding hwloc.xml or pair.json (RFC-0003 §9)",
-            f"pass one of the directories under {FIXTURES.relative_to(paths.ROOT)}",
+            "pass a fixture directory, <group>/<case>, or a unique <case> name",
             "RFC-0003 §9",
         )
     )
+
+
+def _resolve(arg: Path) -> Path:
+    """An absolute fixture directory from a path, `<group>/<case>`, or a unique case name."""
+    for candidate in (arg, paths.ROOT / arg, FIXTURES / arg):
+        if _is_fixture(candidate):
+            return candidate.resolve()
+    if len(arg.parts) == 1:
+        matches = [f for f in _fixtures() if f.name == arg.name]
+        if len(matches) == 1:
+            return matches[0].resolve()
+        if len(matches) > 1:
+            raise _bad_fixture(arg, f"{arg} matches more than one fixture", matches)
+    raise _bad_fixture(arg)
 
 
 @topo_app.command()
@@ -60,10 +85,8 @@ def show(
 ) -> None:
     """Print a fixture's discovered topology."""
     fixture = _resolve(fixture)
-    if not _is_fixture(fixture):
-        raise _bad_fixture(fixture)
     env = steps.env_or_exit("topo show")
-    plan = [steps.configure(env), BUILD_TOPO, [str(_binary()), "show", str(fixture)]]
+    plan = [*steps.build(env, "--target", "ostia-topo"), [str(_binary()), "show", str(fixture)]]
     raise typer.Exit(steps.run(plan))
 
 
@@ -78,32 +101,26 @@ def golden(
 ) -> None:
     """Run the golden-model tests, or regenerate the goldens with --update."""
     chosen = [_resolve(f) for f in fixtures] if fixtures else _fixtures()
-    for f in chosen:
-        if not _is_fixture(f):
-            raise _bad_fixture(f)
     env = steps.env_or_exit("topo golden")
     if not update:
         pattern = r"^fabric\.topo\.golden\."
         if fixtures:
             names = "|".join(re.escape(f.name) for f in chosen)
             pattern += f"({names})$"
-        code = steps.run(
-            [steps.configure(env), ["cmake", "--build", "--preset", "dev"]]
-            + [["ctest", "--preset", "dev", "-R", pattern]]
-        )
+        code = steps.run([*steps.build(env), ["ctest", "--preset", "dev", "-R", pattern]])
         raise typer.Exit(code)
-    code = steps.run([steps.configure(env), BUILD_TOPO])
+    code = steps.run(steps.build(env, "--target", "ostia-topo"))
     if code:
         raise typer.Exit(code)
+    models = {f: _model(f) for f in chosen}
     changed, same = [], []
-    for f in chosen:
+    for f, new in models.items():
         target = f / "expected.json"
-        new = _model(f)
-        if target.is_file() and target.read_text() == new:
+        if target.is_file() and target.read_text(encoding="utf-8") == new:
             same.append(target)
-            continue
-        target.write_text(new)
-        changed.append(target)
+        else:
+            target.write_text(new, encoding="utf-8")
+            changed.append(target)
     for t in changed:
         typer.echo(f"updated {t.relative_to(FIXTURES)}")
     for t in same:

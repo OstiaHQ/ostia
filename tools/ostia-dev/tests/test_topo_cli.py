@@ -1,5 +1,7 @@
 """Tests for ostia_dev/topo/cli.py (RFC-0003 §9, RFC-0005 §7)."""
 
+import subprocess
+
 from ostia_dev.cli import app
 from typer.testing import CliRunner
 
@@ -59,3 +61,78 @@ def test_golden_runs_ctest_by_default(monkeypatch, tmp_path):
     r = CliRunner().invoke(app, ["topo", "golden"])
     assert r.exit_code == 0
     assert calls[-1] == ["ctest", "--preset", "dev", "-R", r"^fabric\.topo\.golden\."]
+
+
+def _two_fixtures(monkeypatch, tmp_path):
+    for case, name in (("one", "hwloc.xml"), ("pair-tcp", "pair.json")):
+        d = tmp_path / "synthetic" / case
+        d.mkdir(parents=True)
+        (d / name).write_text("x")
+    monkeypatch.setattr("ostia_dev.topo.cli.FIXTURES", tmp_path)
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.env_or_exit", lambda cmd: "default")
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.build_root", lambda: str(tmp_path / "b"))
+
+
+def test_show_plan_is_configure_build_then_show_with_absolute_path(monkeypatch, tmp_path):
+    calls = []
+    _two_fixtures(monkeypatch, tmp_path)
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: calls.extend(plan) or 0)
+    monkeypatch.chdir(tmp_path)
+    r = CliRunner().invoke(app, ["topo", "show", "synthetic/one"])
+    assert r.exit_code == 0
+    assert calls[0][:4] == ["pixi", "run", "--frozen", "-e"]
+    assert calls[1] == ["cmake", "--build", "--preset", "dev", "--target", "ostia-topo"]
+    assert calls[2][1:] == ["show", str((tmp_path / "synthetic/one").resolve())]
+
+
+def test_relative_path_group_case_and_bare_name_agree(monkeypatch, tmp_path):
+    shown = []
+    _two_fixtures(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        "ostia_dev.topo.cli.steps.run", lambda plan: shown.append(list(plan)[-1][2]) or 0
+    )
+    monkeypatch.chdir(tmp_path)
+    for arg in ("synthetic/one", "one", "./synthetic/one", str(tmp_path / "synthetic/one")):
+        assert CliRunner().invoke(app, ["topo", "show", arg]).exit_code == 0
+    assert len(set(shown)) == 1
+
+
+def test_pair_fixture_is_accepted(monkeypatch, tmp_path):
+    _two_fixtures(monkeypatch, tmp_path)
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: 0)
+    assert CliRunner().invoke(app, ["topo", "show", "pair-tcp"]).exit_code == 0
+
+
+def test_ambiguous_case_name_is_a_usage_error(monkeypatch, tmp_path):
+    _two_fixtures(monkeypatch, tmp_path)
+    other = tmp_path / "real" / "one"
+    other.mkdir(parents=True)
+    (other / "hwloc.xml").write_text("x")
+    r = CliRunner().invoke(app, ["topo", "show", "one"])
+    assert r.exit_code == 2
+    assert "synthetic/one" in r.output and "real/one" in r.output
+
+
+def test_named_fixtures_narrow_the_ctest_regex(monkeypatch, tmp_path):
+    calls = []
+    _two_fixtures(monkeypatch, tmp_path)
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: calls.extend(plan) or 0)
+    r = CliRunner().invoke(app, ["topo", "golden", "one", "pair-tcp"])
+    assert r.exit_code == 0
+    assert calls[-1][-1] == r"^fabric\.topo\.golden\.(one|pair\-tcp)$"
+
+
+def test_golden_update_model_failure_changes_nothing(monkeypatch, tmp_path):
+    _two_fixtures(monkeypatch, tmp_path)
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: 0)
+
+    def fake_run(argv, **kw):
+        if argv[2].endswith("pair-tcp"):
+            raise subprocess.CalledProcessError(3, argv, stderr="cannot replay pair.json")
+        return subprocess.CompletedProcess(argv, 0, stdout="{}\n", stderr="")
+
+    monkeypatch.setattr("ostia_dev.topo.cli.subprocess.run", fake_run)
+    r = CliRunner().invoke(app, ["topo", "golden", "--update"])
+    assert r.exit_code == 3
+    assert "pair-tcp" in r.output and "cannot replay pair.json" in r.output
+    assert not list(tmp_path.rglob("expected.json"))
