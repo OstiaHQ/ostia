@@ -1,9 +1,9 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <gtest/gtest.h>
 #include <map>
-#include <random>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,7 +38,13 @@ static Model renumbered(const Model& m, unsigned seed) {
     for (auto& n : m.nodes)
         keys.push_back(n.key);
     auto shuffled = keys;
-    std::shuffle(shuffled.begin(), shuffled.end(), std::mt19937(seed));
+    // Fisher-Yates over a 32-bit LCG: libstdc++'s <random> pulls in SSE intrinsics that
+    // `ostia-dev check macros` (libclang) cannot parse.
+    std::uint32_t x = seed;
+    for (std::size_t i = shuffled.size(); i > 1; --i) {
+        x = x * 1664525u + 1013904223u;
+        std::swap(shuffled[i - 1], shuffled[(x >> 16) % i]);
+    }
     std::map<std::string, std::string> map;
     for (size_t i = 0; i < keys.size(); ++i)
         map[keys[i]] = shuffled[i];
