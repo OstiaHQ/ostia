@@ -67,7 +67,8 @@ macro(ostia_dep_hwloc)
       PROBLEM "hwloc 2.4 or newer was not found (found: ${hwloc_VERSION})"
       DETAILS "the topology model replays hwloc XML on every platform (RFC-0001 §3.4)"
       RULE "ostia-fabric's topology target needs hwloc >= 2.4"
-      FIX "use pixi (pixi install), or install libhwloc-dev (Debian/Ubuntu) or hwloc-devel (Rocky/RHEL, CRB repository)"
+      FIX
+        "use pixi (pixi install), or install libhwloc-dev (Debian/Ubuntu) or hwloc-devel (Rocky/RHEL, CRB repository)"
       SEE "RFC-0003 §9"
     )
   endif()

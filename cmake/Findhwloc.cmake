@@ -22,6 +22,8 @@ if(hwloc_FOUND AND NOT TARGET hwloc::hwloc)
   add_library(hwloc::hwloc UNKNOWN IMPORTED)
   set_target_properties(
     hwloc::hwloc
-    PROPERTIES IMPORTED_LOCATION "${hwloc_LIBRARY}" INTERFACE_INCLUDE_DIRECTORIES "${hwloc_INCLUDE_DIR}"
+    PROPERTIES
+      IMPORTED_LOCATION "${hwloc_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${hwloc_INCLUDE_DIR}"
   )
 endif()
