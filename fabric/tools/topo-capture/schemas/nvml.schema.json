@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ostia-topology-nvml",
+  "title": "nvml.json",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "gpus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bus_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cc_major": {
+            "type": "integer"
+          },
+          "cc_minor": {
+            "type": "integer"
+          },
+          "memory_bytes": {
+            "type": "integer"
+          },
+          "cuda_ordinal": {
+            "type": "integer"
+          },
+          "nvlinks": {
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "link": {
+                      "type": "integer"
+                    },
+                    "state": {
+                      "enum": [
+                        "active",
+                        "inactive",
+                        "not_supported"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "remote_type": {
+                      "enum": [
+                        "gpu",
+                        "switch",
+                        "unknown"
+                      ]
+                    },
+                    "remote_bus_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+                    }
+                  },
+                  "required": [
+                    "link",
+                    "state",
+                    "version",
+                    "remote_type"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "const": "not_supported"
+              }
+            ]
+          }
+        },
+        "required": [
+          "bus_id",
+          "name",
+          "cc_major",
+          "cc_minor",
+          "memory_bytes",
+          "cuda_ordinal",
+          "nvlinks"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "p2p": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "b": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$"
+          },
+          "read": {
+            "enum": [
+              "ok",
+              "not_supported",
+              "unknown"
+            ]
+          },
+          "write": {
+            "enum": [
+              "ok",
+              "not_supported",
+              "unknown"
+            ]
+          },
+          "nvlink": {
+            "enum": [
+              "ok",
+              "not_supported",
+              "unknown"
+            ]
+          },
+          "atomics": {
+            "enum": [
+              "ok",
+              "not_supported",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "read",
+          "write",
+          "nvlink",
+          "atomics"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "gpus",
+    "p2p"
+  ],
+  "additionalProperties": false
+}
