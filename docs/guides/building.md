@@ -37,6 +37,14 @@ pixi run ostia-dev test
 ```
 <!-- docs-as-test:end -->
 
+See a captured machine's topology, on any laptop and without a GPU:
+
+<!-- docs-as-test:start -->
+```bash
+pixi run ostia-dev topo show fabric/tests/fixtures/topology/synthetic/nvswitch-hidden
+```
+<!-- docs-as-test:end -->
+
 The three commands took 48 seconds on an M-series Mac with pixi's package cache already warm. A first-ever install also downloads about 1 GB, so how long it takes depends on your connection. Later runs rebuild only what changed.
 
 - `pixi run ostia-dev test` runs the C++ and CMake tests (ctest) and the Python tests (pytest).
@@ -46,12 +54,13 @@ The three commands took 48 seconds on an M-series Mac with pixi's package cache 
 
 | Environment | Platforms | What it adds | Use it for |
 | --- | --- | --- | --- |
-| `default` | macOS arm64, Linux x86_64 and aarch64 | Host toolchain: conda-forge Clang 19 + libc++ on macOS, GCC 14 on Linux. No CUDA, UCX or rdma-core | Everything on this page. About 1.0 GB |
+| `default` | macOS arm64, Linux x86_64 and aarch64 | Host toolchain: conda-forge Clang 19 + libc++ on macOS, GCC 14 on Linux, and hwloc. No CUDA, UCX or rdma-core | Everything on this page. About 1.0 GB |
 | `cuda-12` | Linux x86_64 and aarch64 | CUDA 12.8, GCC 11, CUDA-enabled UCX and rdma-core | The CUDA floor; compile-only without a GPU |
 | `cuda-13` | Linux x86_64 and aarch64 | CUDA 13.4, GCC 14, CUDA-enabled UCX and rdma-core | The newest supported CUDA |
 
 - Run a command in another environment with `-e`, for example `pixi run -e cuda-12 ostia-dev build`.
 - `OSTIA_ENABLE_CUDA` is set per environment: `OFF` in `default`, `ON` in the CUDA environments. A plain CMake build outside pixi defaults to `AUTO`.
+- `OSTIA_BUILD_TOOLS` defaults to `ON` and builds `ostia-topo` (`ostia-topo-capture` joins it on Linux once the capture tool lands). With `OFF`, the configure summary says `tools: OFF (topology golden tests skipped)`.
 - Each environment builds into its own directory, `build/<env>/<preset>`, so switching environments never reuses a cache made with another compiler.
 - CI also uses Linux-only environments `gcc11`, `clang`, `ucx` (UCX over TCP for the multi-process tests) and `gcc15` (only for a configure test).
 - On linux/arm64 the environments take about 1.9 GB (`default`), 2.1 GB (`cuda-12`) and 2.3 GB (`cuda-13`) on disk; on macOS `default` is about 1.0 GB.
@@ -165,6 +174,7 @@ The Mac has no CUDA toolkit. `pixi run ostia-dev remote container --env cuda-12 
 This is tier 2 or 3: supported on Ubuntu 22.04 and Rocky 9 through CI, best effort elsewhere.
 
 - Install CMake 4.1 or newer from [Kitware](https://cmake.org/download/), Ninja, and a supported compiler: GCC 11 or newer, or Clang 17 or newer.
+- Install hwloc 2.4 or newer with its headers: `libhwloc-dev` on Debian and Ubuntu, `hwloc-devel` on Rocky and RHEL (enable the CRB repository first).
 - Configure and build:
   ```bash
   cmake --preset release -DOSTIA_ENABLE_CUDA=OFF
