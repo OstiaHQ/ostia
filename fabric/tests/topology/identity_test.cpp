@@ -140,3 +140,15 @@ TEST(Identity, PairIdIsOrderIndependentAndSeesRails) {
     EXPECT_NE(p, pair_id("topo1:sha256:aa", "topo1:sha256:bb", pair));
     EXPECT_EQ(p.rfind("topo1:sha256:", 0), 0u);
 }
+
+TEST(Identity, PairIdKeepsRailEndpointsWithTheirNode) { // ruling J
+    nlohmann::json r = {
+        {"link_class", "infiniband"},
+        {"rails", {{{"node-0", {{"nic_index", 0}}}, {"node-1", {{"nic_index", 1}}}}}}};
+    nlohmann::json r_swapped = {
+        {"link_class", "infiniband"},
+        {"rails", {{{"node-0", {{"nic_index", 1}}}, {"node-1", {{"nic_index", 0}}}}}}};
+    const std::string a = "topo1:sha256:aa", b = "topo1:sha256:bb";
+    EXPECT_EQ(pair_id(a, b, r), pair_id(b, a, r_swapped));
+    EXPECT_NE(pair_id(a, b, r), pair_id(b, a, r));
+}
