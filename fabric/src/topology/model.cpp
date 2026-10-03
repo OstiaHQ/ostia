@@ -73,6 +73,7 @@ nlohmann::json to_json(const Model& model) {
     std::stable_sort(nodes.begin(), nodes.end(),
                      [](const Node* a, const Node* b) { return a->key < b->key; });
 
+    // Kinds order by their string names, not enum order: this fixes the golden edge order.
     std::vector<const Edge*> edges;
     for (const Edge& e : model.edges)
         edges.push_back(&e);

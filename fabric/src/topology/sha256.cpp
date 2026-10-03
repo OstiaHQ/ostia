@@ -20,63 +20,69 @@ constexpr std::array<std::uint32_t, 64> kRound = {
 constexpr std::uint32_t rotr(std::uint32_t x, int n) { return (x >> n) | (x << (32 - n)); }
 
 void compress(std::array<std::uint32_t, 8>& h, const unsigned char* block) {
-  std::array<std::uint32_t, 64> w{};
-  for (std::size_t i = 0; i < 16; ++i) {
-    w[i] = (std::uint32_t{block[4 * i]} << 24) | (std::uint32_t{block[4 * i + 1]} << 16) |
-           (std::uint32_t{block[4 * i + 2]} << 8) | std::uint32_t{block[4 * i + 3]};
-  }
-  for (std::size_t i = 16; i < 64; ++i) {
-    const std::uint32_t s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
-    const std::uint32_t s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
-    w[i] = w[i - 16] + s0 + w[i - 7] + s1;
-  }
-  auto v = h;
-  for (std::size_t i = 0; i < 64; ++i) {
-    const std::uint32_t s1 = rotr(v[4], 6) ^ rotr(v[4], 11) ^ rotr(v[4], 25);
-    const std::uint32_t ch = (v[4] & v[5]) ^ (~v[4] & v[6]);
-    const std::uint32_t t1 = v[7] + s1 + ch + kRound[i] + w[i];
-    const std::uint32_t s0 = rotr(v[0], 2) ^ rotr(v[0], 13) ^ rotr(v[0], 22);
-    const std::uint32_t maj = (v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]);
-    const std::uint32_t t2 = s0 + maj;
-    v[7] = v[6];
-    v[6] = v[5];
-    v[5] = v[4];
-    v[4] = v[3] + t1;
-    v[3] = v[2];
-    v[2] = v[1];
-    v[1] = v[0];
-    v[0] = t1 + t2;
-  }
-  for (std::size_t i = 0; i < 8; ++i) h[i] += v[i];
+    std::array<std::uint32_t, 64> w{};
+    for (std::size_t i = 0; i < 16; ++i) {
+        w[i] = (std::uint32_t{block[4 * i]} << 24) | (std::uint32_t{block[4 * i + 1]} << 16) |
+               (std::uint32_t{block[4 * i + 2]} << 8) | std::uint32_t{block[4 * i + 3]};
+    }
+    for (std::size_t i = 16; i < 64; ++i) {
+        const std::uint32_t s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+        const std::uint32_t s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+        w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+    }
+    auto v = h;
+    for (std::size_t i = 0; i < 64; ++i) {
+        const std::uint32_t s1 = rotr(v[4], 6) ^ rotr(v[4], 11) ^ rotr(v[4], 25);
+        const std::uint32_t ch = (v[4] & v[5]) ^ (~v[4] & v[6]);
+        const std::uint32_t t1 = v[7] + s1 + ch + kRound[i] + w[i];
+        const std::uint32_t s0 = rotr(v[0], 2) ^ rotr(v[0], 13) ^ rotr(v[0], 22);
+        const std::uint32_t maj = (v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]);
+        const std::uint32_t t2 = s0 + maj;
+        v[7] = v[6];
+        v[6] = v[5];
+        v[5] = v[4];
+        v[4] = v[3] + t1;
+        v[3] = v[2];
+        v[2] = v[1];
+        v[1] = v[0];
+        v[0] = t1 + t2;
+    }
+    for (std::size_t i = 0; i < 8; ++i)
+        h[i] += v[i];
 }
 
 } // namespace
 
 std::string sha256_hex(std::string_view data) {
-  std::array<std::uint32_t, 8> h = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-                                    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
-  const auto* bytes = reinterpret_cast<const unsigned char*>(data.data());
-  const std::size_t full = data.size() / 64;
-  for (std::size_t i = 0; i < full; ++i) compress(h, bytes + 64 * i);
+    std::array<std::uint32_t, 8> h = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
+    const auto* bytes = reinterpret_cast<const unsigned char*>(data.data());
+    const std::size_t full = data.size() / 64;
+    for (std::size_t i = 0; i < full; ++i)
+        compress(h, bytes + 64 * i);
 
-  // Padding: 0x80, zeros, then the bit length big-endian; spills into a second block when the
-  // tail leaves fewer than 9 bytes.
-  std::array<unsigned char, 128> tail{};
-  const std::size_t rem = data.size() - full * 64;
-  for (std::size_t i = 0; i < rem; ++i) tail[i] = bytes[full * 64 + i];
-  tail[rem] = 0x80;
-  const std::size_t tail_len = rem < 56 ? 64 : 128;
-  const std::uint64_t bits = std::uint64_t{data.size()} * 8;
-  for (std::size_t i = 0; i < 8; ++i) tail[tail_len - 1 - i] = static_cast<unsigned char>(bits >> (8 * i));
-  for (std::size_t off = 0; off < tail_len; off += 64) compress(h, tail.data() + off);
+    // Padding: 0x80, zeros, then the bit length big-endian; spills into a second block when the
+    // tail leaves fewer than 9 bytes.
+    std::array<unsigned char, 128> tail{};
+    const std::size_t rem = data.size() - full * 64;
+    for (std::size_t i = 0; i < rem; ++i)
+        tail[i] = bytes[full * 64 + i];
+    tail[rem] = 0x80;
+    const std::size_t tail_len = rem < 56 ? 64 : 128;
+    const std::uint64_t bits = std::uint64_t{data.size()} * 8;
+    for (std::size_t i = 0; i < 8; ++i)
+        tail[tail_len - 1 - i] = static_cast<unsigned char>(bits >> (8 * i));
+    for (std::size_t off = 0; off < tail_len; off += 64)
+        compress(h, tail.data() + off);
 
-  constexpr char kHex[] = "0123456789abcdef";
-  std::string out;
-  out.reserve(64);
-  for (std::uint32_t word : h) {
-    for (int shift = 28; shift >= 0; shift -= 4) out.push_back(kHex[(word >> shift) & 0xf]);
-  }
-  return out;
+    constexpr char kHex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(64);
+    for (std::uint32_t word : h) {
+        for (int shift = 28; shift >= 0; shift -= 4)
+            out.push_back(kHex[(word >> shift) & 0xf]);
+    }
+    return out;
 }
 
 } // namespace ostia::fabric::topology
