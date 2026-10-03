@@ -15,7 +15,7 @@ if(hwloc_INCLUDE_DIR AND EXISTS "${hwloc_INCLUDE_DIR}/hwloc/autogen/config.h")
 endif()
 find_package_handle_standard_args(
   hwloc
-  REQUIRED_VARS hwloc_LIBRARY hwloc_INCLUDE_DIR
+  REQUIRED_VARS hwloc_LIBRARY hwloc_INCLUDE_DIR hwloc_VERSION
   VERSION_VAR hwloc_VERSION
 )
 if(hwloc_FOUND AND NOT TARGET hwloc::hwloc)

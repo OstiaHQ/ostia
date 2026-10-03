@@ -63,8 +63,13 @@ endfunction()
 macro(ostia_dep_hwloc)
   find_package(hwloc 2.4 MODULE)
   if(NOT hwloc_FOUND)
+    if(hwloc_VERSION)
+      set(_hwloc_found "${hwloc_VERSION}")
+    else()
+      set(_hwloc_found "none")
+    endif()
     ostia_fail(
-      PROBLEM "hwloc 2.4 or newer was not found (found: ${hwloc_VERSION})"
+      PROBLEM "hwloc 2.4 or newer was not found (found: ${_hwloc_found})"
       DETAILS "the topology model replays hwloc XML on every platform (RFC-0001 §3.4)"
       RULE "ostia-fabric's topology target needs hwloc >= 2.4"
       FIX

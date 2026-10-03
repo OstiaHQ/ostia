@@ -158,3 +158,14 @@ TEST(Identity, PairIdKeepsRailEndpointsWithTheirNode) { // ruling J
     EXPECT_EQ(pair_id(a, b, r), pair_id(b, a, r_swapped));
     EXPECT_NE(pair_id(a, b, r), pair_id(b, a, r));
 }
+
+TEST(Identity, PairIdWithEqualIdsIgnoresOrientation) { // RFC-0003 §7
+    nlohmann::json r = {
+        {"link_class", "infiniband"},
+        {"rails", {{{"node-0", {{"nic_index", 0}}}, {"node-1", {{"nic_index", 1}}}}}}};
+    nlohmann::json r_swapped = {
+        {"link_class", "infiniband"},
+        {"rails", {{{"node-0", {{"nic_index", 1}}}, {"node-1", {{"nic_index", 0}}}}}}};
+    const std::string a = "topo1:sha256:aa";
+    EXPECT_EQ(pair_id(a, a, r), pair_id(a, a, r_swapped));
+}

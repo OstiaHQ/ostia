@@ -109,6 +109,19 @@ TEST_F(FixtureDir, MissingNicsThrows) {
     }
 }
 
+TEST_F(FixtureDir, OptionalFileThatCannotBeReadThrows) {
+    write("hwloc.xml", xml_with("0x00000003"));
+    write("nics.json", kNics);
+    fs::create_directory(dir_ / "nvml.json");
+    try {
+        FixtureSource source(dir_);
+        FAIL();
+    } catch (const TopologyError& e) {
+        EXPECT_EQ(e.code, "unreadable");
+        EXPECT_EQ(e.file, "nvml.json");
+    }
+}
+
 TEST_F(FixtureDir, UnknownSchemaVersionThrows) {
     write("hwloc.xml", xml_with("0x00000003"));
     write("nics.json", R"({"schema":2,"rdma_probe":"unavailable","rdma":[],"nics":[]})");

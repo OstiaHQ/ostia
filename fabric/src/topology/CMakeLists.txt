@@ -20,6 +20,11 @@ foreach(
   if(NOT clash EQUAL -1)
     message(FATAL_ERROR "${name}.schema.json contains the raw-string terminator )OSTIA\"")
   endif()
+  # file(CONFIGURE @ONLY) would substitute @VAR@ inside the schema text.
+  string(FIND "${body}" "@" at_sign)
+  if(NOT at_sign EQUAL -1)
+    message(FATAL_ERROR "${name}.schema.json contains @, which file(CONFIGURE) would expand")
+  endif()
   string(APPEND topology_schema_inc "{\"${name}\", R\"OSTIA(${body})OSTIA\"},\n")
 endforeach()
 file(

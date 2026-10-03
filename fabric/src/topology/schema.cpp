@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <mutex>
 #include <regex>
+#include <utility>
 
 #include "topology/error.hpp"
 

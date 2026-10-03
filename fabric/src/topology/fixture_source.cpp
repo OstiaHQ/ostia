@@ -94,12 +94,16 @@ PciFacts pci_facts(hwloc_topology_t topo, hwloc_obj_t obj) {
 
 json read_json(const fs::path& dir, const std::string& name, bool required, const char* schema) {
     const fs::path path = dir / name;
-    std::ifstream in(path);
-    if (!in) {
+    if (!fs::exists(path)) {
         if (required) {
             throw TopologyError("missing_file", name, "not found in " + dir.string());
         }
         return nullptr;
+    }
+    // A directory opens as a stream on Linux and fails only on read, so check the type too.
+    std::ifstream in(path);
+    if (!in || !fs::is_regular_file(path)) {
+        throw TopologyError("unreadable", name, "cannot be read in " + dir.string());
     }
     json doc;
     try {

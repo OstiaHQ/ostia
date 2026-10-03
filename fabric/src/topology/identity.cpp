@@ -271,6 +271,25 @@ struct Search {
     }
 };
 
+// Each rail with its node-0 and node-1 entries exchanged; other fields and rail order stay.
+nlohmann::json swap_ends(nlohmann::json rails) {
+    if (!rails.is_array())
+        return rails;
+    for (nlohmann::json& rail : rails) {
+        if (!rail.is_object())
+            continue;
+        nlohmann::json first = rail.contains("node-0") ? rail["node-0"] : nlohmann::json();
+        nlohmann::json second = rail.contains("node-1") ? rail["node-1"] : nlohmann::json();
+        rail.erase("node-0");
+        rail.erase("node-1");
+        if (!second.is_null())
+            rail["node-0"] = std::move(second);
+        if (!first.is_null())
+            rail["node-1"] = std::move(first);
+    }
+    return rails;
+}
+
 } // namespace
 
 std::string canonical_identity_json(const Model& model) {
@@ -285,30 +304,25 @@ std::string topo1(const Model& model) {
 }
 
 std::string pair_id(const std::string& id0, const std::string& id1, const nlohmann::json& pair) {
-    const auto& [lo, hi] = std::minmax(id0, id1);
-    nlohmann::json rails = pair.contains("rails") ? pair.at("rails") : nlohmann::json();
+    const std::string& lo = std::min(id0, id1);
+    const std::string& hi = std::max(id0, id1);
+    const nlohmann::json rails = pair.contains("rails") ? pair.at("rails") : nlohmann::json();
+    auto structural = [&](nlohmann::json r) {
+        nlohmann::json doc = {
+            {"nodes", {lo, hi}},
+            {"link_class", pair.contains("link_class") ? pair.at("link_class") : nlohmann::json()},
+            {"rails", std::move(r)},
+        };
+        return doc.dump();
+    };
     // Sorting the ids renames the endpoints, so each rail's node-0/node-1 must follow its id
     // (ruling J). Rail order stays: pair.json's `measured` refers to rails by index.
-    if (id1 < id0 && rails.is_array()) {
-        for (nlohmann::json& rail : rails) {
-            if (!rail.is_object())
-                continue;
-            nlohmann::json first = rail.contains("node-0") ? rail["node-0"] : nlohmann::json();
-            nlohmann::json second = rail.contains("node-1") ? rail["node-1"] : nlohmann::json();
-            rail.erase("node-0");
-            rail.erase("node-1");
-            if (!second.is_null())
-                rail["node-0"] = std::move(second);
-            if (!first.is_null())
-                rail["node-1"] = std::move(first);
-        }
-    }
-    nlohmann::json structural = {
-        {"nodes", {lo, hi}},
-        {"link_class", pair.contains("link_class") ? pair.at("link_class") : nlohmann::json()},
-        {"rails", std::move(rails)},
-    };
-    return "topo1:sha256:" + sha256_hex(structural.dump());
+    if (id0 != id1)
+        return "topo1:sha256:" + sha256_hex(structural(id1 < id0 ? swap_ends(rails) : rails));
+    // Equal ids leave no order to follow, so take the smaller of the two orientations.
+    const std::string given = structural(rails);
+    const std::string swapped = structural(swap_ends(rails));
+    return "topo1:sha256:" + sha256_hex(std::min(given, swapped));
 }
 
 } // namespace ostia::fabric::topology

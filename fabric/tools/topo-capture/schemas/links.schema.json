@@ -34,7 +34,8 @@
             ]
           },
           "bw_mbps": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           },
           "latency_ns": {
             "type": "integer"
@@ -60,7 +61,8 @@
             "additionalProperties": false
           },
           "samples": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [

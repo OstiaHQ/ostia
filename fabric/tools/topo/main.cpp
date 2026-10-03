@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -180,21 +181,27 @@ void show_node(const std::string& title, const fs::path& dir) {
         gpu_keys.insert(g->key);
     }
     std::size_t to_switch = 0, direct = 0;
-    std::int64_t switch_links = 0;
+    std::int64_t min_links = 0, max_links = 0;
     for (const auto& e : model.edges) {
         if (e.kind != EdgeKind::nvlink) {
             continue;
         }
         if (e.to == "switch-group-0") {
+            const std::int64_t links = e.attrs.at("links");
+            min_links = to_switch == 0 ? links : std::min(min_links, links);
+            max_links = to_switch == 0 ? links : std::max(max_links, links);
             ++to_switch;
-            switch_links = e.attrs.at("links");
         } else {
             ++direct;
         }
     }
     if (to_switch != 0) {
-        std::cout << "  NVLink: " << to_switch << " GPUs -> switch-group-0, " << switch_links
-                  << " links each\n";
+        std::cout << "  NVLink: " << to_switch << " GPUs -> switch-group-0, ";
+        if (min_links == max_links) {
+            std::cout << min_links << " links each\n";
+        } else {
+            std::cout << min_links << "-" << max_links << " links\n";
+        }
     } else if (direct != 0) {
         std::cout << "  NVLink: " << direct << " direct GPU pairs\n";
     } else {
