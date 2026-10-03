@@ -30,6 +30,16 @@ if(OSTIA_BUILD_TESTS)
     set_tests_properties(fabric.topo.golden.${name} PROPERTIES LABELS cpu)
   endforeach()
 
+  # A malformed pair.json must map to exit 3, not abort.
+  add_test(
+    NAME fabric.topo.bad_pair_exit
+    COMMAND
+      ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:ostia-topo>
+      -DDIR=${PROJECT_SOURCE_DIR}/fabric/tests/topology/data/bad-pair -DEXPECT=3 -P
+      ${CMAKE_CURRENT_SOURCE_DIR}/expect-exit.cmake
+  )
+  set_tests_properties(fabric.topo.bad_pair_exit PROPERTIES LABELS cpu)
+
   # RFC-0003 Performance: replay of the largest fixture fails CPU CI above 1 s. Sanitizer builds
   # run several times slower, so they get a wider bound.
   if(OSTIA_SANITIZE)

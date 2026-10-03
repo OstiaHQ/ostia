@@ -15,12 +15,14 @@
 #include "topology/builder.hpp"
 #include "topology/fixture_source.hpp"
 #include "topology/identity.hpp"
+#include "topology/schema.hpp"
 
 namespace fs = std::filesystem;
 using namespace ostia::fabric::topology;
 
 namespace {
 
+// 3: the fixture could not be read or replayed.
 constexpr int kOk = 0, kMismatch = 1, kUsage = 2, kTopology = 3;
 constexpr std::size_t kMaxDiffLines = 40;
 
@@ -42,9 +44,15 @@ nlohmann::json read_pair(const fs::path& dir) {
         throw TopologyError("io", path.string(), "cannot read file");
     }
     auto j = nlohmann::json::parse(in, nullptr, false);
-    if (j.is_discarded() || !j.is_object() || !j.contains("nodes") || !j["nodes"].is_array() ||
-        j["nodes"].size() != 2) {
-        throw TopologyError("schema", path.string(), "pair.json needs a two-entry nodes array");
+    if (j.is_discarded()) {
+        throw TopologyError("schema", path.string(), "not valid JSON");
+    }
+    if (const auto errors = validate("pair", j); !errors.empty()) {
+        throw TopologyError("schema", path.string(),
+                            errors.front().path + ": " + errors.front().message);
+    }
+    if (j["nodes"].size() != 2 || !j["nodes"][0].is_string() || !j["nodes"][1].is_string()) {
+        throw TopologyError("schema", path.string(), "nodes must be two directory names");
     }
     return j;
 }
@@ -78,25 +86,42 @@ std::vector<std::string> lines_of(const std::string& text) {
 }
 
 // Positional, not an LCS diff: goldens are canonical JSON, so a mismatch is usually a value
-// change in place and the first differing lines are what the reader needs.
+// change in place. The line counts expose an insertion or deletion, after which the rest of the
+// file is misaligned. Every printed line counts toward the cap.
 void print_diff(const std::string& expected, const std::string& actual) {
     const auto e = lines_of(expected), a = lines_of(actual);
-    std::cout << "--- expected\n+++ actual\n";
-    std::size_t shown = 0;
-    for (std::size_t i = 0; i < std::max(e.size(), a.size()) && shown < kMaxDiffLines; ++i) {
-        const bool has_e = i < e.size(), has_a = i < a.size();
-        if (has_e && has_a && e[i] == a[i]) {
-            continue;
+    const std::size_t n = std::max(e.size(), a.size());
+    std::vector<std::size_t> differing;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (i >= e.size() || i >= a.size() || e[i] != a[i]) {
+            differing.push_back(i);
         }
-        std::cout << "@@ line " << i + 1 << " @@\n";
-        if (has_e) {
+    }
+    std::cout << "--- expected (" << e.size() << " lines)\n+++ actual (" << a.size() << " lines)\n";
+    std::size_t printed = 2;
+    std::size_t consumed = 0;
+    for (std::size_t k = 0; k < differing.size(); ++k) {
+        const std::size_t i = differing[k];
+        const bool run_start = k == 0 || differing[k - 1] + 1 != i;
+        const std::size_t cost =
+            (run_start ? 1 : 0) + (i < e.size() ? 1 : 0) + (i < a.size() ? 1 : 0);
+        if (printed + cost > kMaxDiffLines - 1) {
+            break;
+        }
+        if (run_start) {
+            std::cout << "@@ line " << i + 1 << " @@\n";
+        }
+        if (i < e.size()) {
             std::cout << "-" << e[i] << "\n";
-            ++shown;
         }
-        if (has_a && shown < kMaxDiffLines) {
+        if (i < a.size()) {
             std::cout << "+" << a[i] << "\n";
-            ++shown;
         }
+        printed += cost;
+        consumed = k + 1;
+    }
+    if (consumed < differing.size()) {
+        std::cout << "... " << differing.size() - consumed << " more differing lines\n";
     }
 }
 
@@ -265,7 +290,8 @@ std::string fix_for(const std::string& code) {
     if (code == "xml") {
         return "recapture; hwloc >= 2.4 must import it";
     }
-    return "inspect the named fixture file and recapture it";
+    return "inspect the named fixture file and recapture it; a path error means the directory is "
+           "wrong";
 }
 
 int report(const TopologyError& e) {
@@ -317,5 +343,7 @@ int main(int argc, char** argv) {
         return kUsage;
     } catch (const TopologyError& e) {
         return report(e);
+    } catch (const std::exception& e) {
+        return report(TopologyError("unreadable", "", e.what()));
     }
 }
