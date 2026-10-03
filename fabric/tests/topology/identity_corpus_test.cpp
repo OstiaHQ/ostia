@@ -166,6 +166,119 @@ static Model numa_fan_in(int gpus, int nics, int numas) {
     return m;
 }
 
+// Edge list of a graph from an LCF-style chord offset list over a Hamiltonian cycle.
+static Model lcf(int n, const std::vector<int>& offsets) {
+    std::vector<std::pair<int, int>> links;
+    for (int i = 0; i < n; ++i)
+        links.push_back({i, (i + 1) % n});
+    for (int i = 0; i < n; ++i) {
+        int j = ((i + offsets[i]) % n + n) % n;
+        if (i < j)
+            links.push_back({i, j});
+    }
+    return gpu_graph(n, links);
+}
+
+static Model frucht() { return lcf(12, {-5, -2, -4, 2, 5, -2, 2, 5, -4, -5, 4, 2}); }
+
+// Cycle of n with a chord from each vertex to its antipode.
+static Model mobius_ladder(int n) { return lcf(n, std::vector<int>(n, n / 2)); }
+
+static Model hypercube(int dim, bool colour_by_parity) {
+    Model m;
+    int n = 1 << dim;
+    for (int v = 0; v < n; ++v) {
+        Node g = gpu(name("g", v));
+        if (colour_by_parity)
+            g.attrs["cc_minor"] = std::int64_t(__builtin_popcount(v) & 1);
+        m.nodes.push_back(g);
+    }
+    for (int v = 0; v < n; ++v)
+        for (int bit = 1; bit < n; bit <<= 1)
+            if (!(v & bit))
+                m.edges.push_back(nvlink(name("g", v), name("g", v | bit)));
+    return m;
+}
+
+static Model cycle8_two_models() {
+    Model m = gpu_graph(8, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}, {7, 0}});
+    for (int i = 1; i < 8; i += 2)
+        m.nodes[i].attrs["model"] = std::string("A100");
+    return m;
+}
+
+static Model cycle6_mixed_links() {
+    Model m = cycle6();
+    for (std::size_t i = 0; i < m.edges.size(); ++i)
+        m.edges[i].attrs["links"] = std::int64_t(1 + i % 2);
+    return m;
+}
+
+static Model k33() {
+    return gpu_graph(6, {{0, 3}, {0, 4}, {0, 5}, {1, 3}, {1, 4}, {1, 5}, {2, 3}, {2, 4}, {2, 5}});
+}
+
+static Model prism() {
+    return gpu_graph(6, {{0, 1}, {1, 2}, {2, 0}, {3, 4}, {4, 5}, {5, 3}, {0, 3}, {1, 4}, {2, 5}});
+}
+
+static Model cycle8() {
+    return gpu_graph(8, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}, {7, 0}});
+}
+
+static Model two_squares() {
+    return gpu_graph(8, {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}});
+}
+
+static Model torus3x3() {
+    std::vector<std::pair<int, int>> links;
+    for (int r = 0; r < 3; ++r)
+        for (int c = 0; c < 3; ++c) {
+            links.push_back({r * 3 + c, r * 3 + (c + 1) % 3});
+            links.push_back({r * 3 + c, ((r + 1) % 3) * 3 + c});
+        }
+    return gpu_graph(9, links);
+}
+
+// Four PCIe switches under one package, each with two GPUs and two NICs; every GPU on one
+// NVSwitch group, devices split across two NUMA nodes.
+static Model nvswitch_box() {
+    Model m;
+    m.nodes.push_back(plain(NodeKind::package, "package-0"));
+    m.nodes.push_back(plain(NodeKind::numa, "numa-0"));
+    m.nodes.push_back(plain(NodeKind::numa, "numa-1"));
+    m.nodes.push_back(plain(NodeKind::switch_group, "switch-group-0"));
+    for (int s = 0; s < 4; ++s) {
+        std::string sw = name("switch-", s), numa = name("numa-", s / 2);
+        m.nodes.push_back(plain(NodeKind::pcie_bridge, sw));
+        m.edges.push_back(pcie(std::string("package-0"), sw, 5, 16));
+        for (int d = 0; d < 2; ++d) {
+            std::string g = "g" + std::to_string(s) + "-" + std::to_string(d);
+            std::string n = "n" + std::to_string(s) + "-" + std::to_string(d);
+            m.nodes.push_back(gpu(g));
+            m.nodes.push_back(nic(n));
+            m.edges.push_back(pcie(sw, g));
+            m.edges.push_back(pcie(sw, n));
+            m.edges.push_back(numa_local(g, numa));
+            m.edges.push_back(numa_local(n, numa));
+            m.edges.push_back(nvlink(g, "switch-group-0", 18));
+        }
+    }
+    return m;
+}
+
+// Directed PCIe ring of bridges, one GPU leaf each.
+static Model pcie_ring(int n) {
+    Model m;
+    for (int i = 0; i < n; ++i) {
+        m.nodes.push_back(plain(NodeKind::pcie_bridge, name("bridge-", i)));
+        m.nodes.push_back(gpu(name("g", i)));
+        m.edges.push_back(pcie(name("bridge-", i), name("bridge-", (i + 1) % n)));
+        m.edges.push_back(pcie(name("bridge-", i), name("g", i)));
+    }
+    return m;
+}
+
 // 32-bit LCG with fixed seeds: <random> cannot be parsed by `ostia-dev check macros`.
 static Model random_model(std::uint32_t seed) {
     std::uint32_t x = seed;
@@ -205,12 +318,19 @@ static Model random_model(std::uint32_t seed) {
         if (dup)
             continue;
         switch (next(3)) {
-        case 0:
-            m.edges.push_back(pcie(ka, kb, 4 + int(next(2)), next(2) ? 8 : 16));
+        case 0: {
+            // Draws go in named locals: argument evaluation order is unspecified and differs
+            // between GCC and clang.
+            const int gen = 4 + int(next(2));
+            const int width = next(2) ? 8 : 16;
+            m.edges.push_back(pcie(ka, kb, gen, width));
             break;
-        case 1:
-            m.edges.push_back(nvlink(ka, kb, 1 + int(next(3))));
+        }
+        case 1: {
+            const int links = 1 + int(next(3));
+            m.edges.push_back(nvlink(ka, kb, links));
             break;
+        }
         default:
             m.edges.push_back(numa_local(ka, kb));
         }
@@ -236,6 +356,11 @@ TEST(IdentityCorpus, Branches_4gpu_4nic_1numa) {
 TEST(IdentityCorpus, Branches_6gpu_6nic_2numa) {
     EXPECT_EQ(topo1(branches(6, 6, 2)),
               "topo1:sha256:dc746576e773121fae04f4624cdfbe3c75a4e27164d1be1aa8f50b5e57d9b33b");
+}
+
+TEST(IdentityCorpus, Branches_5gpu_5nic_1numa) {
+    EXPECT_EQ(topo1(branches(5, 5, 1)),
+              "topo1:sha256:e54cb3640da02e0f39ec306d83bbe027fd6b81cef5d0d82d1bded402c17c2cc7");
 }
 
 TEST(IdentityCorpus, Branches_3gpu_3nic_1numa) {
@@ -356,4 +481,74 @@ TEST(IdentityCorpus, Random_seed9) {
 TEST(IdentityCorpus, Random_seed10) {
     EXPECT_EQ(topo1(random_model(10u)),
               "topo1:sha256:59b7209eab7dddc3b99df95bbb207ac01e3bc9c98224f506494ec57ad670483c");
+}
+
+TEST(IdentityCorpus, CubeColouredByParity) {
+    EXPECT_EQ(topo1(hypercube(3, true)),
+              "topo1:sha256:5580758e4d4e3d4f5c791c2d9e57698588ef5903f83f1ed97e178a41c1709afd");
+}
+
+TEST(IdentityCorpus, Cycle8AlternatingModels) {
+    EXPECT_EQ(topo1(cycle8_two_models()),
+              "topo1:sha256:9b0540e5b737760b17a74b1a0b89a9364432b7faf7e1cadec0200509b48237f1");
+}
+
+TEST(IdentityCorpus, Cycle6MixedLinkCounts) {
+    EXPECT_EQ(topo1(cycle6_mixed_links()),
+              "topo1:sha256:853954b0299e2e5b6504d4e17409fe7e80a5b8919b768167a612ccdc42190516");
+}
+
+TEST(IdentityCorpus, Frucht) {
+    EXPECT_EQ(topo1(frucht()),
+              "topo1:sha256:d270afc920d413a054a1b8f6ff60f63a76175957cf8279ec46a98218efcc2a03");
+}
+
+TEST(IdentityCorpus, NvswitchBox) {
+    EXPECT_EQ(topo1(nvswitch_box()),
+              "topo1:sha256:6aa940aa2374875209727a7f38dbc46377a1df126cac368e017f77e9bb8f240e");
+}
+
+TEST(IdentityCorpus, PcieRing6) {
+    EXPECT_EQ(topo1(pcie_ring(6)),
+              "topo1:sha256:14e2cc331c9a3bed20e1ee51dcd79ae22bde1b5400804c31c11677ab91929300");
+}
+
+TEST(IdentityCorpus, K33) {
+    EXPECT_EQ(topo1(k33()),
+              "topo1:sha256:b853458f2c6cd4d1e0c27e09831c076a7d846e95b831e434b981675d50d75520");
+}
+
+TEST(IdentityCorpus, TriangularPrism) {
+    EXPECT_EQ(topo1(prism()),
+              "topo1:sha256:0386bf99c35123de10f9792649a0eabded8dcd835ec4569ffcb51b3e181cee9f");
+}
+
+TEST(IdentityCorpus, Cycle8) {
+    EXPECT_EQ(topo1(cycle8()),
+              "topo1:sha256:8546858a5a571da40a46d2bdb5eb398b01f2e07f1053a1a203d3e9a68c6cc0f5");
+}
+
+TEST(IdentityCorpus, TwoSquares) {
+    EXPECT_EQ(topo1(two_squares()),
+              "topo1:sha256:d4231512cd0eed5c328a7f529d91b231ac7f9166a04f71d74b4aee84d9fa94ec");
+}
+
+TEST(IdentityCorpus, MobiusLadder6) {
+    EXPECT_EQ(topo1(mobius_ladder(6)),
+              "topo1:sha256:b853458f2c6cd4d1e0c27e09831c076a7d846e95b831e434b981675d50d75520");
+}
+
+TEST(IdentityCorpus, MobiusLadder8) {
+    EXPECT_EQ(topo1(mobius_ladder(8)),
+              "topo1:sha256:faa0be90702f296f1f309fb662b73cb268d5b720f7081e63575d9f03bf230d45");
+}
+
+TEST(IdentityCorpus, Torus3x3) {
+    EXPECT_EQ(topo1(torus3x3()),
+              "topo1:sha256:a1b410edcbbf5af4402867aceb61b81e4683f19561b7e403a5899c395d42b46e");
+}
+
+TEST(IdentityCorpus, Q4) {
+    EXPECT_EQ(topo1(hypercube(4, false)),
+              "topo1:sha256:dd232216e05b5bed8051eef39c586dec5146119832a3ed67a78b03c886c9d503");
 }

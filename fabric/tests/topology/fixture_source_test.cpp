@@ -1,10 +1,13 @@
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <string>
 
+#include "topology/builder.hpp"
 #include "topology/error.hpp"
 #include "topology/fixture_source.hpp"
+#include "topology/identity.hpp"
 
 using namespace ostia::fabric::topology;
 namespace fs = std::filesystem;
@@ -132,4 +135,22 @@ TEST_F(FixtureDir, UnknownSchemaVersionThrows) {
         EXPECT_EQ(e.code, "schema");
         EXPECT_NE(std::string(e.what()).find("supported: 1"), std::string::npos);
     }
+}
+
+// RFC-0003 Performance: replay of the largest fixture fails CPU CI above 1 s. In-process, because
+// a ctest TIMEOUT also counts process startup on a loaded runner.
+TEST(FixtureSource, ReplayOfLargestFixtureIsFast) {
+#ifdef OSTIA_TOPO_SANITIZED
+    constexpr double kLimitSeconds = 5.0; // sanitizer builds run several times slower
+#else
+    constexpr double kLimitSeconds = 1.0;
+#endif
+    const auto t0 = std::chrono::steady_clock::now();
+    const FixtureSource source(fs::path(OSTIA_TOPO_FIXTURE_DIR) / "synthetic" / "nvswitch-hidden");
+    const Model model = build(source.facts());
+    const std::string id = topo1(model);
+    const double seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    EXPECT_EQ(id.rfind("topo1:sha256:", 0), 0u);
+    EXPECT_LT(seconds, kLimitSeconds);
 }
