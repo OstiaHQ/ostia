@@ -1,7 +1,7 @@
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <gtest/gtest.h>
 #include <map>
 #include <string>
@@ -32,7 +32,8 @@ static Model gpus_with_nvlinks(int n, const std::vector<std::pair<int, int>>& li
     return m;
 }
 
-// Same shape, new bus IDs and ordinals.
+// Same shape, new bus IDs and ordinals, nodes and edges in a new order, NVLink ends swapped.
+// strip() numbers vertices by their place in model.nodes, so only a reordering reaches the search.
 static Model renumbered(const Model& m, unsigned seed) {
     std::vector<std::string> keys;
     for (auto& n : m.nodes)
@@ -41,9 +42,13 @@ static Model renumbered(const Model& m, unsigned seed) {
     // Fisher-Yates over a 32-bit LCG: libstdc++'s <random> pulls in SSE intrinsics that
     // `ostia-dev check macros` (libclang) cannot parse.
     std::uint32_t x = seed;
-    for (std::size_t i = shuffled.size(); i > 1; --i) {
+    auto draw = [&x](std::size_t bound) {
         x = x * 1664525u + 1013904223u;
-        std::swap(shuffled[i - 1], shuffled[(x >> 16) % i]);
+        return std::size_t(x >> 16) % bound;
+    };
+    for (std::size_t i = shuffled.size(); i > 1; --i) {
+        const std::size_t j = draw(i);
+        std::swap(shuffled[i - 1], shuffled[j]);
     }
     std::map<std::string, std::string> map;
     for (size_t i = 0; i < keys.size(); ++i)
@@ -56,6 +61,19 @@ static Model renumbered(const Model& m, unsigned seed) {
     for (auto& e : r.edges) {
         e.from = map[e.from];
         e.to = map[e.to];
+    }
+    for (std::size_t i = r.nodes.size(); i > 1; --i) {
+        const std::size_t j = draw(i);
+        std::swap(r.nodes[i - 1], r.nodes[j]);
+    }
+    for (std::size_t i = r.edges.size(); i > 1; --i) {
+        const std::size_t j = draw(i);
+        std::swap(r.edges[i - 1], r.edges[j]);
+    }
+    for (auto& e : r.edges) {
+        const std::size_t flip = draw(2);
+        if (e.kind == EdgeKind::nvlink && flip == 1)
+            std::swap(e.from, e.to);
     }
     return r;
 }
@@ -116,15 +134,81 @@ TEST(Identity, IgnoresDataAttributes) { // RFC-0003 §5
     EXPECT_EQ(topo1(a), topo1(b));
 }
 
+// CPU time, not wall time: on a contended runner wall time measures the neighbours.
+static double cpu_seconds() { return double(std::clock()) / CLOCKS_PER_SEC; }
+
+// Sanitizer builds run several times slower (RFC-0003 Performance).
+#ifdef OSTIA_TOPO_SANITIZED
+static constexpr double kLimitSeconds = 5.0;
+#else
+static constexpr double kLimitSeconds = 1.0;
+#endif
+
 TEST(Identity, SymmetricEightGpuSwitchIsFast) { // twin pruning (RFC-0003 §5)
     Model m = gpus_with_nvlinks(8, {});
     m.nodes.push_back({NodeKind::switch_group, "switch-group-0", {}});
     for (auto& n : std::vector<Node>(m.nodes.begin(), m.nodes.end() - 1))
         m.edges.push_back({EdgeKind::nvlink, n.key, "switch-group-0", {{"links", 18}}});
-    auto t0 = std::chrono::steady_clock::now();
+    const double t0 = cpu_seconds();
     auto id = topo1(m);
-    EXPECT_LT(std::chrono::steady_clock::now() - t0, std::chrono::seconds(1));
+    const double seconds = cpu_seconds() - t0;
+    EXPECT_LT(seconds, kLimitSeconds) << seconds << " s of CPU time";
     EXPECT_EQ(id, topo1(renumbered(m, 3)));
+}
+
+// g GPU and k NIC branches, each under its own host bridge, over u NUMA nodes; the GPUs share an
+// NVLink switch group. No two vertices are twins, so only automorphism pruning keeps the search
+// small (RFC-0003 Performance).
+static Model branches(int g, int k, int numas) {
+    Model m;
+    auto numa = [](int u) { return "numa-" + std::to_string(u); };
+    for (int u = 0; u < numas; ++u)
+        m.nodes.push_back({NodeKind::numa, numa(u), {}});
+    m.nodes.push_back({NodeKind::switch_group, "switch-group-0", {}});
+    auto branch = [&](bool is_gpu, const std::string& key, int u) {
+        m.nodes.push_back({NodeKind::pcie_bridge, "hostbridge-" + key, {}});
+        if (is_gpu)
+            m.nodes.push_back({NodeKind::gpu,
+                               key,
+                               {{"model", std::string("H100")}, {"cc_major", 9}, {"cc_minor", 0}}});
+        else
+            m.nodes.push_back(
+                {NodeKind::nic, key, {{"pci_vendor", 0x15b3}, {"pci_device", 0x1021}}});
+        m.edges.push_back({EdgeKind::pcie, "hostbridge-" + key, key, {{"gen", 5}, {"width", 16}}});
+        m.edges.push_back({EdgeKind::numa_local, key, numa(u), {}});
+        if (is_gpu)
+            m.edges.push_back({EdgeKind::nvlink, key, "switch-group-0", {{"links", 18}}});
+    };
+    for (int i = 0; i < g; ++i)
+        branch(true, "gpu-" + std::to_string(i), i % numas);
+    for (int i = 0; i < k; ++i)
+        branch(false, "nic-" + std::to_string(i), i % numas);
+    return m;
+}
+
+struct Shape {
+    int gpus, nics, numas;
+};
+static constexpr Shape kBranchShapes[] = {{8, 8, 1}, {8, 8, 2}, {16, 0, 1}};
+
+TEST(Identity, NonTwinBranchesAreFast) { // RFC-0003 Performance
+    for (const Shape& s : kBranchShapes) {
+        Model m = branches(s.gpus, s.nics, s.numas);
+        const double t0 = cpu_seconds();
+        EXPECT_NO_THROW(topo1(m)) << s.gpus << "+" << s.nics << "/" << s.numas; // no leaf_cap
+        const double seconds = cpu_seconds() - t0;
+        EXPECT_LT(seconds, kLimitSeconds)
+            << s.gpus << "+" << s.nics << "/" << s.numas << ": " << seconds << " s of CPU time";
+    }
+}
+
+TEST(Identity, SymmetricShapesAreInvariantUnderRenumbering) { // RFC-0003 Testing
+    for (const Shape& s : kBranchShapes) {
+        Model m = branches(s.gpus, s.nics, s.numas);
+        const std::string id = topo1(m);
+        for (unsigned seed = 1; seed <= 3; ++seed)
+            EXPECT_EQ(id, topo1(renumbered(m, seed))) << s.gpus << "+" << s.nics << "/" << s.numas;
+    }
 }
 
 TEST(Identity, NodeCapIsATypedError) {

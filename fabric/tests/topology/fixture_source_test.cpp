@@ -1,10 +1,13 @@
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <string>
 
+#include "topology/builder.hpp"
 #include "topology/error.hpp"
 #include "topology/fixture_source.hpp"
+#include "topology/identity.hpp"
 
 using namespace ostia::fabric::topology;
 namespace fs = std::filesystem;
@@ -132,4 +135,24 @@ TEST_F(FixtureDir, UnknownSchemaVersionThrows) {
         EXPECT_EQ(e.code, "schema");
         EXPECT_NE(std::string(e.what()).find("supported: 1"), std::string::npos);
     }
+}
+
+// CPU time, not wall time: on a contended runner wall time measures the neighbours.
+static double cpu_seconds() { return double(std::clock()) / CLOCKS_PER_SEC; }
+
+// RFC-0003 Performance: replay of the largest fixture fails CPU CI above 1 s. In-process, because
+// a ctest TIMEOUT also counts process startup on a loaded runner.
+TEST(FixtureSource, ReplayOfLargestFixtureIsFast) {
+#ifdef OSTIA_TOPO_SANITIZED
+    constexpr double kLimitSeconds = 5.0; // sanitizer builds run several times slower
+#else
+    constexpr double kLimitSeconds = 1.0;
+#endif
+    const double t0 = cpu_seconds();
+    const FixtureSource source(fs::path(OSTIA_TOPO_FIXTURE_DIR) / "synthetic" / "nvswitch-hidden");
+    const Model model = build(source.facts());
+    const std::string id = topo1(model);
+    const double seconds = cpu_seconds() - t0;
+    EXPECT_EQ(id.rfind("topo1:sha256:", 0), 0u);
+    EXPECT_LT(seconds, kLimitSeconds) << seconds << " s of CPU time";
 }

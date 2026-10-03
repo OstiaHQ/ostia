@@ -3,17 +3,21 @@
 //   labels ──► refine to a stable partition ──► all cells singletons? ──yes──► leaf certificate
 //                     ▲                                │ no
 //                     │                                ▼
-//                     └──── individualise one vertex per twin class of the first open cell
+//                     └──── individualise one vertex per orbit of the first open cell
 //
 // Refining to a fixed point subsumes the RFC's three Weisfeiler–Lehman rounds, and the search
 // makes the form exact: a cycle of six and two triangles refine identically but give different
-// certificates. The smallest certificate over the explored leaves is the canonical one. Twins
-// (same colour, same labelled neighbourhood apart from each other) are exchanged by an
-// automorphism that fixes the current partition, so exploring one per class keeps the minimum.
-
+// certificates. The smallest certificate over the leaves is the canonical one, so the tree, the
+// refinement and the certificate alone define the id. Pruning skips only subtrees that an
+// automorphism maps onto explored ones, whose leaves carry the same certificates: twins, and
+// the automorphisms that equal leaves reveal (RFC-0003 §5 and Performance).
 #include "topology/identity.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <limits>
+#include <numeric>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -228,37 +232,272 @@ std::string certificate(const Graph& g, const std::vector<int>& position) {
     return out.dump();
 }
 
-// The search defines topo1: branch on the first non-singleton cell, refine to a fixed point,
-// keep the smallest certificate. Changing any of the three changes every id. Pruning may change
-// only if it keeps that minimum; orbit pruning for symmetric shapes that are not twins is a
-// planned follow-up (RFC-0003 Performance).
+using Perm = std::vector<int>; // point → image
+
+// Left to right: (a * b)[x] = b[a[x]].
+Perm compose(const Perm& a, const Perm& b) {
+    Perm out(a.size());
+    for (std::size_t x = 0; x < a.size(); ++x)
+        out[x] = b[std::size_t(a[x])];
+    return out;
+}
+
+Perm inverse(const Perm& p) {
+    Perm out(p.size());
+    for (std::size_t x = 0; x < p.size(); ++x)
+        out[std::size_t(p[x])] = int(x);
+    return out;
+}
+
+bool is_identity(const Perm& p) {
+    for (std::size_t x = 0; x < p.size(); ++x)
+        if (p[x] != int(x))
+            return false;
+    return true;
+}
+
+int first_moved(const Perm& p) {
+    for (std::size_t x = 0; x < p.size(); ++x)
+        if (p[x] != int(x))
+            return int(x);
+    return -1;
+}
+
+// A base and strong generating set, built by deterministic Schreier–Sims (Seress, "Permutation
+// Group Algorithms", ch. 4). Invariant once built: the strong generators that fix base[0..i-1]
+// generate the pointwise stabiliser of those points, for every i.
+class StabiliserChain {
+  public:
+    StabiliserChain(std::size_t n, std::vector<int> base, const std::vector<Perm>& gens)
+        : n_(n), base_(std::move(base)), strong_(gens) {
+        // A generator that fixes the whole base would belong to no level's check.
+        for (const Perm& s : strong_)
+            if (fixes_prefix(s, base_.size()))
+                base_.push_back(first_moved(s));
+        levels_.resize(base_.size());
+        for (std::size_t i = base_.size(); i > 0;) {
+            const std::size_t grown = close_level(i - 1);
+            i = grown == kClosed ? i - 1 : grown + 1;
+        }
+    }
+
+    // The strong generators that fix base[0..k-1]; they generate that pointwise stabiliser.
+    std::vector<const Perm*> stabiliser_generators(std::size_t k) const {
+        std::vector<const Perm*> out;
+        for (const Perm& s : strong_)
+            if (fixes_prefix(s, k))
+                out.push_back(&s);
+        return out;
+    }
+
+  private:
+    static constexpr std::size_t kClosed = std::numeric_limits<std::size_t>::max();
+
+    struct Level {
+        std::vector<int> index; // point → its coset representative in reps, -1 off the orbit
+        std::vector<Perm> reps; // reps[k] maps the level's base point to the k-th orbit point
+        std::vector<Perm> inv;  // inv[k] is reps[k]'s inverse
+    };
+
+    bool fixes_prefix(const Perm& s, std::size_t k) const {
+        for (std::size_t l = 0; l < k; ++l)
+            if (s[std::size_t(base_[l])] != base_[l])
+                return false;
+        return true;
+    }
+
+    void build_level(std::size_t i) {
+        Level& level = levels_[i];
+        level.index.assign(n_, -1);
+        level.reps.clear();
+        level.inv.clear();
+        Perm id(n_);
+        std::iota(id.begin(), id.end(), 0);
+        level.index[std::size_t(base_[i])] = 0;
+        level.reps.push_back(std::move(id));
+        std::vector<const Perm*> gens = stabiliser_generators(i);
+        for (std::size_t k = 0; k < level.reps.size(); ++k) {
+            const int y = level.reps[k][std::size_t(base_[i])];
+            for (const Perm* s : gens) {
+                const int z = (*s)[std::size_t(y)];
+                if (level.index[std::size_t(z)] >= 0)
+                    continue;
+                level.index[std::size_t(z)] = int(level.reps.size());
+                level.reps.push_back(compose(level.reps[k], *s));
+            }
+        }
+        for (const Perm& u : level.reps)
+            level.inv.push_back(inverse(u));
+    }
+
+    // Strips h in place through levels from..end; returns the level it stopped at (base size
+    // when it passed every level).
+    std::size_t sift(Perm& h, std::size_t from) const {
+        for (std::size_t l = from; l < base_.size(); ++l) {
+            const int k = levels_[l].index[std::size_t(h[std::size_t(base_[l])])];
+            if (k < 0)
+                return l;
+            const Perm& w = levels_[l].inv[std::size_t(k)];
+            for (int& x : h)
+                x = w[std::size_t(x)];
+        }
+        return base_.size();
+    }
+
+    // Levels above i are complete. Checks every Schreier generator of level i; on the first that
+    // does not sift to the identity, adds its residue as a strong generator and returns the level
+    // where the sift stopped, which must then be closed again. kClosed when level i is complete.
+    std::size_t close_level(std::size_t i) {
+        build_level(i);
+        const std::vector<const Perm*> gens = stabiliser_generators(i);
+        const Level& level = levels_[i];
+        Perm h(n_);
+        for (std::size_t k = 0; k < level.reps.size(); ++k) {
+            const Perm& u = level.reps[k];
+            const int delta = u[std::size_t(base_[i])];
+            for (const Perm* s : gens) {
+                const Perm& v_inv =
+                    level.inv[std::size_t(level.index[std::size_t((*s)[std::size_t(delta)])])];
+                for (std::size_t x = 0; x < n_; ++x)
+                    h[x] = v_inv[std::size_t((*s)[std::size_t(u[x])])];
+                const std::size_t j = sift(h, i + 1);
+                if (j == base_.size() && is_identity(h))
+                    continue;
+                // Growing levels_ and strong_ invalidates level, u and gens: return at once.
+                if (j == base_.size()) {
+                    base_.push_back(first_moved(h));
+                    levels_.emplace_back();
+                }
+                // The residue fixes base[0..j-1] and moves base[j], so levels below j keep
+                // their generators and stay complete.
+                strong_.push_back(std::move(h));
+                return j;
+            }
+        }
+        return kClosed;
+    }
+
+    std::size_t n_;
+    std::vector<int> base_;
+    std::vector<Perm> strong_;
+    std::vector<Level> levels_;
+};
+
+// The automorphisms found so far, as generators of the group they span.
+class PermGroup {
+  public:
+    explicit PermGroup(std::size_t n) : n_(n) {}
+
+    bool empty() const { return gens_.empty(); }
+    std::size_t generators() const { return gens_.size(); }
+
+    void add(const Perm& p) {
+        if (!is_identity(p) && std::find(gens_.begin(), gens_.end(), p) == gens_.end())
+            gens_.push_back(p);
+    }
+
+    // The orbits of `cell` under the pointwise stabiliser of `prefix`, each in cell order and
+    // ordered by first member. The stabiliser must map `cell` to itself.
+    std::vector<std::vector<int>> orbits_fixing(const std::vector<int>& prefix,
+                                                const std::vector<int>& cell) const {
+        std::vector<int> root(n_);
+        std::iota(root.begin(), root.end(), 0);
+        auto find = [&](int x) {
+            while (root[std::size_t(x)] != x)
+                x = root[std::size_t(x)] = root[std::size_t(root[std::size_t(x)])];
+            return x;
+        };
+        if (!gens_.empty()) {
+            StabiliserChain chain(n_, prefix, gens_);
+            for (const Perm* s : chain.stabiliser_generators(prefix.size()))
+                for (int x : cell) {
+                    int a = find(x), b = find((*s)[std::size_t(x)]);
+                    if (a != b)
+                        root[std::size_t(std::max(a, b))] = std::min(a, b);
+                }
+        }
+        std::vector<std::vector<int>> orbits;
+        std::vector<int> slot(n_, -1);
+        for (int x : cell) {
+            int r = find(x);
+            if (slot[std::size_t(r)] < 0) {
+                slot[std::size_t(r)] = int(orbits.size());
+                orbits.emplace_back();
+            }
+            orbits[std::size_t(slot[std::size_t(r)])].push_back(x);
+        }
+        return orbits;
+    }
+
+  private:
+    std::size_t n_;
+    std::vector<Perm> gens_;
+};
+
+[[maybe_unused]] bool is_automorphism(const Graph& g, const Perm& p) {
+    for (std::size_t v = 0; v < p.size(); ++v)
+        if (g.vkey[std::size_t(p[v])] != g.vkey[v])
+            return false;
+    auto edges = [&](const Perm& map) {
+        std::vector<std::tuple<int, int, int>> out;
+        for (const StoredEdge& e : g.edges) {
+            int a = map[std::size_t(e.from)], b = map[std::size_t(e.to)];
+            if (!e.directed && b < a)
+                std::swap(a, b);
+            out.emplace_back(a, b, e.label);
+        }
+        std::sort(out.begin(), out.end());
+        return out;
+    };
+    Perm id(p.size());
+    std::iota(id.begin(), id.end(), 0);
+    return edges(p) == edges(id);
+}
+
+// The tree, the refinement and the certificate define topo1: branch on the first non-singleton
+// cell, give the chosen vertex colour 2c and the rest of its cell 2c+1, refine to a fixed point,
+// keep the smallest certificate. Changing any of them changes every id. Pruning keeps that
+// minimum (RFC-0003 §5, Performance), by McKay's argument ("Practical graph isomorphism",
+// 1981): refinement and the target cell commute with automorphisms, so an automorphism fixing
+// a node's path maps child subtrees onto child subtrees with the same certificates.
+//   - Equal certificates at two leaves give an automorphism γ between their orderings. A leaf's
+//     ordering determines its path: every cell before the target cell is a singleton, so the
+//     vertex individualised at each depth holds the first place of its cell's block. γ therefore
+//     maps one path onto the other position by position.
+//   - Backjump: γ fixes the paths' common prefix ν and maps the current child of ν onto the
+//     stored leaf's, explored earlier, so the rest of the current child is redundant.
+//   - Orbits: a child in the same orbit as an explored child, under the stabiliser of the path
+//     in the group of found automorphisms, is redundant. Twins are exchanged by a transposition
+//     that fixes the path, so a twin of an earlier child is redundant too.
+// Redundant children are never entered, and their leaves do not count toward kMaxLeaves.
 struct Search {
+    static constexpr std::size_t kNoJump = std::numeric_limits<std::size_t>::max();
+
+    struct Leaf {
+        std::string cert;
+        std::vector<int> position; // vertex → position, the leaf's final colour
+        std::vector<int> path;     // the individualised vertices, root first
+    };
+
     const Graph& g;
+    PermGroup group{g.vlabel.size()};
+    std::vector<int> path;
     std::size_t leaves = 0;
-    std::string best;
+    Leaf first, best;
     bool found = false;
 
-    void run(const std::vector<int>& colour) {
+    // Returns the depth to resume at, or kNoJump once the subtree is done.
+    std::size_t run(const std::vector<int>& colour) {
         const std::size_t n = colour.size();
         std::vector<std::vector<int>> cells(n);
         for (std::size_t v = 0; v < n; ++v)
             cells[std::size_t(colour[v])].push_back(int(v));
         auto open = std::find_if(cells.begin(), cells.end(),
                                  [](const std::vector<int>& c) { return c.size() > 1; });
-        if (open == cells.end()) {
-            if (++leaves > kMaxLeaves)
-                throw TopologyError("leaf_cap", "",
-                                    "canonical search exceeded " + std::to_string(kMaxLeaves) +
-                                        " leaves");
-            std::string cert = certificate(g, colour);
-            if (!found || cert < best) {
-                best = std::move(cert);
-                found = true;
-            }
-            return;
-        }
+        if (open == cells.end())
+            return leaf(colour);
         // Which vertex represents a twin class depends on vertex order, but every skipped vertex
-        // is a twin of an explored one, so the minimum over the explored leaves does not.
+        // is a twin of an earlier one, so the minimum over the explored leaves does not.
         std::vector<int> representatives;
         for (int v : *open) {
             bool covered = std::any_of(representatives.begin(), representatives.end(),
@@ -266,13 +505,70 @@ struct Search {
             if (!covered)
                 representatives.push_back(v);
         }
+        const std::size_t depth = path.size();
+        std::vector<int> done;
+        std::vector<int> orbit(n, -1);
+        std::size_t orbit_generators = 0;
         for (int v : representatives) {
+            // Recomputed whenever a child's subtree found new automorphisms: they can merge a
+            // later child into the orbit of an earlier one.
+            if (!done.empty() && !group.empty() && orbit_generators != group.generators()) {
+                std::vector<std::vector<int>> orbits = group.orbits_fixing(path, *open);
+                for (std::size_t k = 0; k < orbits.size(); ++k)
+                    for (int x : orbits[k])
+                        orbit[std::size_t(x)] = int(k);
+                orbit_generators = group.generators();
+            }
+            if (orbit_generators > 0 && std::any_of(done.begin(), done.end(), [&](int d) {
+                    return orbit[std::size_t(d)] == orbit[std::size_t(v)];
+                }))
+                continue;
             std::vector<int> next(n);
             for (std::size_t x = 0; x < n; ++x)
                 next[x] = 2 * colour[x] + 1;
             next[std::size_t(v)] = 2 * colour[std::size_t(v)];
-            run(refine(g, std::move(next)));
+            path.push_back(v);
+            const std::size_t jump = run(refine(g, std::move(next)));
+            path.pop_back();
+            if (jump != kNoJump && jump < depth)
+                return jump;
+            done.push_back(v);
         }
+        return kNoJump;
+    }
+
+    std::size_t leaf(const std::vector<int>& colour) {
+        if (++leaves > kMaxLeaves)
+            throw TopologyError("leaf_cap", "",
+                                "canonical search exceeded " + std::to_string(kMaxLeaves) +
+                                    " leaves");
+        std::string cert = certificate(g, colour);
+        if (!found) {
+            first = {cert, colour, path};
+            best = {std::move(cert), colour, path};
+            found = true;
+            return kNoJump;
+        }
+        std::size_t jump = kNoJump;
+        const Leaf* stored_leaves[] = {&first, &best};
+        for (const Leaf* stored : stored_leaves) {
+            if (cert != stored->cert)
+                continue;
+            // γ = π_stored⁻¹ ∘ π_new sends each vertex here to the vertex at its position there.
+            const Perm at = inverse(stored->position);
+            Perm gamma(colour.size());
+            for (std::size_t x = 0; x < colour.size(); ++x)
+                gamma[x] = at[std::size_t(colour[x])];
+            assert(is_automorphism(g, gamma));
+            group.add(gamma);
+            std::size_t d = 0;
+            while (d < path.size() && d < stored->path.size() && path[d] == stored->path[d])
+                ++d;
+            jump = std::min(jump, d);
+        }
+        if (cert < best.cert)
+            best = {std::move(cert), colour, path};
+        return jump;
     }
 };
 
@@ -301,7 +597,7 @@ std::string canonical_identity_json(const Model& model) {
     Graph g = strip(model);
     Search search{g};
     search.run(refine(g, rank_values(g.vkey)));
-    return search.best;
+    return search.best.cert;
 }
 
 std::string topo1(const Model& model) {

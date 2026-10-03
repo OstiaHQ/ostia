@@ -39,22 +39,4 @@ if(OSTIA_BUILD_TESTS)
       ${CMAKE_CURRENT_SOURCE_DIR}/expect-exit.cmake
   )
   set_tests_properties(fabric.topo.bad_pair_exit PROPERTIES LABELS cpu)
-
-  # RFC-0003 Performance: replay of the largest fixture fails CPU CI above 1 s. Sanitizer builds
-  # run several times slower, so they get a wider bound.
-  if(OSTIA_SANITIZE)
-    set(_ostia_replay_timeout 5)
-  else()
-    set(_ostia_replay_timeout 1)
-  endif()
-  add_test(
-    NAME fabric.topo.replay_perf
-    COMMAND
-      ostia-topo model
-      ${PROJECT_SOURCE_DIR}/fabric/tests/fixtures/topology/synthetic/nvswitch-hidden
-  )
-  set_tests_properties(
-    fabric.topo.replay_perf
-    PROPERTIES LABELS cpu TIMEOUT ${_ostia_replay_timeout}
-  )
 endif()
