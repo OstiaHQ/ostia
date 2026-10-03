@@ -103,9 +103,11 @@ TEST(Builder, InactiveLinksAreNotCounted) { // RFC-0003 §6, broken-nvlink
     f.nvml["gpus"][0]["nvlinks"][0]["state"] = "inactive";
     f.nvml["gpus"][1]["nvlinks"][0]["state"] = "inactive";
     const auto model = build(f);
-    for (auto& e : model.edges)
-        if (e.kind == EdgeKind::nvlink)
+    for (auto& e : model.edges) {
+        if (e.kind == EdgeKind::nvlink) {
             EXPECT_EQ(e.attrs.at("links"), 3);
+        }
+    }
 }
 
 TEST(Builder, SwitchLinksFormOneSwitchGroup) { // RFC-0003 §6, nvswitch-hidden

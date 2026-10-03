@@ -519,14 +519,12 @@ int parse_rank(const Args& a) {
     return static_cast<int>(a.num("rank", -1));
 }
 
-bool have_cuda_device() {
 #ifdef OSTIA_BENCH_CUDA
+bool have_cuda_device() {
     int n = 0;
     return cudaGetDeviceCount(&n) == cudaSuccess && n > 0;
-#else
-    return false;
-#endif
 }
+#endif
 
 // Returns 0 to continue, or an exit code.
 int check_options(const Options& o, const std::string& bench) {
