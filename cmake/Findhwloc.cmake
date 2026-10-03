@@ -5,9 +5,13 @@ include(FindPackageHandleStandardArgs)
 
 find_path(hwloc_INCLUDE_DIR hwloc.h)
 find_library(hwloc_LIBRARY NAMES hwloc)
-if(hwloc_INCLUDE_DIR AND EXISTS "${hwloc_INCLUDE_DIR}/hwloc/autogen/config.h")
+# Debian and Ubuntu are multiarch: hwloc.h sits in /usr/include but autogen/config.h in
+# /usr/include/<triplet>, so the version header is looked up on its own.
+find_path(hwloc_CONFIG_INCLUDE_DIR hwloc/autogen/config.h HINTS "${hwloc_INCLUDE_DIR}")
+mark_as_advanced(hwloc_CONFIG_INCLUDE_DIR)
+if(hwloc_CONFIG_INCLUDE_DIR)
   file(
-    STRINGS "${hwloc_INCLUDE_DIR}/hwloc/autogen/config.h"
+    STRINGS "${hwloc_CONFIG_INCLUDE_DIR}/hwloc/autogen/config.h"
     _hwloc_version_line
     REGEX "^#define HWLOC_VERSION \"[0-9.]+"
   )
@@ -26,4 +30,11 @@ if(hwloc_FOUND AND NOT TARGET hwloc::hwloc)
       IMPORTED_LOCATION "${hwloc_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${hwloc_INCLUDE_DIR}"
   )
+  if(NOT hwloc_CONFIG_INCLUDE_DIR STREQUAL hwloc_INCLUDE_DIR)
+    set_property(
+      TARGET hwloc::hwloc
+      APPEND
+      PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${hwloc_CONFIG_INCLUDE_DIR}"
+    )
+  endif()
 endif()
