@@ -8,11 +8,11 @@ Guidance for AI coding agents and human contributors working in this repository.
 - [`docs/README.md`](docs/README.md): how design docs work (RFCs, ADRs, guides), when an RFC is required, and the document index.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): pull request expectations, the commit convention and the CLA.
 
-Ostia is in **M0 Foundations** ([RFC-0001](docs/rfcs/0001-m0-foundations.md), Accepted). The build skeleton, layering enforcement and Python namespace packages exist; telemetry and fabric have only placeholder APIs until their RFCs land. Build and test instructions: [`docs/guides/building.md`](docs/guides/building.md).
+Ostia is in **M0 Foundations** ([RFC-0001](docs/rfcs/0001-m0-foundations.md), Accepted). The build skeleton, layering enforcement and Python namespace packages exist. Telemetry's public API is still a placeholder while [RFC-0002](docs/rfcs/0002-telemetry.md) is implemented, and fabric's waits on the fabric RFC. Build and test instructions: [`docs/guides/building.md`](docs/guides/building.md).
 
 ## Layers and components
 
-| Component | Layer | Folder (when it exists) | Depends on |
+| Component | Layer | Folder | Depends on |
 | --- | --- | --- | --- |
 | ostia-fabric | 1a | `fabric/` | telemetry |
 | ostia-exchange | 1b | `exchange/` | fabric, telemetry |
