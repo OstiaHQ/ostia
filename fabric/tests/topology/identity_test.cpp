@@ -1,7 +1,7 @@
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <gtest/gtest.h>
 #include <map>
 #include <string>
@@ -116,14 +116,25 @@ TEST(Identity, IgnoresDataAttributes) { // RFC-0003 §5
     EXPECT_EQ(topo1(a), topo1(b));
 }
 
+// CPU time, not wall time: on a contended runner wall time measures the neighbours.
+static double cpu_seconds() { return double(std::clock()) / CLOCKS_PER_SEC; }
+
+// Sanitizer builds run several times slower (RFC-0003 Performance).
+#ifdef OSTIA_TOPO_SANITIZED
+static constexpr double kLimitSeconds = 5.0;
+#else
+static constexpr double kLimitSeconds = 1.0;
+#endif
+
 TEST(Identity, SymmetricEightGpuSwitchIsFast) { // twin pruning (RFC-0003 §5)
     Model m = gpus_with_nvlinks(8, {});
     m.nodes.push_back({NodeKind::switch_group, "switch-group-0", {}});
     for (auto& n : std::vector<Node>(m.nodes.begin(), m.nodes.end() - 1))
         m.edges.push_back({EdgeKind::nvlink, n.key, "switch-group-0", {{"links", 18}}});
-    auto t0 = std::chrono::steady_clock::now();
+    const double t0 = cpu_seconds();
     auto id = topo1(m);
-    EXPECT_LT(std::chrono::steady_clock::now() - t0, std::chrono::seconds(1));
+    const double seconds = cpu_seconds() - t0;
+    EXPECT_LT(seconds, kLimitSeconds) << seconds << " s of CPU time";
     EXPECT_EQ(id, topo1(renumbered(m, 3)));
 }
 
@@ -162,20 +173,14 @@ struct Shape {
 };
 static constexpr Shape kBranchShapes[] = {{8, 8, 1}, {8, 8, 2}, {16, 0, 1}};
 
-// Sanitizer builds run several times slower (RFC-0003 Performance).
-#ifdef OSTIA_TOPO_SANITIZED
-static constexpr auto kBranchBudget = std::chrono::seconds(5);
-#else
-static constexpr auto kBranchBudget = std::chrono::seconds(1);
-#endif
-
 TEST(Identity, NonTwinBranchesAreFast) { // RFC-0003 Performance
     for (const Shape& s : kBranchShapes) {
         Model m = branches(s.gpus, s.nics, s.numas);
-        auto t0 = std::chrono::steady_clock::now();
+        const double t0 = cpu_seconds();
         EXPECT_NO_THROW(topo1(m)) << s.gpus << "+" << s.nics << "/" << s.numas; // no leaf_cap
-        EXPECT_LT(std::chrono::steady_clock::now() - t0, kBranchBudget)
-            << s.gpus << "+" << s.nics << "/" << s.numas;
+        const double seconds = cpu_seconds() - t0;
+        EXPECT_LT(seconds, kLimitSeconds)
+            << s.gpus << "+" << s.nics << "/" << s.numas << ": " << seconds << " s of CPU time";
     }
 }
 
