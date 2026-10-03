@@ -1,0 +1,33 @@
+{
+  "gpus": [
+    {
+      "bus_id": "0000:11:00.0",
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 0,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA A100-SXM4-80GB",
+      "nvlinks": "not_supported"
+    },
+    {
+      "bus_id": "0000:11:01.0",
+      "cc_major": 8,
+      "cc_minor": 0,
+      "cuda_ordinal": 1,
+      "memory_bytes": 85899345920,
+      "name": "NVIDIA A100-SXM4-80GB",
+      "nvlinks": "not_supported"
+    }
+  ],
+  "p2p": [
+    {
+      "a": "0000:11:00.0",
+      "atomics": "unknown",
+      "b": "0000:11:01.0",
+      "nvlink": "unknown",
+      "read": "unknown",
+      "write": "unknown"
+    }
+  ],
+  "schema": 1
+}

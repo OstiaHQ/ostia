@@ -1,0 +1,27 @@
+{
+  "nics": [
+    {
+      "bus_id": "0000:21:04.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": 400000
+    }
+  ],
+  "rdma": [
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:21:04.0",
+      "device": "mlx5_0",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    }
+  ],
+  "rdma_probe": "ok",
+  "schema": 1
+}
