@@ -8,9 +8,10 @@ This file lists the third-party software Ostia uses, as approved by RFC-0001 §2
 "Vendored" means the source is copied into this repository. "Fetched" means CPM
 downloads a pinned release at build time (RFC-0001 §2.4). "System" means the build
 finds an existing installation. "dlopen" means it is loaded at runtime and never
-linked or bundled. Full license texts are included here for vendored code; they are
-added for any other component before a binary release that bundles it (PRD, Third-
-party code).
+linked or bundled. Full license texts are included here for vendored code and for
+code the topology model compiles in or links (nlohmann/json, hwloc); they are added
+for any other component before a binary release that bundles it (PRD, Third-party
+code).
 
 Dependency          License                          Use                                      Integrated
 ------------------  -------------------------------  ---------------------------------------  ----------

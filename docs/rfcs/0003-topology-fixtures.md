@@ -100,7 +100,7 @@ Only fields listed here are ever written. Everything else the sources report is 
   - PCI link speed and width. The tool reports the **maximum** link speed from sysfs, not the current one, because idle NVIDIA GPUs drop to PCIe gen 1.
   - OS device names (such as `mlx5_0`);
   - bridge types.
-- Kept `info` keys: `PCIVendor`, `PCIDevice`, `CPUVendor`, `CPUModel`, `CPUFamilyNumber`, `CPUModelNumber`, `GPUVendor`, `GPUModel`, `Backend`. *(update: Rollout PR 6a: also `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`, the maximum PCIe link generation and width the capture writes into the PCI object's info, PR 6a, #32.)*
+- Kept `info` keys: `PCIVendor`, `PCIDevice`, `CPUVendor`, `CPUModel`, `CPUFamilyNumber`, `CPUModelNumber`, `GPUVendor`, `GPUModel`, `Backend`. *(update: Rollout PR 6a: also `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`, the maximum PCIe link generation and width the capture writes into the PCI object's info (#32).)*
 - **Everything else is removed,** including `HostName`, every `DMI*` key, `OSName`, `OSRelease`, `OSVersion`, `Architecture` strings with a kernel version, `NVIDIAUUID`, `NodeGUID`, `SysImageGUID`, `Port*GID*`, `Address`, `PCISlot` and any serial number.
 - The rewritten XML is re-imported with `hwloc_topology_set_xml()` and `hwloc_topology_load()` before writing, and both must succeed.
 
@@ -115,7 +115,7 @@ Only fields listed here are ever written. Everything else the sources report is 
   - remote PCI bus ID when the remote is a PCI-visible device.
 - **NVSwitch.** When NVSwitches are not PCI-visible (common in VMs), GPUs whose links all reach `switch` form one anonymous switch group in the model (§6), which is the coarser model.
 - **P2P capability matrix** between GPU pairs, with one entry each for `read`, `write`, `nvlink` and `atomics`, each `ok`, `not_supported` or `unknown`.
-- NVML queries that return `NOT_SUPPORTED` are recorded as such, never omitted. *(update: Rollout PR 6a: a GPU's `nvlinks` is an array of links, or the string `"not_supported"` when NVML can't report links, PR 6a, #32.)*
+- NVML queries that return `NOT_SUPPORTED` are recorded as such, never omitted. *(update: Rollout PR 6a: a GPU's `nvlinks` is an array of links, or the string `"not_supported"` when NVML can't report links (#32).)*
 - **Dropped:** GPU UUIDs, serial numbers, board IDs, VBIOS versions and MIG UUIDs.
 
 #### 2.3 `nics.json`
@@ -128,7 +128,7 @@ Only fields listed here are ever written. Everything else the sources report is 
   - port speed;
   - NUMA node.
 - **From ibverbs, when devices exist:** device name, port number, port state, link layer, active speed and width, and whether GPUDirect RDMA is available (`nvidia_peermem` loaded, or dma-buf support).
-- **No RDMA devices is a capability, not a failure.** A TCP-only machine gets `"rdma": []` and a complete capture. *(update: Rollout PR 6a: a NIC's `link_layer` may be `"unknown"` and its `port_speed_mbps` an integer or `"unknown"`; the root has `rdma_probe: ok|unavailable`, so a machine where the probe could not run differs from one with no RDMA; a NIC's PCI vendor and device IDs come from `hwloc.xml`. PR 6a, #32.)*
+- **No RDMA devices is a capability, not a failure.** A TCP-only machine gets `"rdma": []` and a complete capture. *(update: Rollout PR 6a: a NIC's `link_layer` may be `"unknown"` and its `port_speed_mbps` an integer or `"unknown"`; the root has `rdma_probe: ok|unavailable`, so a machine where the probe could not run differs from one with no RDMA; a NIC's PCI vendor and device IDs come from `hwloc.xml` (#32).)*
 - **Dropped:** MAC addresses, IP addresses, GUIDs, GIDs, firmware versions, board IDs, VPD and interface names derived from MACs.
 
 #### 2.4 `meta.json`
@@ -164,7 +164,7 @@ In CI, a second pass runs a format-regex scan over every committed fixture, both
 - `ip-\d+-\d+-\d+-\d+` hostnames;
 - serial-number fields.
 
-PCI bus IDs and the placeholder grammar in §6 are explicit exceptions. A corpus test checks the regex's false positives, and failures report `file:line:type` only. *(update: Rollout PR 6a: the pass is `ostia-dev check fixture-leaks`, part of `ostia-dev lint` and so of pre-commit. It scans only git-tracked files under `fabric/tests/fixtures/topology/`, and also flags any hwloc `<info>` name outside §2.1's allowlist (including `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`). Output is `path:line: kind`, never the value. PR 6a, #32.)*
+PCI bus IDs and the placeholder grammar in §6 are explicit exceptions. A corpus test checks the regex's false positives, and failures report `file:line:type` only. *(update: Rollout PR 6a: the pass is `ostia-dev check fixture-leaks`, part of `ostia-dev lint` and so of pre-commit. It scans only git-tracked files under `fabric/tests/fixtures/topology/`, and also flags any hwloc `<info>` name outside §2.1's allowlist (including `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`). Output is `path:line: kind`, never the value (#32).)*
 
 ### 4. Artifact manifest contract
 
@@ -208,7 +208,7 @@ This RFC owns the contract between the capture tool and anything that consumes a
 - **Input** is the canonical model (§6), with PCI bus IDs, device names, placeholders, measured values and dates removed. What remains:
   - node kinds and attributes: GPU model and compute capability, NIC link layer and port speed, PCIe maximum generation and width, NUMA and package counts;
   - edges: PCIe parent-child, NVLink link counts between GPUs or a switch group, NUMA locality, RDMA availability.
-- **Canonical ordering** uses three rounds of Weisfeiler–Lehman relabelling over the graph. Node order therefore never depends on enumeration. Nodes are then sorted by final label. *(update: Rollout PR 6a: the identity input is fixed. A GPU contributes its model and compute capability, a NIC its PCI vendor and device IDs, a PCIe edge its generation and width, an NVLink edge its link count; every other node contributes its kind only. NIC port speed, link layer and RDMA state are data, not identity, so a probe that fails does not change the identity. The canonical form is a stable refinement followed by individualisation-refinement with twin pruning, capped at 256 search nodes and 1,000,000 leaves. PR 6a, #32.)*
+- **Canonical ordering** uses three rounds of Weisfeiler–Lehman relabelling over the graph. Node order therefore never depends on enumeration. Nodes are then sorted by final label. *(update: Rollout PR 6a: the identity input is fixed. A GPU contributes its model and compute capability, a NIC its PCI vendor and device IDs, a PCIe edge its generation and width, an NVLink edge its link count; every other node contributes its kind only. NIC port speed, link layer and RDMA state are data, not identity, so a probe that fails does not change the identity. The canonical form is a stable refinement followed by individualisation-refinement with twin pruning. It accepts models of at most 256 nodes, and the search stops after 1,000,000 leaves. Orbit pruning, for symmetric shapes whose vertices are not twins, is a planned follow-up (#32).)*
 - **Output:** `topo1:sha256:` followed by the SHA-256 of the canonical JSON (sorted keys, integers only, no floats). A change to the input definition bumps the prefix to `topo2`.
 - **Pair identity** is the SHA-256 of the two node IDs in sorted order plus `pair.json`'s structural fields (§7).
 - **Sequencing with RFC-0001.** The identity is implemented with the model in PR 6. Benchmark records from before PR 6 carry `"topology": null`, which `compare.py` treats as compatible only with `null`. Baselines recorded before PR 6 are re-recorded once it lands.
@@ -224,7 +224,7 @@ The fixtures replay into a small **internal** model defined here. The fabric RFC
   - `numa_local`: a device to its NUMA node.
 - **Attributes:** as in §5, plus the PCI bus ID as each device's key.
 - **Placeholders** appear only where a structural name is needed and no safe value exists, for example `switch-group-0`. They are sequential and ordered by the smallest PCI bus ID they cover.
-- **Serialisation.** The builder writes the model as canonical JSON (sorted keys, integers only). This is the golden file, `expected.json`. *(update: Rollout PR 6a: the model is the internal static library `ostia_fabric_topology`, not installed and not yet linked into `ostia_fabric`. It also holds the schema validator, an in-house subset of JSON Schema that includes `oneOf`, with the schemas embedded at configure time. An NVLink pair's `links` is the minimum of the active-link counts its two sides report, so an inactive link on either side lowers it. All links to NVSwitches go to one `switch-group-0` per machine. PR 6a, #32.)*
+- **Serialisation.** The builder writes the model as canonical JSON (sorted keys, integers only). This is the golden file, `expected.json`. *(update: Rollout PR 6a: the model is the internal static library `ostia_fabric_topology`, not installed and not yet linked into `ostia_fabric`. It also holds the schema validator, an in-house subset of JSON Schema that includes `oneOf`, with the schemas embedded at configure time. An NVLink pair's `links` is the minimum of the active-link counts its two sides report, so an inactive link on either side lowers it. All links to NVSwitches go to one `switch-group-0` per machine (#32).)*
 
 ### 7. Pair captures
 
@@ -243,7 +243,7 @@ Each node of a pair is captured and scrubbed **independently**; no identifier or
 - `link_class` is `infiniband`, `roce`, `efa` or `tcp`.
 - The pair's status is the worse of the two node statuses. The pair's `topology_id` follows §5.
 - There is no fabric discovery: switch GUIDs and node descriptions are never collected.
-- *(update: Rollout PR 6a: `pair_id` puts the two node ids in sorted order. When that swaps them, it also swaps each rail's `node-0` and `node-1` entries, so a rail stays attached to its node. PR 6a, #32.)*
+- *(update: Rollout PR 6a: `pair_id` puts the two node ids in sorted order. When that swaps them, it also swaps each rail's `node-0` and `node-1` entries, so a rail stays attached to its node (#32).)*
 
 ### 8. `links.json`
 
@@ -257,7 +257,7 @@ Each node of a pair is captured and scrubbed **independently**; no identifier or
 
 - Links are keyed by the endpoints' PCI bus IDs.
 - Values are integers (MB/s and ns): medians from RFC-0001's harness, converted from its JSONL records. The harness runs with `CUDA_DEVICE_ORDER=PCI_BUS_ID`, so CUDA ordinals map to bus IDs.
-- A link that was not measured is absent, never written as zero. *(update: Rollout PR 6a: links are keyed only by their `from` and `to` bus IDs. The benchmark records carry the measured devices' bus IDs (PR 6b), so CUDA ordinals are never mapped. PR 6a, #32.)*
+- A link that was not measured is absent, never written as zero. *(update: Rollout PR 6a: links are keyed only by their `from` and `to` bus IDs. The benchmark records will carry the measured devices' bus IDs, in PR 6b, so CUDA ordinals are never mapped (#32).)*
 
 ### 9. Layout and replay
 
@@ -271,6 +271,8 @@ fabric/tests/fixtures/topology/
   synthetic/
     broken-nvlink/  no-nic/  multi-numa/  asymmetric-links/  partial-discovery/  nvswitch-hidden/
 ```
+
+*(update: Rollout PR 6a: every fixture lives at `<group>/<case>/`, which supersedes the depth-1 layout above. Synthetic cases are under `synthetic/`: `broken-nvlink`, `no-nic`, `multi-numa`, `asymmetric-links`, `partial-discovery`, `nvswitch-hidden`, `disallowed-pu`, `unknown-port` and `pair-tcp`. Captured machines go under a group directory, such as `captured/<provider>-<instance>/`. A pair is `<group>/<setup>-<provider>-<instance>/` holding `node-0/`, `node-1/` and `pair.json` (#32).)*
 
 Discovery is split into **sources** and a **pure builder**:
 
@@ -297,12 +299,12 @@ graph LR
 
 - Live sources are gated targets. `FixtureSource` belongs to the unconditional host-only target (RFC-0001 §3.4).
 - `FixtureSource` loads `hwloc.xml` as a foreign topology with `hwloc_topology_set_xml()`, using the same I/O filters as the capture, with no binding and no rediscovery. It replays NVML and NIC facts from JSON and joins everything by PCI bus ID. GPU OS devices come from `nvml.json`, so replay does not depend on hwloc's CUDA or NVML backends, which conda-forge builds may lack.
-- **Golden tests** compare the builder's output with `expected.json` for every fixture. `--update-golden` regenerates it, and a golden update is reviewed like code. *(update: Rollout PR 6a: the goldens are ctest cases `fabric.topo.golden.<case>`, regenerated with `ostia-dev topo golden --update`. Synthetic fixtures are written by `generate.py`, and ctest `fabric.topo.fixtures_current` fails when a fixture differs from what the generator produces; `generate.py --check` is the same test by hand. The schema validator is the in-house subset with `oneOf` (§6). PR 6a, #32.)*
+- **Golden tests** compare the builder's output with `expected.json` for every fixture. `--update-golden` regenerates it, and a golden update is reviewed like code. *(update: Rollout PR 6a: the goldens are ctest cases `fabric.topo.golden.<case>`, regenerated with `ostia-dev topo golden --update`. Synthetic fixtures are written by `generate.py`, and ctest `fabric.topo.fixtures_current` fails when a fixture differs from what the generator produces; `generate.py --check` is the same test by hand. The schema validator is the in-house subset with `oneOf` (§6) (#32).)*
 > *Update: [ADR-0014](../adr/0014-on-demand-remote-test-runs.md) replaced GPU CI with on-demand remote runs ([RFC-0005](0005-dev-cli-remote-runner.md)). "The GPU CI machine" in this section is an L4 node reached with `ostia-dev remote k8s --suite gpu`; nothing is uploaded from those runs either.*
 
 - **Live versus replay.** On the GPU CI machine, a test captures the machine, replays the capture, and checks that the live builder and the replayed builder produce the same model. This catches a builder that is consistently wrong, which golden files alone would freeze.
 - **GPU CI uploads nothing.** PR runs execute untrusted code and their artifacts are public, so GPU CI captures, leak-checks and replays but never uploads the capture. New fixtures come from maintainer-run rented captures, added by pull request.
-- **The hello-world moment.** `pixi run topo-show <fixture>` prints a fixture's topology on any laptop, with RFC-0001's `default` environment and no GPU: GPUs, NVLink and PCIe links, NICs, and measured bandwidths. It is the first thing `docs/guides/building.md` shows after the tests pass. *(update: Rollout PR 6a: the command is `pixi run ostia-dev topo show <fixture>`, RFC-0005 §7. PR 6a, #32.)*
+- **The hello-world moment.** `pixi run topo-show <fixture>` prints a fixture's topology on any laptop, with RFC-0001's `default` environment and no GPU: GPUs, NVLink and PCIe links, NICs, and measured bandwidths. It is the first thing `docs/guides/building.md` shows after the tests pass. *(update: Rollout PR 6a: the command is `pixi run ostia-dev topo show <fixture>`, RFC-0005 §7 (#32).)*
 
 **Done when**
 

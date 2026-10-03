@@ -37,6 +37,11 @@ pixi run ostia-dev test
 ```
 <!-- docs-as-test:end -->
 
+The three commands took 48 seconds on an M-series Mac with pixi's package cache already warm. A first-ever install also downloads about 1 GB, so how long it takes depends on your connection. Later runs rebuild only what changed.
+
+- `pixi run ostia-dev test` runs the C++ and CMake tests (ctest) and the Python tests (pytest).
+- Before it runs pytest, it installs the Python packages; see [Python development](#python-development).
+
 See a captured machine's topology, on any laptop and without a GPU:
 
 <!-- docs-as-test:start -->
@@ -44,11 +49,6 @@ See a captured machine's topology, on any laptop and without a GPU:
 pixi run ostia-dev topo show fabric/tests/fixtures/topology/synthetic/nvswitch-hidden
 ```
 <!-- docs-as-test:end -->
-
-The three commands took 48 seconds on an M-series Mac with pixi's package cache already warm. A first-ever install also downloads about 1 GB, so how long it takes depends on your connection. Later runs rebuild only what changed.
-
-- `pixi run ostia-dev test` runs the C++ and CMake tests (ctest) and the Python tests (pytest).
-- Before it runs pytest, it installs the Python packages; see [Python development](#python-development).
 
 ## Environments
 
