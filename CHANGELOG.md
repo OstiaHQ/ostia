@@ -21,7 +21,7 @@ All notable changes to Ostia are documented here. The format follows [Keep a Cha
 
 ### Changed
 
-- The `topo1` canonical search now prunes with automorphisms found from equal leaf certificates, so symmetric shapes that are not twins finish in milliseconds instead of minutes, and some models that hit `leaf_cap` before now get an id. No `topo1` id changed: the 43 pinned shapes and all golden fixtures match the previous algorithm (RFC-0003 §5, #33).
+- The `topo1` canonical search now prunes with automorphisms found from equal leaf certificates, so symmetric shapes that are not twins finish in milliseconds instead of minutes, and some models that hit `leaf_cap` before now get an id. No `topo1` id changed: the 43 pinned shapes and all 9 synthetic fixtures match the previous algorithm (RFC-0003 §5, #33).
 - Every contributor command is now an `ostia-dev` command (RFC-0005 §2, Rollout PR B), run as `pixi run ostia-dev …` or as `ostia-dev …` inside `pixi shell`. The old pixi tasks and script paths are gone, with no aliases; `pixi run ostia-dev --help` lists everything. The tools themselves moved into `tools/ostia-dev/src/ostia_dev/{ci,dev,docs,bench}/`; their behaviour, output and exit codes are unchanged apart from the names.
 
 | Before | After |

@@ -1,9 +1,12 @@
 #include <cstdint>
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "topology/builder.hpp"
+#include "topology/fixture_source.hpp"
 #include "topology/identity.hpp"
 
 using namespace ostia::fabric::topology;
@@ -533,6 +536,7 @@ TEST(IdentityCorpus, TwoSquares) {
               "topo1:sha256:d4231512cd0eed5c328a7f529d91b231ac7f9166a04f71d74b4aee84d9fa94ec");
 }
 
+// Equal to K33 on purpose: the Möbius ladder on 6 vertices is K3,3.
 TEST(IdentityCorpus, MobiusLadder6) {
     EXPECT_EQ(topo1(mobius_ladder(6)),
               "topo1:sha256:b853458f2c6cd4d1e0c27e09831c076a7d846e95b831e434b981675d50d75520");
@@ -551,4 +555,50 @@ TEST(IdentityCorpus, Torus3x3) {
 TEST(IdentityCorpus, Q4) {
     EXPECT_EQ(topo1(hypercube(4, false)),
               "topo1:sha256:dd232216e05b5bed8051eef39c586dec5146119832a3ed67a78b03c886c9d503");
+}
+
+// Only pair-tcp's expected.json carries an id, so the other synthetic fixtures are pinned here.
+static std::string fixture_id(const char* name) {
+    const FixtureSource source(std::filesystem::path(OSTIA_TOPO_FIXTURE_DIR) / "synthetic" / name);
+    return topo1(build(source.facts()));
+}
+
+TEST(IdentityCorpus, FixtureAsymmetricLinks) {
+    EXPECT_EQ(fixture_id("asymmetric-links"),
+              "topo1:sha256:e1254a9e839fe2cf103a4da42244e69ad51236cf1ac6b4d4cb6f50de139d472e");
+}
+
+TEST(IdentityCorpus, FixtureBrokenNvlink) {
+    EXPECT_EQ(fixture_id("broken-nvlink"),
+              "topo1:sha256:ca05bb9eda0c513d75e6dc43f980d8b88dbc923eb7d00b97484f7d2e9fe85a6a");
+}
+
+TEST(IdentityCorpus, FixtureDisallowedPu) {
+    EXPECT_EQ(fixture_id("disallowed-pu"),
+              "topo1:sha256:a0a319d04cc373517bc8edf43f34a9d6b2fc9a63a99a5b05892487d0582d7ac5");
+}
+
+TEST(IdentityCorpus, FixtureMultiNuma) {
+    EXPECT_EQ(fixture_id("multi-numa"),
+              "topo1:sha256:bedf17ea3de351c1d14856de87e75ee4275c89aa589b0c01f4b58026cb263a28");
+}
+
+TEST(IdentityCorpus, FixtureNoNic) {
+    EXPECT_EQ(fixture_id("no-nic"),
+              "topo1:sha256:db944a9f0bd605cdd1b100490325b9fb3425a01c2811a638c36efd573b3d3360");
+}
+
+TEST(IdentityCorpus, FixtureNvswitchHidden) {
+    EXPECT_EQ(fixture_id("nvswitch-hidden"),
+              "topo1:sha256:7471d98091cd699f4b46acbfb23c339041c3c40aaa2854096e925fbd5eeaced3");
+}
+
+TEST(IdentityCorpus, FixturePartialDiscovery) {
+    EXPECT_EQ(fixture_id("partial-discovery"),
+              "topo1:sha256:c66aaad3076ef1e99d9eff29166979921fa6dde6b974d99478687c943093409d");
+}
+
+TEST(IdentityCorpus, FixtureUnknownPort) {
+    EXPECT_EQ(fixture_id("unknown-port"),
+              "topo1:sha256:b3ae8cfa0330af6fd18bb720542057ab502e137b6f70950502e598942e067f9e");
 }
