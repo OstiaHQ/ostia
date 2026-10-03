@@ -1,0 +1,66 @@
+{
+  "edges": [
+    {
+      "from": "0000:11:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:11:01.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "hostbridge-0000:10",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:11:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:10",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:11:01.0",
+      "width": 16
+    }
+  ],
+  "nodes": [
+    {
+      "driver": "mlx5_core",
+      "key": "0000:11:00.0",
+      "kind": "nic",
+      "link_layer": "unknown",
+      "numa_node": 0,
+      "pci_device": 4125,
+      "pci_vendor": 5555,
+      "port_speed_mbps": "unknown",
+      "rdma": 0,
+      "rdma_probe": "unavailable"
+    },
+    {
+      "driver": "mlx5_core",
+      "key": "0000:11:01.0",
+      "kind": "nic",
+      "link_layer": "unknown",
+      "numa_node": 0,
+      "pci_device": 4125,
+      "pci_vendor": 5555,
+      "port_speed_mbps": "unknown",
+      "rdma": 0,
+      "rdma_probe": "unavailable"
+    },
+    {
+      "key": "hostbridge-0000:10",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "numa-0",
+      "kind": "numa"
+    },
+    {
+      "key": "package-0",
+      "kind": "package"
+    }
+  ]
+}

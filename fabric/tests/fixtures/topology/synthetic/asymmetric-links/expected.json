@@ -1,0 +1,66 @@
+{
+  "edges": [
+    {
+      "from": "0000:11:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:11:01.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:11:00.0",
+      "kind": "nvlink",
+      "links": 6,
+      "to": "0000:11:01.0"
+    },
+    {
+      "from": "hostbridge-0000:10",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:11:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:10",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:11:01.0",
+      "width": 16
+    }
+  ],
+  "nodes": [
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 0,
+      "key": "0000:11:00.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 1,
+      "key": "0000:11:01.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "key": "hostbridge-0000:10",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "numa-0",
+      "kind": "numa"
+    },
+    {
+      "key": "package-0",
+      "kind": "package"
+    }
+  ]
+}

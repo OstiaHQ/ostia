@@ -1,0 +1,398 @@
+{
+  "edges": [
+    {
+      "from": "0000:12:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:12:01.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:12:02.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:22:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:22:01.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:22:02.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:32:00.0",
+      "kind": "numa_local",
+      "to": "numa-1"
+    },
+    {
+      "from": "0000:32:01.0",
+      "kind": "numa_local",
+      "to": "numa-1"
+    },
+    {
+      "from": "0000:32:02.0",
+      "kind": "numa_local",
+      "to": "numa-1"
+    },
+    {
+      "from": "0000:42:00.0",
+      "kind": "numa_local",
+      "to": "numa-1"
+    },
+    {
+      "from": "0000:42:01.0",
+      "kind": "numa_local",
+      "to": "numa-1"
+    },
+    {
+      "from": "0000:42:02.0",
+      "kind": "numa_local",
+      "to": "numa-1"
+    },
+    {
+      "from": "0000:12:00.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:12:01.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:22:00.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:22:01.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:32:00.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:32:01.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:42:00.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:42:01.0",
+      "kind": "nvlink",
+      "links": 18,
+      "to": "switch-group-0"
+    },
+    {
+      "from": "0000:11:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:12:00.0",
+      "width": 16
+    },
+    {
+      "from": "0000:11:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:12:01.0",
+      "width": 16
+    },
+    {
+      "from": "0000:11:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:12:02.0",
+      "width": 16
+    },
+    {
+      "from": "0000:21:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:22:00.0",
+      "width": 16
+    },
+    {
+      "from": "0000:21:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:22:01.0",
+      "width": 16
+    },
+    {
+      "from": "0000:21:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:22:02.0",
+      "width": 16
+    },
+    {
+      "from": "0000:31:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:32:00.0",
+      "width": 16
+    },
+    {
+      "from": "0000:31:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:32:01.0",
+      "width": 16
+    },
+    {
+      "from": "0000:31:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:32:02.0",
+      "width": 16
+    },
+    {
+      "from": "0000:41:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:42:00.0",
+      "width": 16
+    },
+    {
+      "from": "0000:41:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:42:01.0",
+      "width": 16
+    },
+    {
+      "from": "0000:41:00.0",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:42:02.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:10",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:11:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:20",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:21:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:30",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:31:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:40",
+      "gen": 5,
+      "kind": "pcie",
+      "to": "0000:41:00.0",
+      "width": 16
+    }
+  ],
+  "nodes": [
+    {
+      "key": "0000:11:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 0,
+      "key": "0000:12:00.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 1,
+      "key": "0000:12:01.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "driver": "mlx5_core",
+      "key": "0000:12:02.0",
+      "kind": "nic",
+      "link_layer": "infiniband",
+      "numa_node": 0,
+      "pci_device": 4129,
+      "pci_vendor": 5555,
+      "port_speed_mbps": 400000,
+      "rdma": 1,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "0000:21:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 2,
+      "key": "0000:22:00.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 3,
+      "key": "0000:22:01.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "driver": "mlx5_core",
+      "key": "0000:22:02.0",
+      "kind": "nic",
+      "link_layer": "infiniband",
+      "numa_node": 0,
+      "pci_device": 4129,
+      "pci_vendor": 5555,
+      "port_speed_mbps": 400000,
+      "rdma": 1,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "0000:31:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 4,
+      "key": "0000:32:00.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 5,
+      "key": "0000:32:01.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "driver": "mlx5_core",
+      "key": "0000:32:02.0",
+      "kind": "nic",
+      "link_layer": "infiniband",
+      "numa_node": 1,
+      "pci_device": 4129,
+      "pci_vendor": 5555,
+      "port_speed_mbps": 400000,
+      "rdma": 1,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "0000:41:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 6,
+      "key": "0000:42:00.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "cc_major": 9,
+      "cc_minor": 0,
+      "cuda_ordinal": 7,
+      "key": "0000:42:01.0",
+      "kind": "gpu",
+      "memory_bytes": 85899345920,
+      "model": "NVIDIA H100 80GB HBM3"
+    },
+    {
+      "driver": "mlx5_core",
+      "key": "0000:42:02.0",
+      "kind": "nic",
+      "link_layer": "infiniband",
+      "numa_node": 1,
+      "pci_device": 4129,
+      "pci_vendor": 5555,
+      "port_speed_mbps": 400000,
+      "rdma": 1,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "hostbridge-0000:10",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "hostbridge-0000:20",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "hostbridge-0000:30",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "hostbridge-0000:40",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "numa-0",
+      "kind": "numa"
+    },
+    {
+      "key": "numa-1",
+      "kind": "numa"
+    },
+    {
+      "key": "package-0",
+      "kind": "package"
+    },
+    {
+      "key": "package-1",
+      "kind": "package"
+    },
+    {
+      "key": "switch-group-0",
+      "kind": "switch_group"
+    }
+  ]
+}
