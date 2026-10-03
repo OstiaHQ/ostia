@@ -1,4 +1,5 @@
-# Nightly: every CPU configuration at every telemetry level (RFC-0001 §4.1 levels-full).
+# Nightly: every CPU configuration at every telemetry level (RFC-0001 §4.1 levels-full), and a
+# longer run of the topology fuzz target.
 name: Nightly
 
 on:
@@ -40,4 +41,36 @@ jobs:
           {
             echo "### levels-full ${{ matrix.name }}"
             echo "Reproduce: \`pixi run -e ${{ matrix.env }} ostia-dev test --levels\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  fuzz:
+    name: fuzz-topology-nightly
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          environment: clang
+      - name: pixi run -e clang ostia-dev fuzz --time 1800
+        run: pixi run -e clang ostia-dev fuzz --time 1800
+      - name: Upload the crashing input
+        if: failure()
+        # actions/upload-artifact v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fuzz-topology-crashes-nightly
+          path: build/clang/fuzz/crashes/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### fuzz-topology-nightly"
+            echo "Reproduce: \`pixi run -e clang ostia-dev fuzz --time 1800\`; replay a crash file with \`build/clang/fuzz/fabric/fuzz/ostia_fabric_topology_fuzz <file>\`"
           } >> "$GITHUB_STEP_SUMMARY"

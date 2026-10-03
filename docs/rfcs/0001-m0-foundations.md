@@ -280,6 +280,7 @@ The fabric **topology model and fixture replay** target is unconditional: it bui
 | `nvcc-12.8`, `nvcc-13` | ubuntu-24.04 | CUDA compile-only (GCC 11 / GCC 14) | Every PR |
 | `container-ubuntu2204`, `container-rocky9` | ubuntu-24.04 | Build with distro packages, no pixi | Every PR |
 | `sanitize-asan-ubsan`, `sanitize-tsan` | ubuntu-24.04 | Clang, `debug` level | Every PR |
+| `fuzz-topology` | ubuntu-24.04 | libFuzzer with ASan + UBSan on the topology fixture JSON path (`ostia-dev fuzz`): 2 minutes per PR, 30 nightly *(update: added after acceptance, for OpenSSF Scorecard's Fuzzing check)* | Every PR, nightly |
 | `multiprocess-tcp` | ubuntu-24.04 | Multi-process tests over UCX TCP loopback (`fabric/tests/multiprocess/`) | Every PR |
 | `lint` | ubuntu-24.04 | clang-format, ruff, gersemi, `check_layering.py`, `check_telemetry_macros.py`, `gen_index.py --check` | Every PR |
 | `docs-as-test` | ubuntu-24.04, fresh | Runs `docs/guides/building.md`'s host-only commands verbatim; records the time taken | Every PR |

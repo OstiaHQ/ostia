@@ -88,6 +88,35 @@ def test_check_tidy_with_files(run):
     assert calls == [CONFIGURE, ["run-clang-tidy", "-quiet", "-p", "/b/dev", "a.cpp", "b.cpp"]]
 
 
+def test_fuzz_builds_the_target_then_runs_it_on_corpus_and_seeds(run):
+    _, calls = run("fuzz", "--time", "120", "-runs=10")
+    tree = "/b/fuzz"
+    assert calls == [
+        ["cmake", "--preset", "fuzz"],
+        ["cmake", "--build", "--preset", "fuzz", "--target", "ostia_fabric_topology_fuzz"],
+        ["cmake", "-E", "make_directory", f"{tree}/corpus", f"{tree}/crashes"],
+        [
+            f"{tree}/fabric/fuzz/ostia_fabric_topology_fuzz",
+            "-max_total_time=120",
+            "-timeout=25",
+            f"-artifact_prefix={tree}/crashes/",
+            "-use_value_profile=1",
+            "-print_final_stats=1",
+            "-runs=10",
+            f"{tree}/corpus",
+            f"{tree}/fabric/fuzz/seeds",
+        ],
+    ]
+
+
+def test_fuzz_stops_when_the_build_fails(run, monkeypatch):
+    runner = RecordingRunner(fail_at=1)
+    monkeypatch.setattr(steps, "RUNNER", runner)
+    result = CliRunner().invoke(app, ["fuzz"])
+    assert result.exit_code == 8
+    assert len(runner.calls) == 2
+
+
 def test_hooks_runs_pre_commit_install(run):
     _, calls = run("hooks")
     assert calls == [["pre-commit", "install"]]

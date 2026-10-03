@@ -1,4 +1,4 @@
-"""build, test, py-dev, clean, doctor and hooks (RFC-0005 §2.2)."""
+"""build, test, fuzz, py-dev, clean, doctor and hooks (RFC-0005 §2.2)."""
 
 from typing import Annotated
 
@@ -109,6 +109,16 @@ def register(app: typer.Typer) -> None:
         raise typer.Exit(
             steps.run(steps.py_dev(steps.env_or_exit("py-dev"), *passthrough.forwarded(ctx.args)))
         )
+
+    @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+    def fuzz(
+        ctx: typer.Context,
+        seconds: Annotated[int, typer.Option("--time", help="Seconds to fuzz for.")] = 60,
+    ) -> None:
+        """Build and run the fuzz target with libFuzzer (Clang: pixi run -e clang ostia-dev fuzz);
+        extra arguments go to libFuzzer, e.g. -runs=1000."""
+        steps.env_or_exit("fuzz")
+        raise typer.Exit(steps.run(steps.fuzz(seconds, *ctx.args)))
 
     passthrough.command(app, "clean", "dev.clean", "Remove build output and what py-dev installed.")
     passthrough.command(app, "doctor", "dev.doctor", "Print the environment and diagnose problems.")

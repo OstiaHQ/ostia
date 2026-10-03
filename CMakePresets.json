@@ -58,6 +58,19 @@
       }
     },
     {
+      "name": "fuzz",
+      "inherits": "dev",
+      "displayName": "libFuzzer + AddressSanitizer + UBSan (Clang)",
+      "cacheVariables": {
+        "OSTIA_SANITIZE": "address,undefined",
+        "OSTIA_FUZZ": "ON",
+        "CMAKE_C_FLAGS_DEBUG": "-g -O1",
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O1",
+        "OSTIA_BUILD_TESTS": "OFF",
+        "OSTIA_BUILD_TOOLS": "OFF"
+      }
+    },
+    {
       "name": "level-off",
       "inherits": "release",
       "displayName": "Release at telemetry level off (RFC-0001 \u00a75)",
@@ -106,6 +119,10 @@
     {
       "name": "tsan",
       "configurePreset": "tsan"
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz"
     },
     {
       "name": "level-off",
