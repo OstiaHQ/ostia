@@ -35,6 +35,7 @@ add_library(
   STATIC
   builder.cpp
   fixture_source.cpp
+  identity.cpp
   model.cpp
   schema.cpp
   sha256.cpp
