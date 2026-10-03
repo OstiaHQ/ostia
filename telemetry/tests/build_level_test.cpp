@@ -33,7 +33,7 @@ std::vector<std::string> loaded_images(const std::string& needle) {
     struct Ctx {
         const std::string* needle;
         std::vector<std::string>* found;
-    } ctx{&needle, &found};
+    } ctx{.needle = &needle, .found = &found};
     dl_iterate_phdr(
         [](dl_phdr_info* info, size_t, void* data) {
             auto* c = static_cast<Ctx*>(data);
