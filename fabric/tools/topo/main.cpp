@@ -150,7 +150,7 @@ void show_node(const std::string& title, const fs::path& dir) {
     }
     auto sorted = [&](const char* kind) {
         auto v = by_kind[kind];
-        std::sort(v.begin(), v.end(), [](auto* x, auto* y) { return x->key < y->key; });
+        std::ranges::sort(v, [](auto* x, auto* y) { return x->key < y->key; });
         return v;
     };
     auto numa_of = [&](const std::string& key) {
@@ -342,15 +342,20 @@ int run(const std::vector<std::string_view>& args) {
 } // namespace
 
 int main(int argc, char** argv) {
-    const std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
-        return run(args);
-    } catch (const Usage&) {
-        std::cerr << kUsageText;
-        return kUsage;
-    } catch (const TopologyError& e) {
-        return report(e);
-    } catch (const std::exception& e) {
-        return report(TopologyError("unreadable", "", e.what()));
+        const std::vector<std::string_view> args(argv + 1, argv + argc);
+        try {
+            return run(args);
+        } catch (const Usage&) {
+            std::cerr << kUsageText;
+            return kUsage;
+        } catch (const TopologyError& e) {
+            return report(e);
+        } catch (const std::exception& e) {
+            return report(TopologyError("unreadable", "", e.what()));
+        }
+    } catch (...) {
+        // Reporting the error threw as well, most likely out of memory: still exit non-zero.
+        return kTopology;
     }
 }

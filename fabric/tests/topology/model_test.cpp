@@ -18,7 +18,8 @@ TEST(Model, CanonicalJsonSortsNodesEdgesAndKeys) {
 
 TEST(Model, DumpIsByteStableAcrossInsertionOrder) {
     Model a, b;
-    Node g{NodeKind::gpu, "0000:07:00.0", {}}, n{NodeKind::nic, "0000:3b:00.0", {}};
+    Node g{.kind = NodeKind::gpu, .key = "0000:07:00.0", .attrs = {}},
+        n{.kind = NodeKind::nic, .key = "0000:3b:00.0", .attrs = {}};
     a.nodes = {g, n};
     b.nodes = {n, g};
     EXPECT_EQ(canonical_dump(a), canonical_dump(b));

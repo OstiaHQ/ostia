@@ -13,7 +13,7 @@ Result<int> parse(bool ok) {
     if (ok) {
         return 42;
     }
-    return Unexpected(Error{7, "bad input"});
+    return Unexpected(Error{.code = 7, .message = "bad input"});
 }
 } // namespace
 
@@ -61,7 +61,7 @@ TEST(Result, Void) {
     Result<void> ok;
     EXPECT_TRUE(ok);
     ok.value();
-    Result<void> bad = Unexpected(Error{1, "x"});
+    Result<void> bad = Unexpected(Error{.code = 1, .message = "x"});
     EXPECT_FALSE(bad);
     EXPECT_EQ(bad.error().code, 1);
     EXPECT_THROW(bad.value(), ostia::BadResultAccess);

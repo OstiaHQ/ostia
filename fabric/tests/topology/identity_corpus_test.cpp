@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -19,27 +20,37 @@ static std::string name(const char* prefix, int i) {
 }
 
 static Node gpu(std::string key) {
-    return {NodeKind::gpu,
-            std::move(key),
-            {{"model", std::string("H100")}, {"cc_major", 9}, {"cc_minor", 0}}};
+    return {.kind = NodeKind::gpu,
+            .key = std::move(key),
+            .attrs = {{"model", std::string("H100")}, {"cc_major", 9}, {"cc_minor", 0}}};
 }
 
 static Node nic(std::string key) {
-    return {NodeKind::nic, std::move(key), {{"pci_vendor", 0x15b3}, {"pci_device", 0x1021}}};
+    return {.kind = NodeKind::nic,
+            .key = std::move(key),
+            .attrs = {{"pci_vendor", 0x15b3}, {"pci_device", 0x1021}}};
 }
 
-static Node plain(NodeKind kind, std::string key) { return {kind, std::move(key), {}}; }
+static Node plain(NodeKind kind, std::string key) {
+    return {.kind = kind, .key = std::move(key), .attrs = {}};
+}
 
 static Edge nvlink(std::string a, std::string b, int links = 2) {
-    return {EdgeKind::nvlink, std::move(a), std::move(b), {{"links", links}}};
+    return {.kind = EdgeKind::nvlink,
+            .from = std::move(a),
+            .to = std::move(b),
+            .attrs = {{"links", links}}};
 }
 
 static Edge pcie(std::string a, std::string b, int gen = 5, int width = 16) {
-    return {EdgeKind::pcie, std::move(a), std::move(b), {{"gen", gen}, {"width", width}}};
+    return {.kind = EdgeKind::pcie,
+            .from = std::move(a),
+            .to = std::move(b),
+            .attrs = {{"gen", gen}, {"width", width}}};
 }
 
 static Edge numa_local(std::string a, std::string b) {
-    return {EdgeKind::numa_local, std::move(a), std::move(b), {}};
+    return {.kind = EdgeKind::numa_local, .from = std::move(a), .to = std::move(b), .attrs = {}};
 }
 
 // g GPU and k NIC branches, each under its own host bridge; the GPUs share one switch group.
@@ -50,7 +61,7 @@ static Model branches(int g, int k, int numas) {
         m.nodes.push_back(plain(NodeKind::numa, name("numa-", u)));
     if (g > 0)
         m.nodes.push_back(plain(NodeKind::switch_group, "switch-group-0"));
-    auto branch = [&](bool is_gpu, std::string key, int u) {
+    auto branch = [&](bool is_gpu, const std::string& key, int u) {
         std::string hb = "hostbridge-" + key;
         m.nodes.push_back(plain(NodeKind::pcie_bridge, hb));
         m.nodes.push_back(is_gpu ? gpu(key) : nic(key));
@@ -107,9 +118,9 @@ static Model grid_4x2() {
         for (int c = 0; c < 4; ++c) {
             int v = r * 4 + c;
             if (c < 3)
-                links.push_back({v, v + 1});
+                links.emplace_back(v, v + 1);
             if (r < 1)
-                links.push_back({v, v + 4});
+                links.emplace_back(v, v + 4);
         }
     return gpu_graph(8, links);
 }
@@ -119,7 +130,7 @@ static Model cube() {
     for (int v = 0; v < 8; ++v)
         for (int bit = 1; bit < 8; bit <<= 1)
             if (!(v & bit))
-                links.push_back({v, v | bit});
+                links.emplace_back(v, v | bit);
     return gpu_graph(8, links);
 }
 
@@ -127,9 +138,9 @@ static Model cube() {
 static Model generalised_petersen(int n, int k) {
     std::vector<std::pair<int, int>> links;
     for (int i = 0; i < n; ++i) {
-        links.push_back({i, (i + 1) % n});
-        links.push_back({i, n + i});
-        links.push_back({n + i, n + (i + k) % n});
+        links.emplace_back(i, (i + 1) % n);
+        links.emplace_back(i, n + i);
+        links.emplace_back(n + i, n + (i + k) % n);
     }
     return gpu_graph(2 * n, links);
 }
@@ -172,12 +183,13 @@ static Model numa_fan_in(int gpus, int nics, int numas) {
 // Edge list of a graph from an LCF-style chord offset list over a Hamiltonian cycle.
 static Model lcf(int n, const std::vector<int>& offsets) {
     std::vector<std::pair<int, int>> links;
+    links.reserve(n);
     for (int i = 0; i < n; ++i)
-        links.push_back({i, (i + 1) % n});
+        links.emplace_back(i, (i + 1) % n);
     for (int i = 0; i < n; ++i) {
         int j = ((i + offsets[i]) % n + n) % n;
         if (i < j)
-            links.push_back({i, j});
+            links.emplace_back(i, j);
     }
     return gpu_graph(n, links);
 }
@@ -237,8 +249,8 @@ static Model torus3x3() {
     std::vector<std::pair<int, int>> links;
     for (int r = 0; r < 3; ++r)
         for (int c = 0; c < 3; ++c) {
-            links.push_back({r * 3 + c, r * 3 + (c + 1) % 3});
-            links.push_back({r * 3 + c, ((r + 1) % 3) * 3 + c});
+            links.emplace_back(r * 3 + c, r * 3 + (c + 1) % 3);
+            links.emplace_back(r * 3 + c, ((r + 1) % 3) * 3 + c);
         }
     return gpu_graph(9, links);
 }
@@ -289,7 +301,7 @@ static Model random_model(std::uint32_t seed) {
         x = x * 1664525u + 1013904223u;
         return (x >> 16) % bound;
     };
-    const NodeKind kinds[] = {NodeKind::pcie_bridge, NodeKind::gpu, NodeKind::nic, NodeKind::numa};
+    const std::array kinds = {NodeKind::pcie_bridge, NodeKind::gpu, NodeKind::nic, NodeKind::numa};
     int n = 6 + int(next(5));
     Model m;
     std::vector<NodeKind> kind_of;

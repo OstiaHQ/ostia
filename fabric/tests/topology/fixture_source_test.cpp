@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-const char* kXml = R"(<?xml version="1.0" encoding="UTF-8"?>
+const char* const kXml = R"(<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE topology SYSTEM "hwloc2.dtd">
 <topology version="2.0">
   <object type="Machine" os_index="0" cpuset="0x00000003" complete_cpuset="0x00000003" allowed_cpuset="@ALLOWED@" nodeset="0x00000001" complete_nodeset="0x00000001" allowed_nodeset="0x00000001" gp_index="1">
@@ -37,7 +37,7 @@ const char* kXml = R"(<?xml version="1.0" encoding="UTF-8"?>
 </topology>
 )";
 
-const char* kNics = R"({"schema":1,"rdma_probe":"unavailable","rdma":[],"nics":[]})";
+const char* const kNics = R"({"schema":1,"rdma_probe":"unavailable","rdma":[],"nics":[]})";
 
 std::string xml_with(const std::string& allowed) {
     std::string xml = kXml;

@@ -14,8 +14,10 @@
 #include "topology/identity.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <numeric>
 #include <string>
@@ -78,7 +80,7 @@ nlohmann::json edge_label(const Edge& edge) {
 // nvlink is undirected; pcie and numa_local point parent→child and device→NUMA node.
 bool directed(EdgeKind kind) { return kind != EdgeKind::nvlink; }
 
-enum Dir : int { kUndirected = 0, kOut = 1, kIn = 2 };
+enum Dir : std::uint8_t { kUndirected = 0, kOut = 1, kIn = 2 };
 
 struct Arc {
     int label; // rank of the edge label among the graph's distinct labels
@@ -103,13 +105,12 @@ struct Graph {
 // Ranks of the sorted distinct values, so the numbering depends on the values alone.
 std::vector<int> rank_values(const std::vector<std::string>& values) {
     std::vector<std::string> distinct = values;
-    std::sort(distinct.begin(), distinct.end());
-    distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+    std::ranges::sort(distinct);
+    distinct.erase(std::ranges::unique(distinct).begin(), distinct.end());
     std::vector<int> ranks;
     ranks.reserve(values.size());
     for (const std::string& v : values)
-        ranks.push_back(
-            int(std::lower_bound(distinct.begin(), distinct.end(), v) - distinct.begin()));
+        ranks.push_back(int(std::ranges::lower_bound(distinct, v) - distinct.begin()));
     return ranks;
 }
 
@@ -155,8 +156,8 @@ Graph strip(const Model& model) {
 }
 
 std::size_t count_distinct(std::vector<int> colour) {
-    std::sort(colour.begin(), colour.end());
-    return std::size_t(std::unique(colour.begin(), colour.end()) - colour.begin());
+    std::ranges::sort(colour);
+    return std::size_t(std::ranges::unique(colour).begin() - colour.begin());
 }
 
 // Returns dense ranks 0..k-1 of the coarsest stable partition finer than `colour`. The old
@@ -175,11 +176,10 @@ std::vector<int> refine(const Graph& g, std::vector<int> colour) {
             std::sort(sig[v].second.begin(), sig[v].second.end());
         }
         std::vector<Signature> distinct = sig;
-        std::sort(distinct.begin(), distinct.end());
-        distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+        std::ranges::sort(distinct);
+        distinct.erase(std::ranges::unique(distinct).begin(), distinct.end());
         for (std::size_t v = 0; v < n; ++v)
-            colour[v] =
-                int(std::lower_bound(distinct.begin(), distinct.end(), sig[v]) - distinct.begin());
+            colour[v] = int(std::ranges::lower_bound(distinct, sig[v]) - distinct.begin());
         if (distinct.size() == cells)
             return colour;
         cells = distinct.size();
@@ -200,8 +200,8 @@ bool twins(const Graph& g, int u, int v) {
             else
                 rest.emplace_back(a.label, a.dir, a.to == x ? kSelf : a.to);
         }
-        std::sort(rest.begin(), rest.end());
-        std::sort(mutual.begin(), mutual.end());
+        std::ranges::sort(rest);
+        std::ranges::sort(mutual);
         return std::make_pair(std::move(rest), std::move(mutual));
     };
     return profile(u, v) == profile(v, u);
@@ -218,7 +218,7 @@ std::string certificate(const Graph& g, const std::vector<int>& position) {
             std::swap(a, b);
         edges.emplace_back(a, b, e.label);
     }
-    std::sort(edges.begin(), edges.end());
+    std::ranges::sort(edges);
 
     std::vector<std::size_t> order(g.vlabel.size());
     for (std::size_t v = 0; v < order.size(); ++v)
@@ -282,7 +282,7 @@ class StabiliserChain {
     }
 
     // The strong generators that fix base[0..k-1]; they generate that pointwise stabiliser.
-    std::vector<const Perm*> stabiliser_generators(std::size_t k) const {
+    [[nodiscard]] std::vector<const Perm*> stabiliser_generators(std::size_t k) const {
         std::vector<const Perm*> out;
         for (const Perm& s : strong_)
             if (fixes_prefix(s, k))
@@ -299,7 +299,7 @@ class StabiliserChain {
         std::vector<Perm> inv;  // inv[k] is reps[k]'s inverse
     };
 
-    bool fixes_prefix(const Perm& s, std::size_t k) const {
+    [[nodiscard]] bool fixes_prefix(const Perm& s, std::size_t k) const {
         for (std::size_t l = 0; l < k; ++l)
             if (s[std::size_t(base_[l])] != base_[l])
                 return false;
@@ -388,18 +388,18 @@ class PermGroup {
   public:
     explicit PermGroup(std::size_t n) : n_(n) {}
 
-    bool empty() const { return gens_.empty(); }
-    std::size_t generators() const { return gens_.size(); }
+    [[nodiscard]] bool empty() const { return gens_.empty(); }
+    [[nodiscard]] std::size_t generators() const { return gens_.size(); }
 
     void add(const Perm& p) {
-        if (!is_identity(p) && std::find(gens_.begin(), gens_.end(), p) == gens_.end())
+        if (!is_identity(p) && std::ranges::find(gens_, p) == gens_.end())
             gens_.push_back(p);
     }
 
     // The orbits of `cell` under the pointwise stabiliser of `prefix`, each in cell order and
     // ordered by first member. The stabiliser must map `cell` to itself.
-    std::vector<std::vector<int>> orbits_fixing(const std::vector<int>& prefix,
-                                                const std::vector<int>& cell) const {
+    [[nodiscard]] std::vector<std::vector<int>> orbits_fixing(const std::vector<int>& prefix,
+                                                              const std::vector<int>& cell) const {
         std::vector<int> root(n_);
         std::iota(root.begin(), root.end(), 0);
         auto find = [&](int x) {
@@ -446,7 +446,7 @@ class PermGroup {
                 std::swap(a, b);
             out.emplace_back(a, b, e.label);
         }
-        std::sort(out.begin(), out.end());
+        std::ranges::sort(out);
         return out;
     };
     Perm id(p.size());
@@ -486,22 +486,24 @@ struct Search {
     Leaf first, best;
     bool found = false;
 
+    explicit Search(const Graph& graph) : g(graph) {}
+
     // Returns the depth to resume at, or kNoJump once the subtree is done.
     std::size_t run(const std::vector<int>& colour) {
         const std::size_t n = colour.size();
         std::vector<std::vector<int>> cells(n);
         for (std::size_t v = 0; v < n; ++v)
             cells[std::size_t(colour[v])].push_back(int(v));
-        auto open = std::find_if(cells.begin(), cells.end(),
-                                 [](const std::vector<int>& c) { return c.size() > 1; });
+        auto open =
+            std::ranges::find_if(cells, [](const std::vector<int>& c) { return c.size() > 1; });
         if (open == cells.end())
             return leaf(colour);
         // Which vertex represents a twin class depends on vertex order, but every skipped vertex
         // is a twin of an earlier one, so the minimum over the explored leaves does not.
         std::vector<int> representatives;
         for (int v : *open) {
-            bool covered = std::any_of(representatives.begin(), representatives.end(),
-                                       [&](int r) { return twins(g, r, v); });
+            bool covered =
+                std::ranges::any_of(representatives, [&](int r) { return twins(g, r, v); });
             if (!covered)
                 representatives.push_back(v);
         }
@@ -519,7 +521,7 @@ struct Search {
                         orbit[std::size_t(x)] = int(k);
                 orbit_generators = group.generators();
             }
-            if (orbit_generators > 0 && std::any_of(done.begin(), done.end(), [&](int d) {
+            if (orbit_generators > 0 && std::ranges::any_of(done, [&](int d) {
                     return orbit[std::size_t(d)] == orbit[std::size_t(v)];
                 }))
                 continue;
@@ -544,13 +546,13 @@ struct Search {
                                     " leaves");
         std::string cert = certificate(g, colour);
         if (!found) {
-            first = {cert, colour, path};
-            best = {std::move(cert), colour, path};
+            first = {.cert = cert, .position = colour, .path = path};
+            best = {.cert = std::move(cert), .position = colour, .path = path};
             found = true;
             return kNoJump;
         }
         std::size_t jump = kNoJump;
-        const Leaf* stored_leaves[] = {&first, &best};
+        const std::array<const Leaf*, 2> stored_leaves = {&first, &best};
         for (const Leaf* stored : stored_leaves) {
             if (cert != stored->cert)
                 continue;
@@ -567,7 +569,7 @@ struct Search {
             jump = std::min(jump, d);
         }
         if (cert < best.cert)
-            best = {std::move(cert), colour, path};
+            best = {.cert = std::move(cert), .position = colour, .path = path};
         return jump;
     }
 };
@@ -595,7 +597,7 @@ nlohmann::json swap_ends(nlohmann::json rails) {
 
 std::string canonical_identity_json(const Model& model) {
     Graph g = strip(model);
-    Search search{g};
+    Search search(g);
     search.run(refine(g, rank_values(g.vkey)));
     return search.best.cert;
 }

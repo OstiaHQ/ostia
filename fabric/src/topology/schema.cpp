@@ -1,6 +1,7 @@
 #include "topology/schema.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <mutex>
 #include <regex>
@@ -19,9 +20,9 @@ using Errors = std::vector<SchemaError>;
 // A test rejects any other keyword in an embedded schema.
 const std::map<std::string_view, json>& load() {
     static const std::map<std::string_view, json> schemas = [] {
-        static const std::pair<std::string_view, std::string_view> sources[] = {
+        static const auto sources = std::to_array<std::pair<std::string_view, std::string_view>>({
 #include "schemas.inc"
-        };
+        });
         std::map<std::string_view, json> parsed;
         for (const auto& [name, text] : sources) {
             parsed.emplace(name, json::parse(text));
@@ -102,11 +103,11 @@ void check_one_of(const json& branches, const json& doc, const std::string& path
 void check(const json& schema, const json& doc, const std::string& path, Errors& errors) {
     if (schema.contains("type")) {
         const json& t = schema["type"];
-        const bool ok = t.is_array() ? std::any_of(t.begin(), t.end(),
-                                                   [&](const json& one) {
-                                                       return has_type(doc, one.get<std::string>());
-                                                   })
-                                     : has_type(doc, t.get<std::string>());
+        const bool ok =
+            t.is_array()
+                ? std::ranges::any_of(
+                      t, [&](const json& one) { return has_type(doc, one.get<std::string>()); })
+                : has_type(doc, t.get<std::string>());
         if (!ok) {
             errors.push_back({path, "expected type " + t.dump() + ", got " + doc.type_name()});
             return; // the keywords below assume the type matched
@@ -117,7 +118,7 @@ void check(const json& schema, const json& doc, const std::string& path, Errors&
     }
     if (schema.contains("enum")) {
         const json& values = schema["enum"];
-        if (std::find(values.begin(), values.end(), doc) == values.end()) {
+        if (std::ranges::find(values, doc) == values.end()) {
             errors.push_back({path, "expected one of " + values.dump() + ", got " + doc.dump()});
         }
     }
