@@ -1,6 +1,6 @@
 {
   "nics": [],
   "rdma": [],
-  "rdma_probe": "unavailable",
+  "rdma_probe": "ok",
   "schema": 1
 }

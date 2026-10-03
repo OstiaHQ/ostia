@@ -3,7 +3,8 @@
 
 Every value is fictional. The generated files are committed, and the
 fabric.topo.fixtures_current ctest runs `generate.py --check` so the two
-cannot drift apart. expected.json is hand-reviewed, never generated.
+cannot drift apart. This script does not write expected.json: `ostia-dev topo
+golden --update` does, and the change is reviewed like code.
 """
 
 from __future__ import annotations
@@ -75,6 +76,8 @@ class Machine:
     gpus: list[Gpu] = field(default_factory=list)
     nics: list[Nic] = field(default_factory=list)
     links: list[dict] = field(default_factory=list)
+    # "ok" also on a TCP-only machine: no RDMA devices is a probe result (RFC-0003 §2.3).
+    rdma_probe: str = "ok"
 
     @property
     def pus(self) -> int:
@@ -365,9 +368,7 @@ def nics_json(m: Machine) -> str:
                     "gpudirect": "nvidia_peermem",
                 }
             )
-    return dump(
-        {"schema": 1, "rdma_probe": "ok" if rdma else "unavailable", "nics": nics, "rdma": rdma}
-    )
+    return dump({"schema": 1, "rdma_probe": m.rdma_probe, "nics": nics, "rdma": rdma})
 
 
 def machine_files(m: Machine) -> dict[str, str]:
@@ -526,6 +527,7 @@ def case_partial_discovery() -> dict[str, str]:
         g.nvlinks = "not_supported"
         g.query = "unknown"
     m.nics = []
+    m.rdma_probe = "unavailable"
     return machine_files(m)
 
 
@@ -542,6 +544,7 @@ def case_unknown_port() -> dict[str, str]:
     m.nics = [eth_nic(None), eth_nic(None)]
     for n in m.nics:
         n.link_layer = "unknown"
+    m.rdma_probe = "unavailable"
     place(m, [(0, 0x10, m.nics, False)])
     return machine_files(m)
 

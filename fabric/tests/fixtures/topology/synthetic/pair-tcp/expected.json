@@ -47,7 +47,7 @@
           "pci_vendor": 5555,
           "port_speed_mbps": 25000,
           "rdma": 0,
-          "rdma_probe": "unavailable"
+          "rdma_probe": "ok"
         },
         {
           "key": "hostbridge-0000:10",
@@ -110,7 +110,7 @@
           "pci_vendor": 5555,
           "port_speed_mbps": 25000,
           "rdma": 0,
-          "rdma_probe": "unavailable"
+          "rdma_probe": "ok"
         },
         {
           "key": "hostbridge-0000:10",
