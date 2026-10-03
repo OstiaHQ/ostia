@@ -14,6 +14,7 @@ add_executable(
   topology/builder_test.cpp
   topology/deps_test.cpp
   topology/fixture_source_test.cpp
+  topology/identity_corpus_test.cpp
   topology/identity_test.cpp
   topology/model_test.cpp
   topology/schema_test.cpp
