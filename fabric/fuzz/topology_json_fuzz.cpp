@@ -169,7 +169,9 @@ extern "C" std::size_t LLVMFuzzerCustomMutator(std::uint8_t* data, std::size_t s
     std::vector<json*> nodes;
     collect(doc, nodes);
     mutate_value(rng, *nodes[pick(rng, nodes.size())]);
-    const std::string text = doc.dump();
+    // Erasing one byte of a multi-byte character leaves invalid UTF-8, which dump() throws on
+    // by default; replace keeps the mutation and the output valid.
+    const std::string text = doc.dump(-1, ' ', false, json::error_handler_t::replace);
     if (text.size() + 1 > max_size) {
         return LLVMFuzzerMutate(data, size, max_size);
     }
