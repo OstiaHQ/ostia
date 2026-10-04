@@ -226,16 +226,29 @@ std::vector<NicFacts> scan_nics(const SysfsReader& sysfs, const std::vector<Verb
         const std::optional<std::string> numa = sysfs.read(base + "/numa_node");
         nic.numa = numa ? parse_int(*numa).value_or(-1) : -1;
 
-        std::optional<PortFacts> facts = net_facts(sysfs, dev);
-        if (!facts) {
-            facts = ib_facts(sysfs, dev);
+        // The first source with a known speed wins; a source that only knows the layer (a down
+        // link, an IPoIB netdev reporting -1) supplies the layer when no source has a speed.
+        const std::array<std::optional<PortFacts>, 3> sources{
+            net_facts(sysfs, dev), ib_facts(sysfs, dev), verbs_facts(verbs, dev)};
+        const PortFacts* chosen = nullptr;
+        for (const std::optional<PortFacts>& source : sources) {
+            if (source && std::holds_alternative<int>(source->speed_mbps)) {
+                chosen = &*source;
+                break;
+            }
         }
-        if (!facts) {
-            facts = verbs_facts(verbs, dev);
+        if (chosen != nullptr) {
+            nic.port_speed_mbps = chosen->speed_mbps;
         }
-        if (facts) {
-            nic.port_speed_mbps = facts->speed_mbps;
-            nic.link_layer = facts->link_layer;
+        if (chosen != nullptr && chosen->link_layer != "unknown") {
+            nic.link_layer = chosen->link_layer;
+        } else {
+            for (const std::optional<PortFacts>& source : sources) {
+                if (source && source->link_layer != "unknown") {
+                    nic.link_layer = source->link_layer;
+                    break;
+                }
+            }
         }
         if (std::holds_alternative<std::string>(nic.port_speed_mbps)) {
             diag.add("nic " + dev + ": port facts unknown (host network namespace not visible)");

@@ -133,6 +133,38 @@ TEST_F(CopiedRoot, StringVerbsSpeedLeavesSpeedUnknown) {
     const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
     ASSERT_EQ(nics.size(), 2U);
     EXPECT_EQ(std::get<std::string>(nics[1].port_speed_mbps), "unknown");
+    EXPECT_TRUE(has_line(
+        diag, "nic 0000:12:00.0: port facts unknown (host network namespace not visible)"));
+}
+
+namespace {
+
+void add_down_ipoib_netdev(const fs::path& root) {
+    const fs::path net = root / "bus/pci/devices/0000:12:00.0/net/ib0";
+    fs::create_directories(net);
+    std::ofstream(net / "speed") << "-1\n";
+    std::ofstream(net / "type") << "32\n";
+}
+
+} // namespace
+
+TEST_F(CopiedRoot, DownIpoibNetdevStillUsesTheIbSysfsRate) {
+    add_down_ipoib_netdev(copy_);
+    Diagnostics diag;
+    const std::vector<NicFacts> nics = scan_nics(SysfsReader(copy_), {}, diag);
+    ASSERT_EQ(nics.size(), 2U);
+    EXPECT_EQ(nics[1].link_layer, "infiniband");
+    EXPECT_EQ(std::get<int>(nics[1].port_speed_mbps), 400000);
+}
+
+TEST_F(CopiedRoot, DownIpoibNetdevStillUsesTheVerbsSpeed) {
+    add_down_ipoib_netdev(copy_);
+    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 128, 2};
+    Diagnostics diag;
+    const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
+    ASSERT_EQ(nics.size(), 2U);
+    EXPECT_EQ(nics[1].link_layer, "infiniband");
+    EXPECT_EQ(std::get<int>(nics[1].port_speed_mbps), 400000);
 }
 
 TEST_F(CopiedRoot, DownLinkSpeedIsUnknown) {
