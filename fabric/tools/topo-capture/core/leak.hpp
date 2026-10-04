@@ -11,6 +11,7 @@
 
 #include "core/apis.hpp"
 #include "core/diagnostics.hpp"
+#include "core/result.hpp"
 #include "core/sysfs.hpp"
 
 namespace ostia::fabric::topology::capture {
@@ -109,8 +110,9 @@ struct Finding {
 std::vector<Finding> search(const RawSet& raw, const std::vector<std::filesystem::path>& files);
 
 // One identifier per line; surrounding whitespace is trimmed, and blank lines and lines
-// starting with '#' are ignored. A missing file gives an empty list.
-std::vector<std::string> read_extra_identifiers(const std::filesystem::path& path);
+// starting with '#' are ignored. A file that cannot be opened or read is an error, never an empty
+// list: an empty list would silently weaken the leak check.
+Result<std::vector<std::string>> read_extra_identifiers(const std::filesystem::path& path);
 
 // "file:line locator: kind", never the value; "file:0 unreadable" for an unreadable file.
 std::string to_string(const Finding& finding);

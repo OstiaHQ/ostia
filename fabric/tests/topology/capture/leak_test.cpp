@@ -369,11 +369,26 @@ TEST_F(Leak, ExtraIdentifiersFileIgnoresCommentsAndBlankLines) {
                                            "  OstiaFakeGPU-0001  \n"
                                            "   # indented comment\n"
                                            "second-ident\n");
-    const std::vector<std::string> ids = read_extra_identifiers(file);
-    ASSERT_EQ(ids.size(), 2U);
-    EXPECT_TRUE(ids[0] == "OstiaFakeGPU-0001");
-    EXPECT_TRUE(ids[1] == "second-ident");
-    EXPECT_TRUE(read_extra_identifiers(dir_ / "absent.txt").empty());
+    const auto ids = read_extra_identifiers(file);
+    ASSERT_TRUE(ids.ok());
+    ASSERT_EQ(ids.value().size(), 2U);
+    EXPECT_TRUE(ids.value()[0] == "OstiaFakeGPU-0001");
+    EXPECT_TRUE(ids.value()[1] == "second-ident");
+}
+
+// An empty list would silently weaken the leak check, so an unopenable file is an error.
+TEST_F(Leak, AnUnreadableExtraIdentifiersFileIsAnError) {
+    const auto absent = read_extra_identifiers(dir_ / "absent.txt");
+    ASSERT_FALSE(absent.ok());
+    EXPECT_EQ(absent.error(), "extra_unreadable");
+    if (::geteuid() == 0) {
+        GTEST_SKIP() << "root reads a mode 000 file";
+    }
+    const fs::path file = write("locked.txt", "OstiaFakeGPU-0001\n");
+    fs::permissions(file, fs::perms::none);
+    const auto locked = read_extra_identifiers(file);
+    fs::permissions(file, fs::perms::owner_read | fs::perms::owner_write);
+    EXPECT_FALSE(locked.ok());
 }
 
 TEST_F(Leak, JsonFindingsCarryAJsonPointer) {

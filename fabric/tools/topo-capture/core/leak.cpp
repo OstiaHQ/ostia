@@ -1063,15 +1063,23 @@ void add_host_names(RawSet& raw, const std::string& hostname, const fs::path& do
     raw.add(IdKind::hostname, std::move(fqdn));
 }
 
-std::vector<std::string> read_extra_identifiers(const fs::path& path) {
+Result<std::vector<std::string>> read_extra_identifiers(const fs::path& path) {
+    using Ids = Result<std::vector<std::string>>;
     std::vector<std::string> out;
     std::ifstream in(path);
+    if (!in) {
+        return Ids::failure("extra_unreadable");
+    }
     std::string line;
     while (std::getline(in, line)) {
         std::string value = trimmed(line);
         if (!value.empty() && !value.starts_with('#')) {
             out.push_back(std::move(value));
         }
+    }
+    // getline ends on EOF or on a read error; only the first is a whole list.
+    if (in.bad()) {
+        return Ids::failure("extra_unreadable");
     }
     return out;
 }

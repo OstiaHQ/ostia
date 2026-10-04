@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <charconv>
 #include <exception>
 #include <filesystem>
@@ -49,6 +50,7 @@ constexpr std::string_view kUsageText =
 
 struct Args {
     std::optional<fs::path> out, links, extra;
+    std::vector<std::string> extra_ids; // read from extra by check(), before any capture step
     // "unknown" stands when --print-id runs without them; --out requires both.
     std::string provider = "unknown", instance_type = "unknown";
     bool has_provider = false, has_instance_type = false;
@@ -64,6 +66,16 @@ struct UsageError {
 
 [[noreturn]] void usage_error(std::string error, std::string rule, std::string fix) {
     throw UsageError{.error = std::move(error), .rule = std::move(rule), .fix = std::move(fix)};
+}
+
+// An unknown option is named only when it is shaped like one: "--serial=<value>" is split before
+// this, but a stray "-<value>" or "--<VALUE>" would otherwise print the value itself.
+bool option_shaped(std::string_view arg) {
+    if (!arg.starts_with("--") || arg.size() == 2) {
+        return false;
+    }
+    return std::ranges::all_of(arg.substr(2),
+                               [](char c) { return (c >= 'a' && c <= 'z') || c == '-'; });
 }
 
 std::optional<int> non_negative(const std::string& text) {
@@ -135,7 +147,8 @@ Args parse(std::span<char* const> argv) {
         } else if (arg == "--version") {
             flag(args.version);
         } else if (arg.starts_with("-")) {
-            usage_error("unknown option " + std::string(arg),
+            usage_error(option_shaped(arg) ? "unknown option " + std::string(arg)
+                                           : std::string("unknown option"),
                         "only the documented options are accepted",
                         "see ostia-topo-capture --help");
         } else {
@@ -167,14 +180,25 @@ void check(const Args& args) {
                     "meta.json records them, and the tool never asks a metadata service",
                     "pass --provider <name> --instance-type <type>");
     }
-    if (args.extra) {
-        std::error_code ec;
-        if (!fs::is_regular_file(*args.extra, ec)) {
-            usage_error("the --extra-identifiers file cannot be read",
-                        "a missing file would silently weaken the leak check",
-                        "check the path, or drop --extra-identifiers");
-        }
+}
+
+// A missing or unreadable list would silently weaken the leak check, so it is a usage error
+// before anything is captured.
+void read_extra(Args& args) {
+    if (!args.extra || args.help || args.version) {
+        return;
     }
+    std::error_code ec;
+    Result<std::vector<std::string>> ids = Result<std::vector<std::string>>::failure("unread");
+    if (fs::is_regular_file(*args.extra, ec) && ::access(args.extra->c_str(), R_OK) == 0) {
+        ids = read_extra_identifiers(*args.extra);
+    }
+    if (!ids.ok()) {
+        usage_error("the --extra-identifiers file cannot be read",
+                    "a missing or unreadable file would silently weaken the leak check",
+                    "check the path and its permissions, or drop --extra-identifiers");
+    }
+    args.extra_ids = ids.value();
 }
 
 int run(const Args& args, Diagnostics& diag) {
@@ -207,9 +231,7 @@ int run(const Args& args, Diagnostics& diag) {
                         .instance_type = args.instance_type,
                         .node_index = args.node_index};
     in.links = args.links;
-    if (args.extra) {
-        in.extra = read_extra_identifiers(*args.extra);
-    }
+    in.extra = args.extra_ids;
     in.live_host = true;
 
     if (args.out) {
@@ -229,6 +251,7 @@ int main(int argc, char** argv) {
     try {
         args = parse(std::span<char* const>(argv, static_cast<std::size_t>(argc)));
         check(args);
+        read_extra(args);
     } catch (const UsageError& e) {
         std::cerr << "error: " << e.error << "\n"
                   << "  rule: " << e.rule << "\n"

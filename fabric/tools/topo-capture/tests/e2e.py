@@ -152,7 +152,11 @@ def _check_print_id(args: argparse.Namespace, root: Path) -> None:
     _expect(not any(cwd.iterdir()), "--print-id: left files in its working directory")
 
 
-def _check_cli(args: argparse.Namespace) -> None:
+# Shaped like a value a user could mistype as an option; usage errors must never echo it.
+UNSHAPED_OPTION = "-OstiaPlantedValue0001"
+
+
+def _check_cli(args: argparse.Namespace, root: Path) -> None:
     for flag in ("--help", "--version"):
         proc = subprocess.run([str(args.binary), flag], check=False, capture_output=True)
         _expect(proc.returncode == 0, f"{flag}: exit {proc.returncode}")
@@ -163,11 +167,21 @@ def _check_cli(args: argparse.Namespace) -> None:
         ["--out", "x"],
         ["--print-id", "--node-index", "-1"],
         ["--print-id", "--bogus"],
+        ["--print-id", UNSHAPED_OPTION],
+        ["--print-id", "-" + UNSHAPED_OPTION],
     ]
-    for argv in usage:
+    # Root reads a mode 000 file, so only an unprivileged run can see it refused.
+    if os.geteuid() != 0:
+        locked = root / "locked-identifiers.txt"
+        locked.write_text("OstiaFakeGPU-0001\n")
+        locked.chmod(0)
+        usage.append(["--print-id", "--extra-identifiers", str(locked)])
+    for case, argv in enumerate(usage):
         proc = subprocess.run([str(args.binary), *argv], check=False, capture_output=True)
-        _expect(proc.returncode == 1, f"usage case {usage.index(argv)}: exit {proc.returncode}")
-        _expect(b"error:" in proc.stderr, f"usage case {usage.index(argv)}: no contract error")
+        _expect(proc.returncode == 1, f"usage case {case}: exit {proc.returncode}")
+        _expect(b"error:" in proc.stderr, f"usage case {case}: no contract error")
+        planted = UNSHAPED_OPTION.lstrip("-").encode()
+        _expect(planted not in proc.stderr, f"usage case {case}: echoed an argument value")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -183,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="ostia-capture-e2e-") as tmp:
         root = Path(tmp)
         try:
-            _check_cli(args)
+            _check_cli(args, root)
             _check_capture(args, root)
             _check_print_id(args, root)
         except Failure as failure:
