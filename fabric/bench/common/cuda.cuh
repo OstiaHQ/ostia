@@ -123,7 +123,18 @@ inline std::string bus_id(int device) {
 
 // {"src_bus": ..., "dst_bus": ...} for the "devices" field of a record.
 inline std::string devices_json(int src, int dst) {
-    return "{\"src_bus\": \"" + bus_id(src) + "\", \"dst_bus\": \"" + bus_id(dst) + "\"}";
+    const std::string src_bus = bus_id(src);
+    const std::string dst_bus = bus_id(dst);
+    return "{\"src_bus\": \"" + src_bus + "\", \"dst_bus\": \"" + dst_bus + "\"}";
+}
+
+// The three-GPU form for dual_link: one source and two destinations.
+inline std::string devices_json(int src, int dst_a, int dst_b) {
+    const std::string src_bus = bus_id(src);
+    const std::string dst_a_bus = bus_id(dst_a);
+    const std::string dst_b_bus = bus_id(dst_b);
+    return "{\"src_bus\": \"" + src_bus + "\", \"dst_a_bus\": \"" + dst_a_bus +
+           "\", \"dst_b_bus\": \"" + dst_b_bus + "\"}";
 }
 
 // Enables peer access from `from` to `to`; true when they are distinct peers.

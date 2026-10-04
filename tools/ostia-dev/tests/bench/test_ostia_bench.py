@@ -439,7 +439,7 @@ def test_the_topology_id_reaches_every_record_with_one_call(program, tmp_path, m
     assert _drive(tmp_path, program, "--runs", "2") == 0
     [record] = _records(tmp_path)
     assert record["compat"]["topology"] == TOPO
-    assert record["provenance"]["topology_source"] == "ostia-topo-capture --print-id"
+    assert "topology_source" not in record["provenance"]
     assert count.read_text().splitlines() == ["call"]
     assert 120 in timeouts
     assert "warning" not in capsys.readouterr().err
@@ -579,3 +579,12 @@ def test_nvbench_runs_in_pci_bus_order(tmp_path, monkeypatch):
     monkeypatch.setenv("CUDA_DEVICE_ORDER", "FASTEST_FIRST")
     assert main(["median-seconds", "--bench", str(tmp_path / "nv")]) == 0
     assert seen.read_text().strip() == "PCI_BUS_ID"
+
+
+def test_a_warning_line_in_the_tools_stderr_stays_indented(program, tmp_path, monkeypatch, capsys):
+    err = "warning: the tool's own\n  status: partial, exit 2"
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(_tool(tmp_path / "cap", code=2, err=err)))
+    assert _drive(tmp_path, program) == 0
+    lines = capsys.readouterr().err.splitlines()
+    assert len([ln for ln in lines if ln.startswith("warning:")]) == 1
+    assert "  warning: the tool's own" not in lines  # its text is quoted, never a second warning

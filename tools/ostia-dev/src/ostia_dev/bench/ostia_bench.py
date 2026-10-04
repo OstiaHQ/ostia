@@ -57,7 +57,6 @@ DEVICE_ORDER = {"CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
 CAPTURE_TOOL = "ostia-topo-capture"
 CAPTURE_TIMEOUT = 120
 TOPO_ID = re.compile(r"topo1:sha256:[0-9a-f]{64}")
-TOPOLOGY_SOURCE = f"{CAPTURE_TOOL} --print-id"
 
 
 def _value(summary: dict) -> float:
@@ -247,7 +246,7 @@ def capture_topology(build_dir: Path | None) -> tuple[str | None, list[str]]:
         return None, [f"{CAPTURE_TOOL} did not finish within {CAPTURE_TIMEOUT}s"]
     except OSError as e:
         return None, [f"{CAPTURE_TOOL} could not run ({e.strerror or type(e).__name__})"]
-    detail = [f"  {line.rstrip()}" for line in proc.stderr.splitlines() if line.strip()]
+    detail = [f"  {line.strip()}" for line in proc.stderr.splitlines() if line.strip()]
     if proc.returncode == 0 and TOPO_ID.fullmatch(proc.stdout.strip()):
         return proc.stdout.strip(), []
     if proc.returncode == 0:
@@ -308,10 +307,7 @@ def provenance_and_compat(
         "compiler": summary.get("compiler", "unknown").split(" (")[0],
         "deps": f"pixi.lock:{deps}",
     }
-    prov = {"git_sha": sha, "date": date, "run_id": run_id}
-    if topology is not None:
-        prov["topology_source"] = TOPOLOGY_SOURCE
-    return prov, compat
+    return {"git_sha": sha, "date": date, "run_id": run_id}, compat
 
 
 def _records(samples: dict, prov: dict, compat: dict) -> list[dict]:

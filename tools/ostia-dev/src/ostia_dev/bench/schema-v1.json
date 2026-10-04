@@ -13,7 +13,7 @@
         "git_sha": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "run_id": { "type": "string" },
-        "topology_source": { "type": "string", "description": "how compat.topology was taken, for example the tool that printed it" }
+        "topology_source": { "type": "string", "description": "set to \"gate\" by the gate's pair-id stamp; the driver never sets it" }
       }
     },
     "compat": {
