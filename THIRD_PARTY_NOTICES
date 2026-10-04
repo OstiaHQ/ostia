@@ -22,7 +22,8 @@ nanobind            BSD-3-Clause                     Fetched, Python bindings   
 nlohmann/json       MIT                              Fetched, header-only, topology model      M0
 hwloc               BSD-3-Clause                     System (pixi), topology discovery         M0/M1
 UCX                 BSD-3-Clause                     System (pixi, Linux), transports          M0/M1
-rdma-core           BSD-2-Clause or GPL-2.0          System (pixi, Linux), with UCX            M0/M1
+rdma-core           OpenIB.org BSD (MIT) or GPL-2.0  System (Linux, pixi/distro), with UCX    M0/M1
+                                                     and as the capture tool's headers
 opentelemetry-cpp   Apache-2.0                       Fetched, static, symbols hidden           RFC-0002
 protobuf            BSD-3-Clause                     Fetched, static, symbols hidden           RFC-0002
 abseil              Apache-2.0                       Fetched, static, symbols hidden           RFC-0002
