@@ -67,11 +67,24 @@ group_alive() {
   [ -n "$pg" ] && kill -s 0 -- "-$pg" 2>/dev/null
 }
 
+# One kill(-pgid) can miss a child that a member is forking at that instant (macOS under
+# load), and that child keeps the step's pipe open; repeat until the group is empty, for
+# at most about 2s in case a killed member lingers as a zombie.
+kill_group_all() {
+  i=0
+  while [ "$i" -lt 20 ]; do
+    kill_group KILL
+    group_alive || return 0
+    sleep 0.1
+    i=$((i + 1))
+  done
+}
+
 stop_group() {
   kill_group TERM
   i=0
   while group_alive && [ "$i" -lt "$1" ]; do sleep 1; i=$((i + 1)); done
-  kill_group KILL
+  kill_group_all
 }
 
 nap() { sleep "$1" & wait $!; }
@@ -137,7 +150,7 @@ while IFS="$TAB" read -r name kind cmd; do
     cd "$dir" || { echo 1 >"$S/rc"; exit 1; }
     # KILL what the step left in its group; a leftover holding the pipe would block tee.
     { $SETSID sh -c 'echo $$ >"$0"; exec sh -c "$1"' "$S/pgid" "$cmd" </dev/null 2>&1
-      echo $? >"$S/rc"; kill_group KILL; } | tee -a "$LOG"
+      echo $? >"$S/rc"; kill_group_all; } | tee -a "$LOG"
   ) &
   wait $!
   running=
