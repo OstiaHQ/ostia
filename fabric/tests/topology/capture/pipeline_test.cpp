@@ -15,8 +15,10 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <unistd.h>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "core/apis.hpp"
@@ -58,6 +60,7 @@ using ostia::fabric::topology::capture::run_signal_cleanup;
 using ostia::fabric::topology::capture::SysfsReader;
 using ostia::fabric::topology::capture::track_for_cleanup;
 using ostia::fabric::topology::capture::VerbsPort;
+using ostia::fabric::topology::capture::write_failed_capture;
 using ostia::fabric::topology::capture::fakes::FakeNvml;
 using ostia::fabric::topology::capture::fakes::FakeVerbs;
 
@@ -592,6 +595,8 @@ TEST_F(Pipeline, APreviousCaptureIsRemovedFirst) {
     ASSERT_TRUE(fs::exists(out_ / "nvml.json"));
     // Not part of the capture, so it is left alone.
     write_file(out_ / "notes.txt", "kept\n");
+    // A reserved name the old manifest does not list is removed all the same.
+    write_file(out_ / "links.json", "{}\n");
     const auto machine = gpu_machine(FakeNvml::failing("nvml_init"));
     Diagnostics diag;
     ASSERT_EQ(capture(machine->inputs(), out_, diag).exit_code, 2);
@@ -732,8 +737,9 @@ TEST_F(Pipeline, DiagnosticsTimeEachSource) {
     Diagnostics diag;
     ASSERT_EQ(capture(machine->inputs(), out_, diag).exit_code, 0);
     const std::string text = diagnostics();
-    for (const char* prefix : {"nvml: 1 GPU(s) in ", "verbs: 1 port(s) in ", "nics: 2 NIC(s) in ",
-                               "emit: hwloc.xml in ", "leak search: ", "replay: topo1 in "}) {
+    for (const char* prefix :
+         {"nvml: 1 GPU(s) in ", "verbs: 1 port(s) in ", "nics: 2 NIC(s) in ", "emit: hwloc.xml in ",
+          "pcie: ", "leak search: ", "replay: topo1 in "}) {
         EXPECT_EQ(count_lines_with(text, prefix), 1U) << prefix;
     }
 }
@@ -753,4 +759,69 @@ TEST_F(Pipeline, SignalCleanupRemovesTrackedPathsNewestFirst) {
     fs::create_directories(scratch);
     run_signal_cleanup();
     EXPECT_TRUE(fs::exists(scratch));
+}
+
+TEST_F(Pipeline, AFailedManifestWriteBecomesTheFailedForm) {
+    const auto machine = gpu_machine();
+    Inputs in = machine->inputs();
+    int calls = 0;
+    in.hooks.before_manifest = [&calls](const fs::path& /*out*/) {
+        ++calls;
+        throw std::system_error(std::make_error_code(std::errc::no_space_on_device), "test");
+    };
+    Diagnostics diag;
+    testing::internal::CaptureStderr();
+    const CaptureOutcome outcome = capture(in, out_, diag);
+    const std::string err = testing::internal::GetCapturedStderr();
+    ASSERT_EQ(outcome.exit_code, 1);
+    EXPECT_EQ(calls, 1);
+    expect_failed_shape(outcome);
+    const json m = manifest();
+    ASSERT_EQ(m["errors"].size(), 1U);
+    EXPECT_EQ(m["errors"][0]["code"], "write_failed");
+    EXPECT_NE(err.find("status: failed, exit 1"), std::string::npos);
+    EXPECT_NE(diagnostics().find("capture: exit 1"), std::string::npos);
+}
+
+TEST_F(Pipeline, WriteFailedCaptureCreatesOut) {
+    Diagnostics diag;
+    const CaptureOutcome outcome = write_failed_capture(out_, "hwloc_load", diag);
+    EXPECT_EQ(outcome.exit_code, 1);
+    expect_failed_shape(outcome);
+    EXPECT_EQ(manifest()["errors"][0]["code"], "hwloc_load");
+    EXPECT_EQ(manifest()["leak_check"], "not_run");
+}
+
+TEST_F(Pipeline, WriteFailedCaptureClearsAPreviousCapture) {
+    {
+        const auto machine = gpu_machine();
+        Diagnostics diag;
+        ASSERT_EQ(capture(machine->inputs(), out_, diag).exit_code, 0);
+    }
+    Diagnostics diag;
+    const CaptureOutcome outcome = write_failed_capture(out_, "internal", diag);
+    EXPECT_EQ(outcome.exit_code, 1);
+    expect_failed_shape(outcome);
+    EXPECT_EQ(manifest()["errors"][0]["code"], "internal");
+}
+
+TEST_F(Pipeline, WriteFailedCaptureRefusesADirectoryHoldingNoCapture) {
+    write_file(out_ / "keep.txt", "not a capture\n");
+    Diagnostics diag;
+    testing::internal::CaptureStderr();
+    const CaptureOutcome outcome = write_failed_capture(out_, "hwloc_load", diag);
+    const std::string err = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(outcome.exit_code, 1);
+    EXPECT_EQ(names_in(out_), std::set<std::string>{"keep.txt"});
+    EXPECT_NE(err.find("fix: remove <out> or choose an empty directory"), std::string::npos);
+}
+
+TEST_F(Pipeline, AReleasedScopeKeepsItsPathsFromSignalCleanup) {
+    const fs::path kept = dir_ / "kept";
+    const CleanupScope scope;
+    fs::create_directories(kept);
+    ASSERT_TRUE(track_for_cleanup(kept, true));
+    scope.release();
+    run_signal_cleanup();
+    EXPECT_TRUE(fs::exists(kept));
 }

@@ -47,9 +47,9 @@ int exit_for(bool leak_or_schema, bool other_failure, bool partial);
 // usual one), leaving a partial file for the caller to remove.
 void write_file_synced(const std::filesystem::path& path, std::string_view bytes);
 
-// manifest.json in out, written last: a temporary file, fsync, rename, then fsync of the
-// directory, so a reader sees the old manifest, the new one or none, never a partial one.
-// Throws std::system_error; the temporary file is removed on failure.
+// manifest.json in out, written last: a temporary file, fsync, fsync of the directory, rename,
+// then fsync of the directory again, so a reader sees the old manifest, the new one or none, never
+// a partial one. Throws std::system_error; the temporary file is removed on failure.
 void write_manifest_atomic(const std::filesystem::path& out, const nlohmann::json& manifest);
 
 } // namespace ostia::fabric::topology::capture

@@ -21,9 +21,13 @@ struct PipelineHooks {
     std::function<void(std::string& xml)> before_reimport;
     // Runs on the staged data files after they are written and before they are validated.
     std::function<void(const std::filesystem::path& staged)> before_validate;
+    // Runs in --out after diagnostics.txt is written and before the manifest; a throw stands
+    // for a failed write there.
+    std::function<void(const std::filesystem::path& out)> before_manifest;
 };
 
 struct Inputs {
+    // Loaded by the caller, which times the load: the pipeline only reads it.
     hwloc_topology_t topo = nullptr;
     NvmlApi* nvml = nullptr; // nullptr: libnvidia-ml could not be loaded
     VerbsApi* verbs = nullptr;
@@ -57,7 +61,8 @@ CaptureOutcome print_id(const Inputs& in, Diagnostics& diag);
 Facts live_facts(const Inputs& in);
 
 // A failed manifest and diagnostics.txt for a failure before capture could run (hwloc_load, an
-// exception in main); returns exit 1. out must exist.
+// exception in main), under capture's --out rules: out is created, a previous capture cleared,
+// and a non-empty directory holding no capture refused untouched. Returns exit 1.
 CaptureOutcome write_failed_capture(const std::filesystem::path& out, std::string_view code,
                                     Diagnostics& diag);
 

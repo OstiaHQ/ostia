@@ -163,7 +163,10 @@ Sources read_sources(const Inputs& in, Diagnostics& diag) {
     }
     diag.add("nics: " + count_of(s.nics.size(), "NIC(s) in ") + ms_since(start));
 
+    start = Clock::now();
     s.pcie_max = read_pcie_max(*in.sysfs);
+    diag.add("pcie: " + count_of(s.pcie_max.size(), "device(s) with link maxima in ") +
+             ms_since(start));
     return s;
 }
 
@@ -246,11 +249,22 @@ bool validate_staged(const fs::path& dir, const std::vector<Staged>& files, Diag
     return ok;
 }
 
+// An unusable $TMPDIR is not a write to --out, so it surfaces as internal rather than
+// write_failed.
+std::string temp_pattern(std::string_view name) {
+    std::error_code ec;
+    const fs::path base = fs::temp_directory_path(ec);
+    if (ec) {
+        throw std::runtime_error("no usable temporary directory");
+    }
+    return (base / name).string();
+}
+
 // The scratch directory (RFC-0003 §1: private, outside --out, removed on every exit).
 class Scratch {
   public:
     Scratch() {
-        std::string pattern = (fs::temp_directory_path() / "ostia-topo-capture-XXXXXX").string();
+        std::string pattern = temp_pattern("ostia-topo-capture-XXXXXX");
         if (::mkdtemp(pattern.data()) == nullptr) {
             throw std::system_error(errno, std::generic_category(), "mkdtemp");
         }
@@ -279,7 +293,8 @@ void print_error(std::string_view error, std::string_view fix) {
               << "  see: RFC-0003 §4\n";
 }
 
-// Empty, created, or a previous capture whose listed files, manifest and diagnostics are removed.
+// Empty, created, or a previous capture whose reserved data file names, manifest and diagnostics
+// are removed; anything else in the directory is not ours and is kept.
 bool prepare_out(const fs::path& out, Diagnostics& diag) {
     std::error_code ec;
     if (!fs::exists(out, ec)) {
@@ -309,11 +324,10 @@ bool prepare_out(const fs::path& out, Diagnostics& diag) {
         return false;
     }
     std::size_t removed = 0;
-    if (const auto files = previous.find("files"); files != previous.end() && files->is_object()) {
-        for (const std::string_view name : kDataFiles) {
-            if (files->contains(name) && fs::remove(out / name, ec)) {
-                ++removed;
-            }
+    // Every reserved name, listed or not: a killed capture can leave files its manifest omits.
+    for (const std::string_view name : kDataFiles) {
+        if (fs::remove(out / name, ec)) {
+            ++removed;
         }
     }
     for (const char* name : {"manifest.json", "manifest.json.tmp", "diagnostics.txt"}) {
@@ -342,8 +356,8 @@ class RemoveTree {
 
 class Run {
   public:
-    Run(const Inputs& in, const fs::path& out, Diagnostics& diag)
-        : in_(in), out_(out), diag_(diag) {}
+    Run(const Inputs& in, const fs::path& out, Diagnostics& diag, const CleanupScope& scope)
+        : in_(in), out_(out), diag_(diag), scope_(scope) {}
 
     CaptureOutcome go() {
         try {
@@ -391,13 +405,14 @@ class Run {
         }
 
         const NvmlFacts* nvml = s.nvml ? &*s.nvml : nullptr;
+        auto start = Clock::now();
         RawSet raw = collect_raw(*in_.sysfs, nvml, in_.extra, diag_, in_.live_host);
         expand_derived(raw);
         raw_count_ = raw.entries().size();
         diag_.add("leak raw set: " + count_of(raw_count_, "form(s) after derivation, ") +
-                  count_of(raw.skipped_short(), "skipped as too short"));
+                  count_of(raw.skipped_short(), "skipped as too short, in ") + ms_since(start));
 
-        auto start = Clock::now();
+        start = Clock::now();
         std::string xml = emit_xml(in_.topo, s.pcie_max, diag_);
         if (in_.hooks.before_reimport) {
             in_.hooks.before_reimport(xml);
@@ -490,30 +505,64 @@ class Run {
     CaptureOutcome finish() {
         int code = exit_for(leak_or_schema_, other_failure_, partial_);
         if (code == 1 || code == 3) {
-            std::error_code ec;
-            for (const fs::path& path : written_) {
-                fs::remove(path, ec);
-            }
-            manifest_.status = Status::failed;
-            manifest_.files.clear();
-            manifest_.topology_id.reset();
+            to_failed_form();
         } else {
             manifest_.status = partial_ ? Status::partial : Status::complete;
         }
-        diag_.add("capture: exit " + std::to_string(code));
-
-        const fs::path diag_path = out_ / "diagnostics.txt";
-        track_for_cleanup(out_ / "manifest.json.tmp", false);
         try {
-            write_file_synced(diag_path, diag_.render() + "\n");
-            write_manifest_atomic(out_, manifest_json(manifest_));
+            write_record(code, true);
+            // Final: a late signal must not unlink what the manifest lists.
+            scope_.release();
         } catch (const std::system_error&) {
-            std::cerr << "error: the manifest or diagnostics.txt could not be written\n";
-            code = 1;
-            manifest_.topology_id.reset();
+            diag_.add("capture: diagnostics.txt or the manifest could not be written");
+            if (std::ranges::none_of(manifest_.errors,
+                                     [](const std::string& e) { return e == "write_failed"; })) {
+                manifest_.errors.emplace_back("write_failed");
+            }
+            other_failure_ = true;
+            code = exit_for(leak_or_schema_, other_failure_, partial_);
+            to_failed_form();
+            remove_record();
+            // Best effort: the disk that refused one write may refuse this one too.
+            try {
+                write_record(code, false);
+            } catch (const std::system_error&) {
+                remove_record();
+                std::cerr << "error: the manifest could not be written\n";
+            }
         }
         summary(code);
         return {.exit_code = code, .topology_id = manifest_.topology_id};
+    }
+
+    // RFC-0003 §4: a failed capture lists no files, has no id and leaves no data file in --out.
+    void to_failed_form() {
+        std::error_code ec;
+        for (const fs::path& path : written_) {
+            fs::remove(path, ec);
+        }
+        manifest_.status = Status::failed;
+        manifest_.files.clear();
+        manifest_.topology_id.reset();
+    }
+
+    void remove_record() const {
+        std::error_code ec;
+        for (const char* name : {"diagnostics.txt", "manifest.json", "manifest.json.tmp"}) {
+            fs::remove(out_ / name, ec);
+        }
+    }
+
+    void write_record(int code, bool with_hook) {
+        diag_.add("capture: exit " + std::to_string(code));
+        for (const char* name : {"diagnostics.txt", "manifest.json.tmp", "manifest.json"}) {
+            track_for_cleanup(out_ / name, false);
+        }
+        write_file_synced(out_ / "diagnostics.txt", diag_.render() + "\n");
+        if (with_hook && in_.hooks.before_manifest) {
+            in_.hooks.before_manifest(out_);
+        }
+        write_manifest_atomic(out_, manifest_json(manifest_));
     }
 
     void summary(int code) const {
@@ -538,6 +587,7 @@ class Run {
     const Inputs& in_;
     const fs::path& out_;
     Diagnostics& diag_;
+    const CleanupScope& scope_;
     Manifest manifest_;
     std::vector<fs::path> written_;
     std::vector<std::string> warnings_;
@@ -560,14 +610,20 @@ CaptureOutcome capture(const Inputs& in, const fs::path& out, Diagnostics& diag)
         return {.exit_code = 1, .topology_id = std::nullopt};
     }
     const CleanupScope scope;
-    return Run(in, out, diag).go();
+    return Run(in, out, diag, scope).go();
 }
 
 CaptureOutcome print_id(const Inputs& in, Diagnostics& diag) {
     const CleanupScope scope;
-    std::string pattern = (fs::temp_directory_path() / "ostia-topo-id-XXXXXX").string();
-    if (::mkdtemp(pattern.data()) == nullptr) {
-        std::cerr << "error: cannot create a temporary directory for --print-id\n";
+    std::string pattern;
+    try {
+        pattern = temp_pattern("ostia-topo-id-XXXXXX");
+    } catch (const std::runtime_error&) {
+        pattern.clear();
+    }
+    if (pattern.empty() || ::mkdtemp(pattern.data()) == nullptr) {
+        diag.add("print-id: no temporary directory (internal)");
+        std::cerr << "error: cannot create a temporary directory for --print-id (internal)\n";
         return {.exit_code = 1, .topology_id = std::nullopt};
     }
     const fs::path dir = pattern;
@@ -598,6 +654,9 @@ CaptureOutcome write_failed_capture(const fs::path& out, std::string_view code, 
     manifest.errors.emplace_back(code);
     diag.add("capture: failed before the pipeline ran (" + std::string(code) + ")");
     try {
+        if (!prepare_out(out, diag)) {
+            return {.exit_code = 1, .topology_id = std::nullopt};
+        }
         write_file_synced(out / "diagnostics.txt", diag.render() + "\n");
         write_manifest_atomic(out, manifest_json(manifest));
     } catch (const std::system_error&) {

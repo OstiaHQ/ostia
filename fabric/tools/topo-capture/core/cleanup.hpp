@@ -18,12 +18,16 @@ class CleanupScope {
     CleanupScope& operator=(CleanupScope&&) = delete;
     ~CleanupScope();
 
+    // Drops the paths tracked inside this scope once the capture they belong to is final, so a
+    // late signal cannot unlink files a complete manifest lists.
+    void release() const;
+
   private:
     std::size_t mark_;
 };
 
-// Call before creating the path. False when the list is full or the path too long: only a
-// signal would then miss it.
+// Call before creating a file; a mkdtemp directory is tracked right after, as its name is known
+// only then. False when the list is full or the path too long: only a signal would then miss it.
 bool track_for_cleanup(const std::filesystem::path& path, bool directory);
 
 // Async-signal-safe (unlink and rmdir only), newest path first.

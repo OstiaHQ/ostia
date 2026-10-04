@@ -53,6 +53,8 @@ CleanupScope::~CleanupScope() {
     }
 }
 
+void CleanupScope::release() const { tracked_count.store(mark_); }
+
 bool track_for_cleanup(const std::filesystem::path& path, bool directory) {
     const std::size_t n = tracked_count.load();
     const std::string& text = path.native();

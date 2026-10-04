@@ -189,6 +189,8 @@ void write_manifest_atomic(const fs::path& out, const json& manifest) {
     const fs::path tmp = out / "manifest.json.tmp";
     try {
         write_file_synced(tmp, dump(manifest));
+        // The data files' directory entries are durable before a manifest can list them.
+        fsync_dir(out);
         if (::rename(tmp.c_str(), (out / "manifest.json").c_str()) != 0) {
             throw_errno("rename");
         }
