@@ -360,7 +360,7 @@ def test_capture_execs_read_the_pods_capture_directory(kube):
     assert sh(capture.probe_script()).returncode == 0
     sizes = sh(capture.sizes_script(), "manifest.json", "hwloc.xml").stdout.decode()
     assert capture.parse_sizes(sizes, ["manifest.json", "hwloc.xml"]) == 6
-    assert sh(capture.sizes_script(), "nvml.json").returncode != 0
+    assert sh(capture.sizes_script(), "nvml.json").returncode == 4
     buf = io.BytesIO()
     assert sh(capture.tar_script(), "hwloc.xml", stdout=buf).returncode == 0
     with tarfile.open(fileobj=io.BytesIO(buf.getvalue())) as t:

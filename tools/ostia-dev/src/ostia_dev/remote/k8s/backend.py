@@ -525,6 +525,8 @@ class K8sBackend:
             if r.returncode != 0:
                 raise capture.CaptureTransportError(f"the manifest probe exited {r.returncode}")
             r = run_sh(capture.sizes_script(), names)
+            if r.returncode == 4:
+                raise capture.CaptureNotRegular("a requested name is not a regular file")
             if r.returncode != 0:
                 raise capture.CaptureTransportError(f"wc -c exited {r.returncode}")
             if capture.parse_sizes((r.stdout or b"").decode(errors="replace"), names) > limit:

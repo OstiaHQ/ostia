@@ -390,7 +390,7 @@ def test_a_symlink_in_the_capture_is_rejected(fake, clock, cfg, repo, tmp_path):
     timeline = [*HAPPY, (5, plant_capture(files, links={"nics.json": "hwloc.xml"}))]
     assert _drive(fake, clock, cfg, repo, tmp_path, timeline) == 0
     entry = _summary(tmp_path)["capture"]["node-0"]
-    assert entry["result"] == "rejected" and "not a regular file" in entry["reason"]
+    assert entry["result"] == "rejected" and entry["reason"].startswith("not_regular:")
 
 
 def test_a_pod_lost_mid_fetch_rejects_the_capture_and_keeps_the_results(
@@ -414,6 +414,10 @@ def test_one_failed_capture_exec_is_retried(fake, clock, cfg, repo, tmp_path):
     assert _summary(tmp_path)["capture"]["node-0"]["result"] == "accepted"
     tars = [e for e in _capture_execs(fake) if "tar -cf" in e]
     assert len(tars) == 4  # manifest twice, then the files and diagnostics.txt
+
+
+ARN = "arn:aws:eks:us-east-1:111122223333:cluster/example-gpu"
+GKE = "gke_example-gpu-project_us-central1-a_example-cluster"
 
 
 def _job_env(fake, clock, cfg, repo, tmp_path, **kw) -> dict:
@@ -466,16 +470,15 @@ def test_the_job_env_names_the_instance_type_only_when_unique(
 
 @pytest.mark.parametrize(
     ("cluster", "expected"),
-    [("arn:aws:eks:us-west-2:123456789012:cluster/ostia-gpu-prod",
-      "123456789012\nostia-gpu-prod"),
-     ("gke_ostia-gpu-project_us-central1-a_ostia-l4-pool", "ostia-gpu-project\nostia-l4-pool")],
+    [(ARN, ["c1", ARN, "111122223333", "example-gpu"]),
+     (GKE, ["c1", GKE, "example-gpu-project", "example-cluster"])],
 )  # fmt: skip
 def test_the_job_env_lists_the_leak_identifiers(
     fake, clock, cfg, repo, tmp_path, cluster, expected
 ):
     fake.cluster = cluster
     env = _job_env(fake, clock, cfg, repo, tmp_path)
-    assert env["OSTIA_LEAK_IDENTIFIERS"] == expected
+    assert env["OSTIA_LEAK_IDENTIFIERS"].split("\n") == expected
 
 
 def test_an_env_var_overrides_a_capture_default(fake, clock, cfg, repo, tmp_path):

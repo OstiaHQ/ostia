@@ -4,6 +4,7 @@ The k8s backend runs exactly these strings in the pod; here the capture director
 """
 
 import io
+import os
 import subprocess
 import tarfile
 
@@ -26,7 +27,9 @@ def d(tmp_path):
 
 def test_the_scripts_name_the_pods_capture_directory():
     assert capture.probe_script() == "test -f /w/capture/manifest.json || exit 3"
-    assert capture.sizes_script() == 'cd /w/capture && wc -c -- "$@"'
+    assert capture.sizes_script() == (
+        'cd /w/capture && for f; do [ -f "$f" ] && [ ! -h "$f" ] || exit 4; done; wc -c -- "$@"'
+    )
     assert capture.tar_script() == 'cd /w/capture && tar -cf - -- "$@"'
 
 
@@ -55,8 +58,29 @@ def test_one_size_has_no_total_line(d):
     assert r.returncode == 0 and capture.parse_sizes(r.stdout.decode(), ["hwloc.xml"]) == 1000
 
 
-def test_sizes_fail_on_a_missing_file(d):
-    assert _sh(capture.sizes_script(str(d)), "hwloc.xml", "nvml.json").returncode != 0
+def test_sizes_exit_4_on_a_missing_file(d):
+    assert _sh(capture.sizes_script(str(d)), "hwloc.xml", "nvml.json").returncode == 4
+
+
+def test_sizes_exit_4_on_a_symlink_without_following_it(d):
+    (d / "nics.json").symlink_to("hwloc.xml")
+    r = _sh(capture.sizes_script(str(d)), "hwloc.xml", "nics.json")
+    assert r.returncode == 4 and r.stdout == b""
+
+
+def test_sizes_exit_4_on_a_fifo_instead_of_blocking(d):
+    os.mkfifo(d / "nvml.json")
+    r = subprocess.run(
+        ["/bin/sh", "-c", capture.sizes_script(str(d)), "sh", "nvml.json"],
+        capture_output=True,
+        timeout=10,
+    )
+    assert r.returncode == 4
+
+
+def test_sizes_exit_4_on_a_directory(d):
+    (d / "links.json").mkdir()
+    assert _sh(capture.sizes_script(str(d)), "links.json").returncode == 4
 
 
 def test_tar_holds_exactly_the_named_files(d):

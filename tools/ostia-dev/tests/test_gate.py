@@ -395,6 +395,20 @@ def test_an_unusable_capture_leaves_the_records_unstamped(
     assert "warning: the records keep topology null" in err and words in err
 
 
+def test_a_failed_pair_id_leaves_no_pair_json(pair_gate, tmp_path, monkeypatch, capsys):
+    from ostia_dev.errors import InfraError
+
+    def broken(d):
+        assert (d / "pair.json").exists()
+        raise InfraError("error: ostia-topo did not build")
+
+    go, _ = pair_gate
+    monkeypatch.setattr(gate, "_pair_id", broken)
+    assert go({"node-0": OK, "node-1": OK}, baseline=None) == 0
+    assert not (tmp_path / "res" / "k8s-x-1" / "capture" / "pair.json").exists()
+    assert "no pair id (error: ostia-topo did not build)" in capsys.readouterr().err
+
+
 def test_a_missing_status_file_leaves_the_records_unstamped(pair_gate, capsys):
     go, seen = pair_gate
     assert go(None, baseline=None) == 0

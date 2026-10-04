@@ -237,6 +237,8 @@ def _stamp_pair(captures: Path, profile: Profile, records: Path) -> bool:
             pair = _pair_id(captures)
             capture.stamp(records, pair)
         except (capture.PairError, OstiaError, OSError, ValueError, KeyError) as e:
+            # pair.json next to unstamped records would claim a pair the records don't carry
+            (captures / "pair.json").unlink(missing_ok=True)
             why = f"no pair id ({e.message.splitlines()[0] if isinstance(e, OstiaError) else e})"
     if why:
         print(
@@ -255,7 +257,7 @@ def _baseline_topologies(baseline: Path) -> set:
     from ostia_dev.bench import compare
 
     try:
-        return {r["compat"].get("topology") for r in compare._load_baseline(baseline)}
+        return {r["compat"].get("topology") for r in compare.load_baseline(baseline)}
     except (OSError, ValueError, KeyError, TypeError):
         return set()  # compare reports an unreadable baseline itself
 

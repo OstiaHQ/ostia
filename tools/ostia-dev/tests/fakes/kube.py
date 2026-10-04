@@ -510,19 +510,22 @@ class FakeKube:
 
     def _capture(self, pod: str, argv: list[str]) -> tuple[int, bytes]:
         """The three capture execs (ostia_dev/remote/capture.py) against the pod's real
-        /w/capture: a missing file fails wc and tar, a symlink is archived as a symlink."""
+        /w/capture: the size check exits 4 on anything but a regular file, tar fails on a
+        missing one and archives a symlink as a symlink."""
         d = self.root / pod / "w" / "capture"
         script, names = argv[2], argv[4:]
         if script.startswith("test -f"):
             return (0 if (d / "manifest.json").is_file() else 3), b""
-        if any(not (d / n).exists() for n in names):
-            return 1, b""
         if "wc -c" in script:
+            if any((d / n).is_symlink() or not (d / n).is_file() for n in names):
+                return 4, b""
             sizes = [(d / n).stat().st_size for n in names]
             lines = [f"{size} {n}" for size, n in zip(sizes, names, strict=True)]
             if len(names) > 1:
                 lines.append(f"{sum(sizes)} total")
             return 0, ("\n".join(lines) + "\n").encode()
+        if any(not (d / n).exists() and not (d / n).is_symlink() for n in names):
+            return 2, b""
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w") as t:
             for n in names:

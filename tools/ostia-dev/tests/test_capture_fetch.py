@@ -162,6 +162,32 @@ def test_one_transport_error_is_retried(tmp_path, dest):
     assert pod.calls[0] == pod.calls[1] == ["manifest.json"]
 
 
+def test_a_non_regular_file_rejects_without_a_retry(tmp_path, dest):
+    pod = Pod(tmp_path, capture_files())
+    original = pod.read_tar
+
+    def read_tar(names, limit):
+        if len(names) > 1:
+            pod.calls.append(list(names))
+            raise capture.CaptureNotRegular("exit 4")
+        return original(names, limit)
+
+    pod.read_tar = read_tar
+    out = _rejected(tmp_path, dest, pod)
+    assert out.reason.startswith("not_regular:")
+    assert sum(len(c) > 1 for c in pod.calls) == 1
+
+
+def test_a_local_write_failure_is_a_rejection_not_a_traceback(tmp_path, dest, monkeypatch):
+    def full(src, dst):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(capture.os, "replace", full)
+    out = capture.fetch(Pod(tmp_path, capture_files()).read_tar, dest)
+    assert isinstance(out, capture.Rejected) and out.reason.startswith("local_io:")
+    assert not [p for p in dest.parent.iterdir() if p.name.startswith(".")]
+
+
 def test_two_transport_errors_reject_the_capture(tmp_path, dest):
     out = capture.fetch(Pod(tmp_path, capture_files(), fail=2).read_tar, dest)
     assert isinstance(out, capture.Rejected) and "rerun" in out.fix
@@ -199,16 +225,21 @@ def test_describe_is_one_line_with_the_fix():
     assert capture.describe("node-0", ok) == "capture node-0: accepted (complete)"
 
 
+ARN = "arn:aws:eks:us-east-1:111122223333:cluster/example-gpu"
+GKE = "gke_example-gpu-project_us-central1-a_example-cluster"
+
+
 @pytest.mark.parametrize(
     ("values", "expected"),
     [
-        (["arn:aws:eks:us-west-2:123456789012:cluster/ostia-gpu-prod"],
-         ["123456789012", "ostia-gpu-prod"]),
-        (["gke_ostia-gpu-project_us-central1-a_ostia-l4-pool"],
-         ["ostia-gpu-project", "ostia-l4-pool"]),
-        (["gcp-us-central1-intuigence", "gcp-us-central1-intuigence"],
-         ["gcp-us-central1-intuigence"]),
-        (["c1", None, "default", "europe-west4", "us-east-1"], []),
+        ([ARN], [ARN, "111122223333", "example-gpu"]),
+        ([GKE], [GKE, "example-gpu-project", "example-cluster"]),
+        # a project id shaped like a region name is dropped as a segment, kept in the whole
+        (["gke_example-project-123456_us-central1-a_example-cluster"],
+         ["gke_example-project-123456_us-central1-a_example-cluster", "example-cluster"]),
+        (["example-context", " example-context ", ""], ["example-context"]),
+        (["c1", None, "default"], ["c1", "default"]),
+        (["arn:aws:eks:us-east-1:12345:cluster/abc"], ["arn:aws:eks:us-east-1:12345:cluster/abc"]),
     ],
 )  # fmt: skip
 def test_leak_identifiers(values, expected):

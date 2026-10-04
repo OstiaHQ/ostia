@@ -52,6 +52,10 @@ class CaptureTooLarge(Exception):
     """The requested files add up to more than the limit."""
 
 
+class CaptureNotRegular(Exception):
+    """A requested name is missing, a symlink or not a regular file; retrying cannot help."""
+
+
 class PairError(Exception):
     """pair.json cannot be written from these captures; the message is values-free."""
 
@@ -78,7 +82,10 @@ def probe_script(capture_dir: str = CAPTURE_DIR) -> str:
 
 
 def sizes_script(capture_dir: str = CAPTURE_DIR) -> str:
-    return f'cd {capture_dir} && wc -c -- "$@"'
+    # wc would follow a symlink and block on a FIFO; only regular files reach it (exit 4 else).
+    return (
+        f'cd {capture_dir} && for f; do [ -f "$f" ] && [ ! -h "$f" ] || exit 4; done; wc -c -- "$@"'
+    )
 
 
 def tar_script(capture_dir: str = CAPTURE_DIR) -> str:
@@ -171,7 +178,14 @@ def _diagnostics(read_tar: Callable[[list[str], int], Path], dest: Path) -> None
     try:
         _extract(_read(read_tar, [DIAGNOSTICS], LIMIT), [DIAGNOSTICS], LIMIT, staging)
         os.replace(staging / DIAGNOSTICS, dest / DIAGNOSTICS)
-    except (CaptureAbsent, CaptureTransportError, CaptureTooLarge, CaptureRejected, OSError):
+    except (
+        CaptureAbsent,
+        CaptureTransportError,
+        CaptureTooLarge,
+        CaptureNotRegular,
+        CaptureRejected,
+        OSError,
+    ):
         pass
     finally:
         shutil.rmtree(staging, ignore_errors=True)
@@ -207,9 +221,19 @@ def _accept(read_tar: Callable[[list[str], int], Path], staging: Path) -> dict:
     return doc
 
 
+_LOCAL_IO_FIX = "check the free space and permissions of the results directory, then rerun"
+
+
 def fetch(read_tar: Callable[[list[str], int], Path], dest: Path) -> Accepted | Rejected | Absent:
     """Fetch one pod's capture into `dest`, which must not exist yet (RFC-0003 §4). A rejected
     capture leaves only diagnostics.txt in `dest`."""
+    try:
+        return _fetch(read_tar, dest)
+    except OSError:
+        return Rejected("local_io: the capture could not be written on this machine", _LOCAL_IO_FIX)
+
+
+def _fetch(read_tar: Callable[[list[str], int], Path], dest: Path) -> Accepted | Rejected | Absent:
     dest.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".capture-", dir=dest.parent))
     try:
@@ -221,6 +245,12 @@ def fetch(read_tar: Callable[[list[str], int], Path], dest: Path) -> Accepted | 
             outcome = Rejected("the fetch failed twice (kubectl or tar)", _TRANSPORT_FIX)
         except CaptureTooLarge:
             outcome = Rejected(f"the capture is larger than {LIMIT // 1024**2} MiB", _OVERSIZE_FIX)
+        except CaptureNotRegular:
+            outcome = Rejected(
+                f"not_regular: a requested file in {CAPTURE_DIR} is missing, a symlink or not a "
+                "regular file",
+                _INTEGRITY_FIX,
+            )
         except _ManifestRejected as e:
             outcome = Rejected(e.reason, f"see {LEAK_CHECK}")
         except CaptureRejected as e:
@@ -262,19 +292,25 @@ def describe(node: str, entry: dict) -> str:
 
 def leak_identifiers(values: Iterable[str | None]) -> list[str]:
     """The identifiers a pod's capture must not contain, from the kube context and the
-    kubeconfig cluster name: a value with `_`, `:` or `/` contributes its segments, others
-    themselves; short values, provider words and region names are dropped (RFC-0003 §3)."""
+    kubeconfig cluster name: each whole value, then the segments a `_`, `:` or `/` splits it
+    into. Only segments are filtered: short ones, provider words and region names are shared by
+    every account, so matching them would fail clean captures (RFC-0003 §3)."""
     out: list[str] = []
     for value in values:
-        if not value:
+        whole = (value or "").strip()
+        if not whole:
             continue
-        parts = [p.strip() for p in re.split(r"[_:/]", value) if p.strip()]
-        for part in parts if len(parts) > 1 else [value.strip()]:
-            low = part.lower()
-            if len(part) < MIN_IDENTIFIER or low in LEAK_STOPLIST or REGION.match(low):
-                continue
-            if part not in out:
-                out.append(part)
+        parts = [p.strip() for p in re.split(r"[_:/]", whole) if p.strip()]
+        kept = [
+            p
+            for p in (parts if len(parts) > 1 else [])
+            if len(p) >= MIN_IDENTIFIER
+            and p.lower() not in LEAK_STOPLIST
+            and not REGION.match(p.lower())
+        ]
+        for item in (whole, *kept):
+            if item not in out:
+                out.append(item)
     return out
 
 
@@ -327,7 +363,9 @@ def _measured(records: Path, rails: int) -> list[dict]:
             rail = None
         if rail is None or rail >= rails:
             continue
-        median = r.get("median", statistics.median(r["samples"]))
+        median = r.get("median")
+        if median is None:
+            median = statistics.median(r["samples"])
         out.append(
             {"rail": rail, "direction": "1->0", "bw_mbps": round(median * 1000), "test": r["bench"]}
         )

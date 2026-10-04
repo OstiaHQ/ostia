@@ -180,7 +180,7 @@ def pool_baseline(runs: list[list[dict]], setup: str) -> dict:
     return {"schema": 1, "setup": setup, "records": list(pooled.values())}
 
 
-def _load_baseline(path: Path) -> list[dict]:
+def load_baseline(path: Path) -> list[dict]:
     if path.suffix == ".json":
         data = json.loads(path.read_text())
         for r in data["records"]:
@@ -225,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        baseline = _load_baseline(args.baseline)
+        baseline = load_baseline(args.baseline)
         if not args.candidate.exists() or not args.candidate.read_text().strip():
             raise SchemaError(f"{args.candidate}: missing or empty result file")
         candidate = load(args.candidate)
