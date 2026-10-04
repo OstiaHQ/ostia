@@ -67,6 +67,23 @@ def test_incompatible_boxes_are_skipped_not_compared():
     assert r.outcome == "skipped" and "gpu" in r.detail
 
 
+ID_A = "topo1:sha256:" + "a1b2c3d4e5f6" + "0" * 52
+ID_B = "topo1:sha256:" + "9f8e7d6c5b4a" + "1" * 52
+
+
+def test_differing_topology_ids_name_both_and_the_fix():
+    [r] = compare_runs([rec(noisy(44), topology=ID_A)], [rec(noisy(44), topology=ID_B)])
+    assert r.outcome == "skipped"
+    assert "a1b2c3d4e5f6" in r.detail and "9f8e7d6c5b4a" in r.detail
+    assert "fix: pixi run ostia-dev topo which 9f8e7d6c5b4a" in r.detail
+
+
+def test_a_null_baseline_topology_says_to_re_record():
+    [r] = compare_runs([rec(noisy(44), topology=None)], [rec(noisy(44), topology=ID_B)])
+    assert r.outcome == "skipped"
+    assert "null in the baseline" in r.detail and "re-record" in r.detail
+
+
 def test_a_case_missing_from_the_manifest_is_invalid():
     manifest = [
         {"bench": "p2p_copy", "params": RECORD["params"]},

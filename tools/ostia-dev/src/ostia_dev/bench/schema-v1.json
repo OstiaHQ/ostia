@@ -12,14 +12,15 @@
       "properties": {
         "git_sha": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
-        "run_id": { "type": "string" }
+        "run_id": { "type": "string" },
+        "topology_source": { "type": "string", "description": "how compat.topology was taken, for example the tool that printed it" }
       }
     },
     "compat": {
       "type": "object",
       "required": ["gpu", "driver", "cuda", "nic", "topology", "build_level", "compiler", "deps"],
       "properties": {
-        "topology": { "type": ["string", "null"], "description": "RFC-0003 topo1 identity; null before fixtures land" }
+        "topology": { "type": ["string", "null"], "description": "RFC-0003 topo1 identity of the machine; null when none could be taken" }
       }
     },
     "bench": { "type": "string" },
@@ -27,6 +28,11 @@
     "unit": { "type": "string" },
     "higher_is_better": { "type": "boolean" },
     "samples": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+    "devices": {
+      "type": "object",
+      "description": "PCI bus IDs (lowercase domain:bus:dev.fn) of the measured GPUs by role; not a comparability field",
+      "additionalProperties": { "type": "string" }
+    },
     "median": { "type": "number" },
     "p5": { "type": "number" },
     "p95": { "type": "number" }

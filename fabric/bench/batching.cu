@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         }
         emit("batching",
              "{\"bytes\": " + std::to_string(m) + ", \"count\": " + std::to_string(count) + "}",
-             rates);
+             rates, devices_json(src, dst));
     }
     evidence("peer_access=" + std::to_string(peer ? 1 : 0) + " src=" + std::to_string(src) +
              " dst=" + std::to_string(dst) + " bytes=" + std::to_string(moved));

@@ -2,6 +2,8 @@
 // and checked against ostia::bench::pattern on the GPU, and peer access.
 #pragma once
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cuda_runtime.h>
@@ -100,6 +102,28 @@ class DeviceBuffer {
 inline int device_count() {
     int n = 0;
     return cudaGetDeviceCount(&n) == cudaSuccess ? n : 0;
+}
+
+// The device's PCI bus ID as domain:bus:device.function in lowercase hex, with a four-digit
+// domain. CUDA writes it as "0000:3B:00.0", and some versions pad the domain to eight
+// digits; the form here is the one the topology capture uses to name the same GPU.
+inline std::string bus_id(int device) {
+    char buf[32] = {};
+    OSTIA_CUDA(cudaDeviceGetPCIBusId(buf, static_cast<int>(sizeof(buf)), device));
+    std::string id = buf;
+    std::transform(id.begin(), id.end(), id.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    const auto colon = id.find(':');
+    if (colon != std::string::npos && colon > 4) {
+        const auto keep = id.find_first_not_of('0');
+        id.erase(0, std::min(keep == std::string::npos ? colon : keep, colon - 4));
+    }
+    return id;
+}
+
+// {"src_bus": ..., "dst_bus": ...} for the "devices" field of a record.
+inline std::string devices_json(int src, int dst) {
+    return "{\"src_bus\": \"" + bus_id(src) + "\", \"dst_bus\": \"" + bus_id(dst) + "\"}";
 }
 
 // Enables peer access from `from` to `to`; true when they are distinct peers.

@@ -3,6 +3,7 @@
 
     ostia-dev bench run --bench <binary> [--format nvbench|ostia] [--runs 10]
                         [--ranks N | --remote] [--tls UCX_TLS] [--evidence] [--needs-gpu]
+                        [--require-topology]
                         [--build-dir build/cuda-12/release] [--run-id ID] [-- <program args>]
     ostia-dev bench convert --run-id ID <nvbench.json>...
     ostia-dev bench median-seconds --bench <nvbench binary>
@@ -17,6 +18,12 @@ the transport the run used (ostia_dev/bench/evidence.py) in
 bench/results/<run id>/evidence/<workload>.json, which gate comparisons require (§6.4).
 `--remote` runs one rank of a two-pod run (RFC-0005 §4.11): rank 0 gets --listen and
 rank 1 --connect, from the pod's OSTIA_RANK, OSTIA_SIZE, OSTIA_PEER_HOST and OSTIA_PORT.
+Records carry the machine's `topo1` id in `compat.topology`, from `ostia-topo-capture
+--print-id` (looked up in $OSTIA_TOPO_CAPTURE, then <build dir>/fabric/tools/topo-capture,
+then PATH), or null with a warning when it cannot be taken; `--require-topology` turns that
+into an error. `--remote` never looks it up: a two-pod gate stamps its records afterwards.
+Programs run with CUDA_DEVICE_ORDER=PCI_BUS_ID so device ordinals follow bus order, and may
+add a top-level `devices` object of the bus IDs they measured, which the driver keeps.
 `median-seconds` prints one duration for `ostia-dev bench overhead`.
 """
 
@@ -25,6 +32,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import statistics
@@ -44,6 +52,12 @@ from ostia_dev.paths import ROOT
 
 TIME = "nv/cold/time/gpu/mean"
 BANDWIDTH = "nv/cold/bw/global/bytes_per_second"
+# Device ordinals in a record are only meaningful in bus order (RFC-0001 §6.2).
+DEVICE_ORDER = {"CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
+CAPTURE_TOOL = "ostia-topo-capture"
+CAPTURE_TIMEOUT = 120
+TOPO_ID = re.compile(r"topo1:sha256:[0-9a-f]{64}")
+TOPOLOGY_SOURCE = f"{CAPTURE_TOOL} --print-id"
 
 
 def _value(summary: dict) -> float:
@@ -200,7 +214,74 @@ def _run(cmd: list[str]) -> str:
         return ""
 
 
-def provenance_and_compat(run_id: str, build_dir: Path | None, nic: str = "none") -> tuple:
+def _find_capture_tool(build_dir: Path | None) -> str | None:
+    """$OSTIA_TOPO_CAPTURE, then the build tree, then PATH. A set but unusable variable is
+    "not found": falling through would measure a different tool than the one asked for."""
+
+    def runnable(path: str | Path) -> bool:
+        return Path(path).is_file() and os.access(path, os.X_OK)
+
+    if configured := os.environ.get("OSTIA_TOPO_CAPTURE"):
+        return configured if runnable(configured) else None
+    if build_dir is not None:
+        built = build_dir / "fabric" / "tools" / "topo-capture" / CAPTURE_TOOL
+        if runnable(built):
+            return str(built)
+    return shutil.which(CAPTURE_TOOL)
+
+
+def capture_topology(build_dir: Path | None) -> tuple[str | None, list[str]]:
+    """This machine's topo1 id, or None and the lines saying why. The tool's stderr is
+    values-free by contract, so its lines are passed on as they are (RFC-0003 §1)."""
+    tool = _find_capture_tool(build_dir)
+    if tool is None:
+        return None, [
+            f"{CAPTURE_TOOL} was not found",
+            "  looked in $OSTIA_TOPO_CAPTURE, --build-dir and PATH",
+        ]
+    try:
+        proc = subprocess.run(
+            [tool, "--print-id"], capture_output=True, text=True, timeout=CAPTURE_TIMEOUT
+        )
+    except subprocess.TimeoutExpired:
+        return None, [f"{CAPTURE_TOOL} did not finish within {CAPTURE_TIMEOUT}s"]
+    except OSError as e:
+        return None, [f"{CAPTURE_TOOL} could not run ({e.strerror or type(e).__name__})"]
+    detail = [f"  {line.rstrip()}" for line in proc.stderr.splitlines() if line.strip()]
+    if proc.returncode == 0 and TOPO_ID.fullmatch(proc.stdout.strip()):
+        return proc.stdout.strip(), []
+    if proc.returncode == 0:
+        return None, [f"{CAPTURE_TOOL} printed no topo1 id", *detail]
+    kinds = {2: "a partial capture", 3: "a failed leak check"}
+    why = kinds.get(proc.returncode, f"exit {proc.returncode}")
+    return None, [f"{CAPTURE_TOOL} reported {why} (exit {proc.returncode})", *detail]
+
+
+def _topology_missing(lines: list[str], require: bool) -> BenchError | None:
+    """The one warning (or the contract error under --require-topology) for a record set
+    that cannot carry a topology id."""
+    head, *detail = lines
+    if require:
+        return BenchError(
+            f"error: no topology id for these records: {head}\n"
+            + "".join(f"{d}\n" for d in detail)
+            + "  rule: --require-topology needs the machine's topo1 id in every record "
+            "(RFC-0001 §6.2)\n"
+            "  fix: run on a machine where ostia-topo-capture works, or set "
+            "OSTIA_TOPO_CAPTURE to it; build it with pixi run ostia-dev build\n"
+            "  see: RFC-0003 §1"
+        )
+    print(
+        f"warning: records carry topology null: {head}\n"
+        + "".join(f"{d}\n" for d in detail).rstrip("\n"),
+        file=sys.stderr,
+    )
+    return None
+
+
+def provenance_and_compat(
+    run_id: str, build_dir: Path | None, nic: str = "none", topology: str | None = None
+) -> tuple:
     # A remote pod has no .git; ostia-dev passes the commit it uploaded (RFC-0005 §3.4).
     sha = (
         os.environ.get("OSTIA_GIT_SHA")
@@ -222,12 +303,15 @@ def provenance_and_compat(run_id: str, build_dir: Path | None, nic: str = "none"
         "driver": driver.splitlines()[0] if driver else "none",
         "cuda": summary.get("cuda_toolkit", "none").split(" ")[0],
         "nic": nic,
-        "topology": None,  # RFC-0003's topo1 identity arrives with fixtures (Rollout PR 6)
+        "topology": topology,
         "build_level": summary.get("telemetry_level", "unknown").split(" ")[0],
         "compiler": summary.get("compiler", "unknown").split(" (")[0],
         "deps": f"pixi.lock:{deps}",
     }
-    return {"git_sha": sha, "date": date, "run_id": run_id}, compat
+    prov = {"git_sha": sha, "date": date, "run_id": run_id}
+    if topology is not None:
+        prov["topology_source"] = TOPOLOGY_SOURCE
+    return prov, compat
 
 
 def _records(samples: dict, prov: dict, compat: dict) -> list[dict]:
@@ -284,7 +368,12 @@ def _write_evidence(output: str, before: dict, after: dict, run_dir: Path) -> No
 def _nvbench_once(binary: str) -> dict:
     with tempfile.TemporaryDirectory() as d:
         out = Path(d) / "nvbench.json"
-        proc = subprocess.run([binary, "--json", str(out)], capture_output=True, text=True)
+        proc = subprocess.run(
+            [binary, "--json", str(out)],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, **DEVICE_ORDER),
+        )
         log = proc.stdout + proc.stderr
         if proc.returncode != 0:
             tail = "".join(f"  {line}\n" for line in log.strip().splitlines()[-20:])
@@ -320,6 +409,9 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--nic", default="none")
     run.add_argument("--tls", help="UCX_TLS for multi-process runs (default: the launcher's)")
     run.add_argument("--evidence", action="store_true", help="record transport evidence")
+    run.add_argument(
+        "--require-topology", action="store_true", help="fail unless records get a topo1 id"
+    )
     conv = sub.add_parser("convert")
     conv.add_argument("files", nargs="+", type=Path)
     for p in (run, conv):
@@ -359,7 +451,16 @@ def _main(args: argparse.Namespace, program_args: list[str]) -> int:
         raise _remote_usage("--remote needs --format ostia and cannot take --ranks")
     if args.needs_gpu and not shutil.which("nvidia-smi"):
         return _needs_gpu_error()
-    prov, compat = provenance_and_compat(run_id, args.build_dir, args.nic)
+    topology = None
+    if args.remote and args.require_topology:
+        raise _remote_usage(
+            "--remote records get their topology afterwards, so it cannot be required"
+        )
+    if not args.remote:
+        topology, why = capture_topology(args.build_dir)
+        if topology is None and (problem := _topology_missing(why, args.require_topology)):
+            raise problem
+    prov, compat = provenance_and_compat(run_id, args.build_dir, args.nic, topology)
     if args.format == "nvbench":
         docs = [_nvbench_once(args.bench) for _ in range(args.runs)]
         records = _records(_collect(docs), prov, compat)
@@ -372,7 +473,7 @@ def _main(args: argparse.Namespace, program_args: list[str]) -> int:
             launcher = ROOT / "fabric" / "tests" / "multiprocess" / "launcher.py"
             tls = ["--tls", args.tls, "--expect", ""] if args.tls else []
             cmd = [sys.executable, str(launcher), "--ranks", str(args.ranks), *tls, "--", *cmd]
-        env = dict(os.environ, OSTIA_BENCH_RUNS=str(args.runs))
+        env = dict(os.environ, OSTIA_BENCH_RUNS=str(args.runs), **DEVICE_ORDER)
         before = evidence.snapshot() if args.evidence and rank != 0 else None
         out = subprocess.run(cmd, check=True, capture_output=True, text=True, env=env).stdout
         if rank == 0:

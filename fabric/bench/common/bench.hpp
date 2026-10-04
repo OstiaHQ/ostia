@@ -112,18 +112,22 @@ class Timer {
     std::chrono::steady_clock::time_point start_;
 };
 
-// One result record: {"bench", "params", "unit", "higher_is_better", "samples"}.
+// One result record: {"bench", "params", "unit", "higher_is_better", "samples"}, plus a
+// top-level "devices" object when `devices_json` is not empty. The bus IDs are a fact about
+// the measurement, not a parameter, so they stay out of the comparison key (RFC-0001 §6.2).
 inline void emit(const std::string& bench, const std::string& params_json,
-                 const std::vector<double>& values) {
+                 const std::vector<double>& values, const std::string& devices_json = "") {
     std::string s;
     for (std::size_t i = 0; i < values.size(); ++i) {
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%s%.6g", i == 0 ? "" : ", ", values[i]);
         s += buf;
     }
+    const std::string devices =
+        devices_json.empty() ? std::string() : ", \"devices\": " + devices_json;
     std::printf("{\"bench\": \"%s\", \"params\": %s, \"unit\": \"GB/s\", "
-                "\"higher_is_better\": true, \"samples\": [%s]}\n",
-                bench.c_str(), params_json.c_str(), s.c_str());
+                "\"higher_is_better\": true, \"samples\": [%s]%s}\n",
+                bench.c_str(), params_json.c_str(), s.c_str(), devices.c_str());
     std::fflush(stdout);
 }
 

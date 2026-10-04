@@ -1,8 +1,11 @@
 """Tests for tools/ostia-dev/src/ostia_dev/bench/ostia_bench.py (RFC-0001 §6.1)."""
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
+import ostia_dev.bench.ostia_bench as ob
 import pytest
 from ostia_dev.bench.ostia_bench import from_nvbench, main, provenance_and_compat
 from ostia_dev.bench.schema import validate
@@ -379,3 +382,200 @@ def test_barrier_times_out_with_a_clear_error(monkeypatch):
     with pytest.raises(ob.BenchError) as e:
         ob._barrier(1, "127.0.0.1", 9)  # nothing listens on the discard port
     assert "rank 1 did not meet its peer" in str(e.value) and "RFC-0005 §4.11" in str(e.value)
+
+
+TOPO = "topo1:sha256:" + "ab" * 32
+SUMMARY = (
+    "  gpus: 1 GPU(s)\n  error nvml-missing: NVML could not be loaded\n  status: partial, exit 2"
+)
+
+
+def _script(path, body):
+    path.write_text("#!/bin/sh\n" + body)
+    path.chmod(0o755)
+    return path
+
+
+def _tool(path, *, code=0, out=TOPO, err="", count=None):
+    tally = f'echo call >> "{count}"\n' if count else ""
+    return _script(
+        path, f"{tally}printf '%s\\n' '{out}'\nprintf '%s\\n' '{err}' >&2\nexit {code}\n"
+    )
+
+
+DEVICES = '{"src_bus": "0000:3b:00.0", "dst_bus": "0000:86:00.0"}'
+
+
+@pytest.fixture
+def program(tmp_path):
+    """An ostia-format program that prints one record with `devices` and its own env."""
+    record = (
+        '{"bench": "p2p_copy", "params": {"bytes": 1}, "unit": "GB/s", "higher_is_better": true,'
+        f' "samples": [1.0, 2.0], "devices": {DEVICES}}}'
+    )
+    return _script(tmp_path / "p2p_copy", f"echo '{record}'\n")
+
+
+def _drive(tmp_path, program, *flags):
+    argv = ["run", "--format", "ostia", "--bench", str(program), "--run-id", "t"]
+    return main([*argv, "--out", str(tmp_path / "results"), *flags])
+
+
+def _records(tmp_path):
+    lines = (tmp_path / "results" / "t" / "results.jsonl").read_text().splitlines()
+    return [json.loads(line) for line in lines]
+
+
+def test_the_topology_id_reaches_every_record_with_one_call(program, tmp_path, monkeypatch, capsys):
+    count = tmp_path / "count"
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(_tool(tmp_path / "cap", count=count)))
+    timeouts = []
+    real = subprocess.run
+    monkeypatch.setattr(
+        ob.subprocess,
+        "run",
+        lambda cmd, **kw: timeouts.append(kw.get("timeout")) or real(cmd, **kw),
+    )
+    assert _drive(tmp_path, program, "--runs", "2") == 0
+    [record] = _records(tmp_path)
+    assert record["compat"]["topology"] == TOPO
+    assert record["provenance"]["topology_source"] == "ostia-topo-capture --print-id"
+    assert count.read_text().splitlines() == ["call"]
+    assert 120 in timeouts
+    assert "warning" not in capsys.readouterr().err
+    validate(record)
+
+
+def test_the_programs_devices_survive_into_the_record(program, tmp_path):
+    assert _drive(tmp_path, program) == 0
+    [record] = _records(tmp_path)
+    assert record["devices"] == json.loads(DEVICES)
+    validate(record)
+
+
+def test_lookup_order_is_the_variable_then_the_build_dir_then_path(tmp_path, monkeypatch, program):
+    ids = {n: "topo1:sha256:" + n * 64 for n in "123"}
+    build = tmp_path / "build"
+    (build / "fabric" / "tools" / "topo-capture").mkdir(parents=True)
+    on_path = tmp_path / "bin"
+    on_path.mkdir()
+    _tool(on_path / "ostia-topo-capture", out=ids["3"])
+    _tool(build / "fabric" / "tools" / "topo-capture" / "ostia-topo-capture", out=ids["2"])
+    monkeypatch.setenv("PATH", f"{on_path}:/usr/bin:/bin")
+    flags = ["--build-dir", str(build)]
+
+    def topology():
+        shutil.rmtree(tmp_path / "results", ignore_errors=True)
+        assert _drive(tmp_path, program, *flags) == 0
+        return _records(tmp_path)[0]["compat"]["topology"]
+
+    assert topology() == ids["2"]
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(_tool(tmp_path / "env-tool", out=ids["1"])))
+    assert topology() == ids["1"]
+    monkeypatch.delenv("OSTIA_TOPO_CAPTURE")
+    (build / "fabric" / "tools" / "topo-capture" / "ostia-topo-capture").unlink()
+    assert topology() == ids["3"]
+
+
+FAILURES = [
+    ("absent", {}, "was not found"),
+    ("partial", {"code": 2, "err": SUMMARY}, "a partial capture"),
+    ("leak", {"code": 3, "err": SUMMARY}, "a failed leak check"),
+    ("timeout", {"hang": True}, "did not finish"),
+]
+
+
+def _failing_tool(tmp_path, monkeypatch, spec):
+    if spec.get("hang"):
+        monkeypatch.setattr(ob, "CAPTURE_TIMEOUT", 1)
+        tool = _script(tmp_path / "cap", "exec sleep 30\n")
+    elif spec:
+        tool = _tool(tmp_path / "cap", **spec)
+    else:
+        return
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(tool))
+
+
+@pytest.mark.parametrize(("name", "spec", "outcome"), FAILURES, ids=[f[0] for f in FAILURES])
+def test_a_missing_topology_warns_once_and_records_null(
+    name, spec, outcome, program, tmp_path, monkeypatch, capsys
+):
+    _failing_tool(tmp_path, monkeypatch, spec)
+    assert _drive(tmp_path, program) == 0
+    [record] = _records(tmp_path)
+    assert record["compat"]["topology"] is None
+    assert "topology_source" not in record["provenance"]
+    err = capsys.readouterr().err
+    assert len([ln for ln in err.splitlines() if ln.startswith("warning:")]) == 1
+    assert outcome in err
+    if spec.get("err"):
+        assert "  error nvml-missing: NVML could not be loaded" in err.splitlines()
+
+
+@pytest.mark.parametrize(("name", "spec", "outcome"), FAILURES, ids=[f[0] for f in FAILURES])
+def test_require_topology_turns_the_warning_into_a_contract_error(
+    name, spec, outcome, program, tmp_path, monkeypatch, capsys
+):
+    _failing_tool(tmp_path, monkeypatch, spec)
+    assert _drive(tmp_path, program, "--require-topology") == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:") and "warning:" not in err
+    assert outcome in err and "rule:" in err and "fix:" in err and "see:" in err
+    if spec.get("err"):
+        assert "  error nvml-missing: NVML could not be loaded" in err.splitlines()
+    assert not (tmp_path / "results").exists()
+
+
+def test_a_non_executable_variable_is_not_found_even_with_a_tool_on_path(
+    program, tmp_path, monkeypatch, capsys
+):
+    on_path = tmp_path / "bin"
+    on_path.mkdir()
+    _tool(on_path / "ostia-topo-capture")
+    monkeypatch.setenv("PATH", f"{on_path}:/usr/bin:/bin")
+    plain = tmp_path / "plain"
+    plain.write_text("not a program")
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(plain))
+    assert _drive(tmp_path, program) == 0
+    assert _records(tmp_path)[0]["compat"]["topology"] is None
+    assert "was not found" in capsys.readouterr().err
+
+
+def test_remote_never_runs_the_capture_tool(launched, rank, dns, tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "capture_topology", lambda build_dir: pytest.fail("looked up"))
+    rank(1)
+    assert _ostia_run(tmp_path, "--remote") == 0
+    [record] = _records_at(tmp_path)
+    assert record["compat"]["topology"] is None
+
+
+def test_remote_cannot_require_a_topology(launched, rank, tmp_path, capsys):
+    rank(1)
+    assert _ostia_run(tmp_path, "--remote", "--require-topology") == 2
+    assert launched == []
+
+
+def _records_at(root):
+    return [json.loads(line) for line in (root / "t" / "results.jsonl").read_text().splitlines()]
+
+
+def test_convert_never_looks_up_a_topology(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "capture_topology", lambda build_dir: pytest.fail("looked up"))
+    assert main(["convert", "--run-id", "c", "--out", str(tmp_path), str(FIXTURE)]) == 0
+
+
+def test_programs_run_in_pci_bus_order(launched, tmp_path):
+    assert _ostia_run(tmp_path) == 0
+    [(_, env)] = launched
+    assert env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
+
+
+def test_nvbench_runs_in_pci_bus_order(tmp_path, monkeypatch):
+    seen = tmp_path / "order"
+    _script(
+        tmp_path / "nv",
+        f'echo "$CUDA_DEVICE_ORDER" > {seen}\ncp {FIXTURE} "$2"\n',
+    )
+    monkeypatch.setenv("CUDA_DEVICE_ORDER", "FASTEST_FIRST")
+    assert main(["median-seconds", "--bench", str(tmp_path / "nv")]) == 0
+    assert seen.read_text().strip() == "PCI_BUS_ID"

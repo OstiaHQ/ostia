@@ -147,7 +147,8 @@ int main(int argc, char** argv) {
     evidence("peer_access=" + std::to_string(peer ? 1 : 0) + " src=" + std::to_string(src) +
              " dst=" + std::to_string(dst) + " bytes=" + std::to_string(moved));
     emit("pipelining", "{\"mode\": \"pack\", \"bytes\": " + b + "}", pack_rates);
-    emit("pipelining", "{\"mode\": \"transfer\", \"bytes\": " + b + "}", transfer_rates);
+    emit("pipelining", "{\"mode\": \"transfer\", \"bytes\": " + b + "}", transfer_rates,
+         devices_json(src, dst));
     emit("pipelining", "{\"mode\": \"sync\", \"bytes\": " + b + ", \"chunk\": " + c + "}",
          sync_rates);
     emit("pipelining", "{\"mode\": \"pipelined\", \"bytes\": " + b + ", \"chunk\": " + c + "}",
