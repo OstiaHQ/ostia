@@ -33,7 +33,12 @@ gtest_discover_tests(ostia_fabric_topology_tests PROPERTIES LABELS cpu)
 
 # The capture core is built with the tools; its host-only tests run on every platform.
 if(TARGET ostia_topo_capture_core)
-  add_executable(ostia_topo_capture_tests topology/capture/deps_test.cpp)
+  add_executable(
+    ostia_topo_capture_tests
+    topology/capture/deps_test.cpp
+    topology/capture/sysfs_test.cpp
+    topology/capture/nics_test.cpp
+  )
   target_link_libraries(ostia_topo_capture_tests PRIVATE ostia_topo_capture_core GTest::gtest_main)
   if(OSTIA_SANITIZE)
     target_compile_definitions(ostia_topo_capture_tests PRIVATE OSTIA_TOPO_SANITIZED)
