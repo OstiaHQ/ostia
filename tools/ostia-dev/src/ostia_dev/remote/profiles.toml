@@ -148,3 +148,12 @@ steps = [
   { name = "build", kind = "build", run = ["cmake", "--build", "--preset", "release"] },
   { name = "summary", kind = "report", run = ["grep", "-E", "^(cuda|cuda_toolkit|architectures|compiler):", "{build_dir}/ostia-summary.txt"] },
 ]
+
+# topo capture builds ostia-topo-capture in the dev preset itself; the runner fetches
+# /w/capture manifest-first before teardown (RFC-0003 §4, RFC-0005 §3.4)
+[suites.topo-capture]
+description = "capture this node's topology with ostia-topo-capture and fetch it"
+preset = "dev"
+steps = [
+  { name = "capture", kind = "command", run = ["ostia-dev", "topo", "capture", "--out", "/w/capture"] },
+]

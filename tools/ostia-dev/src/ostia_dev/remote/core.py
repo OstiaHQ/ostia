@@ -432,6 +432,7 @@ def _finish(run, ctl, failing, code, verified, message, dropped, seconds, backen
         "dropped": dropped,
         "reports": reports,
         "bench_results": str(bench) if bench else None,
+        "capture": run.state.get("capture"),
         **backend.describe(run),
     }
     if run.ranks:

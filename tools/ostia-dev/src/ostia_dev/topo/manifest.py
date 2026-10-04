@@ -21,8 +21,9 @@ from ostia_dev.contract import violation
 SCHEMA = paths.ROOT / "fabric/tools/topo-capture/schemas/manifest.schema.json"
 SUPPORTED = 1
 FILES = ("hwloc.xml", "nvml.json", "nics.json", "links.json", "meta.json")
-# Written next to the data files and never listed in `files` (RFC-0003 §4).
-UNLISTED = ("manifest.json", "diagnostics.txt")
+# Written next to the data files and never listed in `files` (RFC-0003 §4); status.json is the
+# remote runner's fetch result, next to a one-pod capture (RFC-0005 §3.4).
+UNLISTED = ("manifest.json", "diagnostics.txt", "status.json")
 # Every capture that did not fail has these; nvml.json depends on the machine.
 ALWAYS = ("hwloc.xml", "nics.json", "meta.json")
 # A manifest is a few hundred bytes; the cap keeps a hostile one from being read whole.

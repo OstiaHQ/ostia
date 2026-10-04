@@ -25,7 +25,9 @@ def _golden(name: str, text: str) -> None:
     assert text == path.read_text(), f"golden {path.name} differs; OSTIA_UPDATE_GOLDEN=1 updates it"
 
 
-@pytest.mark.parametrize("suite", ["gpu", "sanitizer", "bench-smoke", "overhead-aa", "cpu"])
+@pytest.mark.parametrize(
+    "suite", ["gpu", "sanitizer", "bench-smoke", "overhead-aa", "cpu", "topo-capture"]
+)
 def test_golden_suite_plans_on_l4_cuda_12(cfg, suite):
     p = profiles.resolve("l4", "gke", cfg)
     plan = suites.build_plan(cfg, p, "cuda-12", suite=suite, run_id="k8s-l4-20261002-141501-a1b2c3")
@@ -142,7 +144,10 @@ def test_no_build_and_no_test(cfg):
 def test_unknown_suite_is_exit_2(cfg):
     with pytest.raises(UsageError) as e:
         suites.build_plan(cfg, profiles.resolve("cpu", None, cfg), "default", suite="nope")
-    assert "bench-smoke, cpu, cuda-compile, gpu, overhead-aa, sanitizer" in e.value.message
+    assert (
+        "bench-smoke, cpu, cuda-compile, gpu, overhead-aa, sanitizer, topo-capture"
+        in e.value.message
+    )
 
 
 def test_suite_and_command_together_is_exit_2(cfg):
@@ -184,3 +189,14 @@ def test_step_names_are_checked(name):
 def test_step_kinds_are_checked():
     with pytest.raises(ValueError):
         suites.Step("x", "deploy", ("true",))
+
+
+def test_topo_capture_suite_writes_the_capture_where_collect_fetches_it(cfg):
+    from ostia_dev.remote import capture
+
+    plan = suites.build_plan(
+        cfg, profiles.resolve("l4", "gke", cfg), "cuda-12", suite="topo-capture"
+    )
+    assert plan.preset == "dev"
+    (step,) = [s for s in plan.steps if s.kind == "command"]
+    assert step.argv[5:] == ("ostia-dev", "topo", "capture", "--out", capture.CAPTURE_DIR)

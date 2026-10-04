@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from fakes.capture import capture_files
 from ostia_dev import config
 from ostia_dev.errors import UsageError
 from ostia_dev.remote.k8s import gate
@@ -100,10 +101,12 @@ def _setup(tmp_path, text, name, nodes=1):
 
 class FakeRun:
     """Stands in for run_k8s: builds the plan like core.prepare and writes evidence and
-    the records of `records` (default: one per workload with evidence)."""
+    the records of `records` (default: one per workload with evidence), or `full` schema-1
+    records; `captures` ({node: status entry}) writes capture/ as K8sBackend.collect would."""
 
-    def __init__(self, repo, evidence=None, code=0, records=None):
+    def __init__(self, repo, evidence=None, code=0, records=None, full=None, captures=None):
         self.repo, self.evidence, self.code, self.records = repo, evidence, code, records
+        self.full, self.captures = full, captures
         self.spec = self.plan = None
 
     def __call__(self, spec, cfg, repo):
@@ -117,8 +120,17 @@ class FakeRun:
         for w, doc in (self.evidence or {}).items():
             (ev / f"{w}.json").write_text(json.dumps({"schema": 1, "workload": w, **doc}))
         names = self.records if self.records is not None else list(self.evidence or {})
-        lines = [json.dumps({"bench": w, "params": {}}) + "\n" for w in names]
-        (ev.parent / "results.jsonl").write_text("".join(lines))
+        docs = self.full if self.full is not None else [{"bench": w, "params": {}} for w in names]
+        (ev.parent / "results.jsonl").write_text("".join(json.dumps(d) + "\n" for d in docs))
+        if self.captures is not None:
+            root = spec.results / "k8s-x-1" / "capture"
+            for node, entry in self.captures.items():
+                (root / node).mkdir(parents=True)
+                files = capture_files(entry["status"] or "complete")
+                kept = files if entry["result"] == "accepted" else {"diagnostics.txt": b"x\n"}
+                for name, data in kept.items():
+                    (root / node / name).write_bytes(data)
+            (root / "status.json").write_text(json.dumps(self.captures))
         return self.code
 
 
@@ -199,12 +211,13 @@ def test_plan_nvlink_node(tmp_path, cfg):
     _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run)
     cmds = _commands(run.plan)
     names = [s.name for s in run.plan.steps]
-    assert names[-5:] == [
+    assert names[-6:] == [
         "evidence-probe",
         "bench-p2p_copy",
         "bench-pipelining",
         "bench-batching",
         "bench-dual_link",
+        "capture",
     ]
     assert "--probe nvlink" in cmds["evidence-probe"] and "--probe ib" not in cmds["evidence-probe"]
     assert "--remote" not in cmds["bench-p2p_copy"]
@@ -264,8 +277,152 @@ def test_missing_evidence_fails(tmp_path, cfg, capsys):
 
 def test_pending_checks_are_printed(tmp_path, cfg, capsys):
     _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), FakeRun(tmp_path, code=1))
+    pending = [line for line in capsys.readouterr().err.splitlines() if "not checked yet" in line]
+    assert len(pending) == 2 and all("RFC-0004 PR 7" in line for line in pending)
+    assert not any("RFC-0003" in line for line in pending)
+
+
+def test_plan_captures_after_the_bench_steps_as_a_report(tmp_path, cfg):
+    run = FakeRun(tmp_path, code=1)
+    _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run)
+    last = run.plan.steps[-1]
+    assert (last.name, last.kind) == ("capture", "report")
+    assert last.argv == ("pixi", "run", "--frozen", "-e", "cuda-12", "ostia-dev", "topo",
+                         "capture", "--build-dir", "/w/build/cuda-12/release",
+                         "--out", "/w/capture")  # fmt: skip
+
+
+def test_no_capture_step_without_topo_capture(tmp_path, cfg):
+    run = FakeRun(tmp_path, code=1)
+    path = _setup(tmp_path, NVLINK.replace("[topo_capture]", "[]"), "nvlink-node")
+    _gate(tmp_path, cfg, path, run)
+    assert "capture" not in [s.name for s in run.plan.steps]
+
+
+PAIR = "topo1:sha256:" + "cd" * 32
+RDMA_RECORDS = [("rdma_put", {"bytes": 1}), ("gdr_stream", {"bytes": 1}),
+                ("dual_link", {"path": "a", "mode": "rails"}),
+                ("dual_link", {"path": "b", "mode": "rails"}),
+                ("dual_link", {"path": "both", "mode": "rails"})]  # fmt: skip
+OK = {"result": "accepted", "reason": None, "status": "complete", "fix": None}
+COMPAT = {"gpu": "A100", "driver": "580.95", "cuda": "12.9", "nic": "none", "build_level": "off",
+          "compiler": "gcc", "deps": "x"}  # fmt: skip
+
+
+def _record(bench, params, topology=None, median=20.0):
+    compat = dict(COMPAT, topology=topology)
+    provenance = {"git_sha": "3f2a9c1", "date": "2026-10-04T00:00:00Z", "run_id": "k8s-x-1"}
+    return {
+        "schema": 1,
+        "provenance": provenance,
+        "compat": compat,
+        "bench": bench,
+        "params": params,
+        "unit": "GB/s",
+        "higher_is_better": True,
+        "samples": [median] * 10,
+        "median": median,
+    }
+
+
+@pytest.fixture
+def pair_gate(tmp_path, cfg, monkeypatch):
+    """A two-pod rdma-pair gate with full records; compare records what it was given."""
+    from ostia_dev.bench import evidence
+
+    seen = {}
+
+    def compare_main(argv):
+        text = (tmp_path / argv[argv.index("--candidate") + 1]).read_text()
+        seen["records"] = [json.loads(line) for line in text.splitlines()]
+        return 0
+
+    def pair_id(d):
+        seen["pair_json"] = json.loads((d / "pair.json").read_text())
+        return PAIR
+
+    monkeypatch.setattr(gate, "_compare_main", lambda: compare_main)
+    monkeypatch.setattr(gate, "_pair_id", pair_id)
+    monkeypatch.setattr(evidence, "check", lambda ev: [])
+    workloads = ("rdma_put", "gdr_stream", "dual_link")
+
+    def go(captures, **kw):
+        full = [_record(b, p, median=20.0 + i) for i, (b, p) in enumerate(RDMA_RECORDS)]
+        run = FakeRun(tmp_path, evidence={w: {} for w in workloads}, full=full, captures=captures)
+        path = _setup(tmp_path, RDMA, "rdma-pair", nodes=2)
+        kw.setdefault("baseline", tmp_path / "base.json")
+        return _gate(tmp_path, cfg, path, run, **kw)
+
+    return go, seen
+
+
+def test_two_accepted_captures_write_pair_json_and_stamp_before_compare(pair_gate, tmp_path):
+    go, seen = pair_gate
+    assert go({"node-0": OK, "node-1": OK}) == 0
+    assert seen["pair_json"] == {
+        "schema": 1,
+        "nodes": ["node-0", "node-1"],
+        "link_class": "infiniband",
+        "rails": [{"node-0": {"nic_index": 0}, "node-1": {"nic_index": 0}},
+                  {"node-0": {"nic_index": 1}, "node-1": {"nic_index": 1}}],
+        "measured": [{"rail": 0, "direction": "1->0", "bw_mbps": 22000, "test": "dual_link"},
+                     {"rail": 1, "direction": "1->0", "bw_mbps": 23000, "test": "dual_link"}],
+    }  # fmt: skip
+    assert (tmp_path / "res" / "k8s-x-1" / "capture" / "pair.json").exists()
+    assert len(seen["records"]) == len(RDMA_RECORDS)
+    for r in seen["records"]:
+        assert r["compat"]["topology"] == PAIR and r["provenance"]["topology_source"] == "gate"
+
+
+REJECTED = {"result": "rejected", "reason": "the tar stream repeats a member", "status": None,
+            "fix": "rerun"}  # fmt: skip
+PARTIAL = {**OK, "status": "partial", "fix": "nvml.json missing (nvml_init)"}
+
+
+@pytest.mark.parametrize(
+    ("node1", "words"), [(REJECTED, "node-1 rejected"), (PARTIAL, "node-1 accepted (partial)")]
+)
+def test_an_unusable_capture_leaves_the_records_unstamped(
+    pair_gate, tmp_path, capsys, node1, words
+):
+    go, seen = pair_gate
+    assert go({"node-0": OK, "node-1": node1}, baseline=None) == 0
+    assert "pair_json" not in seen
+    assert not (tmp_path / "res" / "k8s-x-1" / "capture" / "pair.json").exists()
+    text = (tmp_path / "bench" / "results" / "k8s-x-1" / "results.jsonl").read_text()
+    assert "topology_source" not in text
     err = capsys.readouterr().err
-    assert "RFC-0004 PR 7" in err and "RFC-0003 PR 6" in err
+    assert "warning: the records keep topology null" in err and words in err
+
+
+def test_a_missing_status_file_leaves_the_records_unstamped(pair_gate, capsys):
+    go, seen = pair_gate
+    assert go(None, baseline=None) == 0
+    assert "node-0 absent, node-1 absent" in capsys.readouterr().err
+
+
+def test_a_rejected_capture_against_a_paired_baseline_fails_the_gate(
+    pair_gate, tmp_path, monkeypatch, capsys
+):
+    from ostia_dev.bench import compare
+
+    go, _ = pair_gate
+    monkeypatch.setattr(gate, "_compare_main", lambda: compare.main)
+    base = tmp_path / "base.json"
+    records = [_record(b, p, topology=PAIR) for b, p in RDMA_RECORDS]
+    base.write_text(json.dumps({"schema": 1, "setup": "rdma-pair", "records": records}))
+    assert go({"node-0": OK, "node-1": REJECTED}, baseline=base) == 1
+    out = capsys.readouterr().out
+    assert "topology is cdcdcdcdcdcd in the baseline and null in the candidate" in out
+    assert "error: the baseline has a pair id and these records have none" in out
+
+
+def test_a_one_pod_gate_never_stamps(tmp_path, cfg, monkeypatch):
+    monkeypatch.setattr(gate, "_pair_id", lambda d: pytest.fail("one pod has no pair"))
+    monkeypatch.setattr(gate, "_evidence_problems", lambda workloads, ev_dir: [])
+    workloads = ["p2p_copy", "pipelining", "batching", "dual_link"]
+    run = FakeRun(tmp_path, records=workloads, captures={"node-0": OK})
+    assert _gate(tmp_path, cfg, _setup(tmp_path, NVLINK, "nvlink-node"), run) == 0
 
 
 def test_baseline_runs_compare(tmp_path, cfg, monkeypatch):

@@ -110,9 +110,41 @@ def lose_connection(for_seconds: float | None = None):
     return act
 
 
-def exec_result(argv_prefix: list[str], code: int, stdout: bytes = b"", *, index=None):
+def exec_result(
+    argv_prefix: list[str], code: int, stdout: bytes = b"", *, index=None, once: bool = False
+):
+    """Scripted exec results; a `once` result answers only the first matching exec."""
+
     def act(k: FakeKube) -> None:
-        k.exec_results.append((list(argv_prefix), code, stdout, index))
+        k.exec_results.append((list(argv_prefix), code, stdout, index, once))
+
+    return act
+
+
+def plant_capture(files: dict[str, bytes], *, index=None, links: dict[str, str] | None = None):
+    """Write a capture into the pods' /w/capture, as the capture tool would; `links` adds
+    symlinks (name -> target)."""
+
+    def act(k: FakeKube) -> None:
+        for pod in k._objs("pod"):
+            if index is not None and k._index(pod) != index:
+                continue
+            d = k.root / pod["metadata"]["name"] / "w" / "capture"
+            d.mkdir(parents=True, exist_ok=True)
+            for name, data in files.items():
+                (d / name).write_bytes(data)
+            for name, target in (links or {}).items():
+                (d / name).symlink_to(target)
+
+    return act
+
+
+def lose_pod_on(marker: str, *, index=None):
+    """The pod goes away during the first exec whose script contains `marker`: that exec and
+    every later one on it fail in kubectl, as `pods "x" not found` does."""
+
+    def act(k: FakeKube) -> None:
+        k.lose_on.append((marker, index))
 
     return act
 
@@ -153,7 +185,10 @@ class FakeKube:
         self.event_list: list[dict] = []
         self.log_lines: list[tuple[str, str, int]] = []
         self.drops: list[int] = []
-        self.exec_results: list[tuple[list[str], int, bytes, int | None]] = []
+        self.exec_results: list[tuple[list[str], int, bytes, int | None, bool]] = []
+        self.lose_on: list[tuple[str, int | None]] = []
+        self.gone_pods: set[str] = set()
+        self.cluster = "c1-cluster"
         self.forbidden: set[tuple[str, str]] = set()
         self.pending_deletes: dict[tuple, float] = {}
         self.gone_after: float | None = 0
@@ -274,6 +309,10 @@ class FakeKube:
             owners = o["metadata"].get("ownerReferences", [])
             if any(r.get("uid") == uid for r in owners):
                 self._remove(k2)
+
+    def cluster_name(self) -> str | None:
+        self._record("cluster_name")
+        return self.cluster
 
     def version(self) -> dict:
         import json
@@ -450,14 +489,50 @@ class FakeKube:
         return next((self._index(p) for p in self._objs("pod") if p["metadata"]["name"] == name), 0)
 
     def _scripted(self, argv: list[str], pod: str):
-        for prefix, code, out, index in self.exec_results:
+        for i, (prefix, code, out, index, once) in enumerate(self.exec_results):
             if argv[: len(prefix)] == prefix and index in (None, self._pod_index(pod)):
+                if once:
+                    del self.exec_results[i]
                 return code, out
         return None
+
+    def _gone(self, argv: list[str], pod: str) -> None:
+        script = " ".join(argv)
+        for i, (marker, index) in enumerate(self.lose_on):
+            if marker in script and index in (None, self._pod_index(pod)):
+                del self.lose_on[i]
+                self.gone_pods.add(pod)
+                break
+        if pod in self.gone_pods:
+            from ostia_dev.errors import InfraError
+
+            raise InfraError(f'error: kubectl failed\n  Error from server (NotFound): pods "{pod}"')
+
+    def _capture(self, pod: str, argv: list[str]) -> tuple[int, bytes]:
+        """The three capture execs (ostia_dev/remote/capture.py) against the pod's real
+        /w/capture: a missing file fails wc and tar, a symlink is archived as a symlink."""
+        d = self.root / pod / "w" / "capture"
+        script, names = argv[2], argv[4:]
+        if script.startswith("test -f"):
+            return (0 if (d / "manifest.json").is_file() else 3), b""
+        if any(not (d / n).exists() for n in names):
+            return 1, b""
+        if "wc -c" in script:
+            sizes = [(d / n).stat().st_size for n in names]
+            lines = [f"{size} {n}" for size, n in zip(sizes, names, strict=True)]
+            if len(names) > 1:
+                lines.append(f"{sum(sizes)} total")
+            return 0, ("\n".join(lines) + "\n").encode()
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as t:
+            for n in names:
+                t.add(d / n, arcname=n, recursive=False)
+        return 0, buf.getvalue()
 
     def exec_in(self, pod: str, argv: list[str], stdin, *, check: bool = True):
         data = stdin.read() if stdin is not None else b""
         self._record("exec_in", pod, tuple(argv), stdin_size=len(data))
+        self._gone(argv, pod)
         if not check and ("create", "pods/exec") in self.forbidden:
             return subprocess.CompletedProcess(argv, 1, b"", b"Error from server (Forbidden)")
         self._check("create", "pods/exec")
@@ -475,9 +550,12 @@ class FakeKube:
     def exec_out(self, pod: str, argv: list[str], stdout=None, *, check: bool = True):
         self._record("exec_out", pod, tuple(argv))
         self._check("create", "pods/exec")
+        self._gone(argv, pod)
         code, out = 0, b""
         if (hit := self._scripted(argv, pod)) is not None:
             code, out = hit
+        elif argv[:2] == ["sh", "-c"] and "/w/capture" in argv[2]:
+            code, out = self._capture(pod, argv)
         elif argv[0] == "touch":
             f = self.pod_file(pod, argv[1])
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -510,8 +588,13 @@ class FakeKube:
         (p,) = [o for o in self._objs("pod") if o["metadata"]["name"] == pod]
         env = p["spec"]["containers"][0].get("env", [])
         e = next(e for e in env if e["name"] == name)
-        if "valueFrom" in e:  # the downward API; only the completion index is used
-            return str(self._index(p))
+        if "valueFrom" in e:  # the downward API
+            path = e["valueFrom"]["fieldRef"]["fieldPath"]
+            if path == "spec.nodeName":
+                return p["spec"].get("nodeName") or f"fake-node-{self._index(p)}"
+            if path == f"metadata.annotations['{INDEX}']":
+                return str(self._index(p))
+            raise KeyError(path)
         return e["value"]
 
     def can_i(self, verb: str, resource: str) -> bool:

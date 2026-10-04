@@ -434,3 +434,27 @@ def test_rdma_job_shape(tmp_path):
 def test_rdma_host_network_job(tmp_path):
     pod = _rdma_job(tmp_path, "ib-host")["spec"]["template"]["spec"]
     assert pod["hostNetwork"] is True and pod["dnsPolicy"] == "ClusterFirstWithHostNet"
+
+
+def test_the_pod_gets_the_capture_env(tmp_path):
+    run = make_run(tmp_path, "l4", "gke")
+    run.state["capture_env"] = {
+        "OSTIA_CAPTURE_PROVIDER": "gcp",
+        "OSTIA_CAPTURE_INSTANCE_TYPE": "g2-standard-8",
+        "OSTIA_LEAK_IDENTIFIERS": "ostia-gpu-project\nostia-l4-pool",
+    }
+    env = _job(run)["spec"]["template"]["spec"]["containers"][0]["env"]
+    by_name = {e["name"]: e for e in env}
+    assert by_name["NODE_NAME"] == {
+        "name": "NODE_NAME",
+        "valueFrom": {"fieldRef": {"fieldPath": "spec.nodeName"}},
+    }
+    for k, v in run.state["capture_env"].items():
+        assert by_name[k] == {"name": k, "value": v}
+
+
+def test_a_passed_variable_wins_over_a_capture_default(tmp_path):
+    run = make_run(tmp_path, "cpu", "gke", env_vars={"OSTIA_CAPTURE_INSTANCE_TYPE": "mine"})
+    run.state["capture_env"] = {"OSTIA_CAPTURE_INSTANCE_TYPE": "unknown"}
+    env = _job(run)["spec"]["template"]["spec"]["containers"][0]["env"]
+    assert [e["value"] for e in env if e["name"] == "OSTIA_CAPTURE_INSTANCE_TYPE"] == ["mine"]

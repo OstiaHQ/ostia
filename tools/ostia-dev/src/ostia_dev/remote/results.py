@@ -197,6 +197,19 @@ def duration(seconds: int) -> str:
     return f"{h}h{m:02d}m"
 
 
+def capture_note(entries: dict | None) -> str:
+    """`  capture accepted (complete)`, or one result per node for two pods (RFC-0003 §4)."""
+    if not entries:
+        return ""
+
+    def one(e: dict) -> str:
+        return f"{e['result']} ({e['status']})" if e.get("status") else e["result"]
+
+    if len(entries) == 1:
+        return f"  capture {one(next(iter(entries.values())))}"
+    return "  capture " + ", ".join(f"{node} {one(e)}" for node, e in sorted(entries.items()))
+
+
 _GROUPS = (("preflight", "preflight"), ("install", "install"), ("build", "build"),
            ("command", "test"))  # fmt: skip
 
@@ -207,7 +220,7 @@ def summary_lines(s: dict) -> list[str]:
     code = "  code contributor pr/" + str(s["pr"]) if s.get("code") == "contributor" else ""
     first = (
         f"{s['run_id']}  {s['result']}  {where}  sha {s['git_sha']}(tree {s['tree_hash'][:4]}…)"
-        f"  {what}{code}  {duration(s['seconds'])}"
+        f"  {what}{code}{capture_note(s.get('capture'))}  {duration(s['seconds'])}"
     )
     parts = [f"{k} {duration(v)}" for k, v in s.get("phases", {}).items()]
     by_group: dict[str, int] = {}

@@ -72,6 +72,10 @@ spec:
           value: 3f2a9c1+dirty
         - name: OSTIA_REQUIRE_GPU
           value: '1'
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         resources:
           requests:
             cpu: '10'

@@ -76,6 +76,10 @@ spec:
           value: /usr/local/nvidia/lib64
         - name: OSTIA_EXPAND_ENV
           value: PATH=/usr/local/nvidia/bin:$PATH
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: OSTIA_RANK
           valueFrom:
             fieldRef:

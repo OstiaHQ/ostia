@@ -26,6 +26,7 @@ def test_builtins_have_the_rfc_profiles(cfg):
         "overhead-aa",
         "cpu",
         "cuda-compile",
+        "topo-capture",
     }
     assert cfg.image.startswith("ghcr.io/prefix-dev/pixi:0.81.0-noble@sha256:")
     assert "aks" not in cfg.profiles["l4"]  # Azure has no generally available L4 size

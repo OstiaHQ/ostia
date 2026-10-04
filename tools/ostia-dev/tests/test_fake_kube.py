@@ -8,7 +8,16 @@ from pathlib import Path
 import pytest
 from fakes.clock import FakeClock
 from fakes.common import tar_bytes
-from fakes.kube import FakeKube, drop_stream, event, exec_result, log, pod_phase
+from fakes.kube import (
+    FakeKube,
+    drop_stream,
+    event,
+    exec_result,
+    log,
+    lose_pod_on,
+    plant_capture,
+    pod_phase,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures" / "kube"
 
@@ -234,6 +243,7 @@ def _indexed_job(name="ostia-r2", run_id="r2"):
             "valueFrom": {"fieldRef": {"fieldPath": f"metadata.annotations['{INDEX}']"}},
         }
     )
+    env.append({"name": "NODE_NAME", "valueFrom": {"fieldRef": {"fieldPath": "spec.nodeName"}}})
     return job
 
 
@@ -315,3 +325,58 @@ def test_logs_follow_selector_interleaves_with_prefix(two):
 def test_field_ref_env_resolves_rank(two):
     kube, _, names = two
     assert [kube._env(n, "OSTIA_RANK") for n in names] == ["0", "1"]
+
+
+def test_field_ref_env_resolves_the_node_name(two):
+    kube, clock, names = two
+    assert [kube._env(n, "NODE_NAME") for n in names] == ["fake-node-0", "fake-node-1"]
+    kube.script([(0, pod_phase("Running"))])
+    assert [kube._env(n, "NODE_NAME") for n in names] == ["node-1", "node-2"]
+
+
+def test_a_once_result_answers_only_the_first_exec(kube):
+    kube.apply(_job(suspend=False))
+    (pod,) = kube.list("pod")
+    name = pod["metadata"]["name"]
+    kube.script([(0, exec_result(["tar", "-x"], 2, once=True))])
+    assert kube.exec_in(name, ["tar", "-x", "-C", "/w"], io.BytesIO(tar_bytes({}))).returncode == 2
+    assert kube.exec_in(name, ["tar", "-x", "-C", "/w"], io.BytesIO(tar_bytes({}))).returncode == 0
+
+
+def test_capture_execs_read_the_pods_capture_directory(kube):
+    import tarfile
+
+    from ostia_dev.remote import capture
+
+    kube.apply(_job(suspend=False))
+    (pod,) = kube.list("pod")
+    name = pod["metadata"]["name"]
+
+    def sh(script, *names, stdout=None):
+        return kube.exec_out(name, ["sh", "-c", script, "sh", *names], stdout=stdout)
+
+    assert sh(capture.probe_script()).returncode == 3
+    kube.script([(0, plant_capture({"manifest.json": b"{}", "hwloc.xml": b"<x/>"}))])
+    assert sh(capture.probe_script()).returncode == 0
+    sizes = sh(capture.sizes_script(), "manifest.json", "hwloc.xml").stdout.decode()
+    assert capture.parse_sizes(sizes, ["manifest.json", "hwloc.xml"]) == 6
+    assert sh(capture.sizes_script(), "nvml.json").returncode != 0
+    buf = io.BytesIO()
+    assert sh(capture.tar_script(), "hwloc.xml", stdout=buf).returncode == 0
+    with tarfile.open(fileobj=io.BytesIO(buf.getvalue())) as t:
+        assert t.extractfile("hwloc.xml").read() == b"<x/>"
+    assert sh(capture.tar_script(), "nvml.json", stdout=io.BytesIO()).returncode != 0
+
+
+def test_a_lost_pod_fails_every_later_exec_in_kubectl(kube):
+    from ostia_dev.errors import InfraError
+
+    kube.apply(_job(suspend=False))
+    (pod,) = kube.list("pod")
+    name = pod["metadata"]["name"]
+    kube.script([(0, lose_pod_on("tar -cf - --"))])
+    assert kube.exec_out(name, ["touch", "/w/.ostia/ready"]).returncode == 0
+    with pytest.raises(InfraError):
+        kube.exec_out(name, ["sh", "-c", 'cd /w/capture && tar -cf - -- "$@"', "sh", "a"])
+    with pytest.raises(InfraError):
+        kube.exec_out(name, ["touch", "/w/.ostia/collected"])

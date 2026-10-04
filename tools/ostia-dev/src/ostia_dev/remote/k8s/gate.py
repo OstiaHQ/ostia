@@ -2,8 +2,12 @@
 
 Partial (A3, Decision 10): capability check, machine mapping, the RDMA profile rule, the
 evidence-counter probe, the workloads through the bench driver with --evidence, and the
-evidence check. RFC-0004 §1.1's active probes, RFC-0003's captures and rent's fallback
-handover land with RFC-0004 PR 7 and RFC-0003 PR 6.
+evidence check. A setup whose also_run has topo_capture adds a capture step, which never fails
+the run; the backend fetches each pod's capture manifest-first (RFC-0003 §4). A two-pod gate
+whose two captures are accepted and complete gets capture/pair.json and its records stamped
+with the pair id before compare (RFC-0003 §5, §7); otherwise they keep topology null, which
+no baseline with a pair id matches. RFC-0004 §1.1's active probes and rent's fallback handover
+land with RFC-0004 PR 7.
 """
 
 import json
@@ -13,15 +17,14 @@ from pathlib import Path
 
 from ostia_dev.config import Config
 from ostia_dev.contract import violation
-from ostia_dev.errors import UsageError
-from ostia_dev.remote import suites
+from ostia_dev.errors import OstiaError, UsageError
+from ostia_dev.remote import capture, suites
 from ostia_dev.remote.core import RunSpec
 from ostia_dev.remote.profiles import Profile, parallelism, resolve
 
 ENV = "cuda-12"
 PENDING = (
     "RFC-0004 §1.1's active capability probes (RFC-0004 PR 7)",
-    "RFC-0003's manifest-gated topology captures (RFC-0003 PR 6)",
     "rent's fallback handover and its second-active-run refusal (RFC-0004 PR 7)",
 )
 # workload -> (fabric/bench program, its arguments); dual_link's mode follows the pods
@@ -36,6 +39,7 @@ PROGRAMS: dict[str, tuple[str, list[str]]] = {
 }
 NVLINK_WORKLOADS = ("p2p_copy", "pipelining", "batching")
 BINARY = "ostia_fabric_bench_"
+CAPTURE = "topo_capture"
 
 
 def _bench():
@@ -48,6 +52,12 @@ def _compare_main() -> Callable[[list[str]], int]:
     from ostia_dev.bench import compare
 
     return compare.main
+
+
+def _pair_id(directory: Path) -> str:
+    from ostia_dev.topo import cli
+
+    return cli.pair_id(directory)
 
 
 def _bad(problem: str, details: list[str], rule: str, fix: str, see: str) -> UsageError:
@@ -158,6 +168,10 @@ def plan_gate(setup: dict, machine: dict, profile: Profile, env: str, run_id: st
             "--", *args,
         ]  # fmt: skip
         steps.append(suites.Step(f"bench-{w}", "command", suites._pixi(env, argv)))
+    if CAPTURE in setup.get("also_run", []):
+        capture_argv = ["ostia-dev", "topo", "capture", "--build-dir", build_dir,
+                        "--out", capture.CAPTURE_DIR]  # fmt: skip
+        steps.append(suites.Step("capture", "report", suites._pixi(env, capture_argv)))
     build_jobs, test_jobs = parallelism(profile, env)
     return suites.Plan(
         steps=steps,
@@ -197,6 +211,53 @@ def _evidence_problems(workloads: list[str], ev_dir: Path) -> list[str]:
             "  rule: a gate run that cannot show its transport fails\n  see: RFC-0001 §6.4"
         )
     return lines
+
+
+def _stamp_pair(captures: Path, profile: Profile, records: Path) -> bool:
+    """pair.json, the pair id and the stamp, only when both captures are accepted and complete
+    (RFC-0003 §7); otherwise one warning naming the node, and the records keep topology null."""
+    try:
+        status = json.loads((captures / "status.json").read_text())
+    except (OSError, ValueError):
+        status = {}
+    unusable = []
+    for node in capture.NODE_DIRS:
+        entry = status.get(node) if isinstance(status, dict) else None
+        if not isinstance(entry, dict):
+            unusable.append(f"{node} absent")
+        elif entry.get("result") != "accepted" or entry.get("status") != "complete":
+            detail = entry.get("status") or entry.get("reason")
+            unusable.append(f"{node} {entry.get('result')} ({detail})")
+    why = None
+    if unusable:
+        why = f"capture {', '.join(unusable)}"
+    else:
+        try:
+            capture.write_pair_json(captures, profile, records)
+            pair = _pair_id(captures)
+            capture.stamp(records, pair)
+        except (capture.PairError, OstiaError, OSError, ValueError, KeyError) as e:
+            why = f"no pair id ({e.message.splitlines()[0] if isinstance(e, OstiaError) else e})"
+    if why:
+        print(
+            f"warning: the records keep topology null: {why}\n"
+            "  rule: a two-pod gate stamps the pair id only when both captures are accepted and "
+            "complete; no baseline with a pair id matches these records\n"
+            f"  see: {captures / 'status.json'}, RFC-0003 §7",
+            file=sys.stderr,
+        )
+        return False
+    print(f"gate: records stamped with pair id {pair}")
+    return True
+
+
+def _baseline_topologies(baseline: Path) -> set:
+    from ostia_dev.bench import compare
+
+    try:
+        return {r["compat"].get("topology") for r in compare._load_baseline(baseline)}
+    except (OSError, ValueError, KeyError, TypeError):
+        return set()  # compare reports an unreadable baseline itself
 
 
 def gate(
@@ -258,6 +319,10 @@ def gate(
     if code != 0:
         return code
     out = repo / "bench" / "results" / run_ids[-1]
+    stamped = None
+    if machine["pods"] == 2 and CAPTURE in setup.get("also_run", []):
+        captures = Path(spec.results) / run_ids[-1] / "capture"
+        stamped = _stamp_pair(captures, profile, out / "results.jsonl")
     problems = _missing_records(setup["gate"], out / "results.jsonl")
     problems += _evidence_problems(setup["gate"], out / "evidence")
     if problems:
@@ -268,4 +333,16 @@ def gate(
         return 0
     argv = ["--baseline", str(baseline), "--candidate", str(out / "results.jsonl"),
             "--evidence-dir", str(out / "evidence"), "--require-pass"]  # fmt: skip
-    return _compare_main()(argv)
+    code = _compare_main()(argv)
+    # compare skips cases whose topology differs, and a skipped case does not fail it; a gate
+    # whose records could not be stamped has not shown it ran on the baseline's pair.
+    if code == 0 and stamped is False and _baseline_topologies(baseline) - {None}:
+        status = Path(spec.results) / run_ids[-1] / "capture" / "status.json"
+        print(
+            "error: the baseline has a pair id and these records have none\n"
+            "  rule: a two-pod gate compares only records stamped with the pair id (RFC-0003 §7)\n"
+            f"  fix: rerun the gate; {status} says why a capture was not used\n"
+            "  see: RFC-0005 §6"
+        )
+        return 1
+    return code
