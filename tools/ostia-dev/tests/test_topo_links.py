@@ -132,3 +132,16 @@ def test_a_capture_without_nvml_json_is_a_usage_error(tmp_path):
     with pytest.raises(UsageError) as e:
         links_from_records([], tmp_path)
     assert "nvml.json" in e.value.message
+
+
+@pytest.mark.parametrize("bad", ["fast", True, None, float("nan")])
+def test_a_non_numeric_sample_is_a_usage_error(capture, bad):
+    with pytest.raises(UsageError) as e:
+        links_from_records([_record(A, B), _record(A, B, samples=(1.0, bad))], capture)
+    assert "record 2" in e.value.message and "not a finite number" in e.value.message
+
+
+def test_a_non_object_record_is_a_usage_error(capture):
+    with pytest.raises(UsageError) as e:
+        links_from_records([_record(A, B), [1, 2]], capture)
+    assert "record 2" in e.value.message

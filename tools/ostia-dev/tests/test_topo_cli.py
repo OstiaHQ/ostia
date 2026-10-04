@@ -191,6 +191,10 @@ def _linux(monkeypatch, tmp_path, code=0, manifest=None, diagnostics=""):
     monkeypatch.setattr(
         "ostia_dev.topo.cli.steps.run", lambda plan: seen["plans"].append(list(plan)) or 0
     )
+    built = tmp_path / "b" / CAPTURE_TOOL
+    built.parent.mkdir(parents=True, exist_ok=True)
+    built.write_text("#!/bin/sh\n")
+    built.chmod(0o755)
 
     def tool(argv):
         seen["argv"] = argv
@@ -269,10 +273,11 @@ def test_capture_missing_build_dir_tool_is_a_usage_error(monkeypatch, tmp_path):
 def test_capture_writes_a_private_identifiers_file_and_removes_it(monkeypatch, tmp_path):
     seen = _linux(monkeypatch, tmp_path)
     monkeypatch.setenv("NODE_NAME", "gke-node-abcdef")
-    monkeypatch.setenv("OSTIA_LEAK_IDENTIFIERS", "project-123456\ncluster-x9y8z7, acct-777777")
+    monkeypatch.setenv("OSTIA_LEAK_IDENTIFIERS", "project-123456\n  Rack 42 Site North  \n\n")
     r = CliRunner().invoke(app, ["topo", "capture", "--print-id"])
     assert r.exit_code == 0, r.output
-    assert seen["ids"] == ["gke-node-abcdef", "project-123456", "cluster-x9y8z7", "acct-777777"]
+    # A multi-word identifier reaches the tool as one line, which it matches as one substring.
+    assert seen["ids"] == ["gke-node-abcdef", "project-123456", "Rack 42 Site North"]
     assert seen["mode"] == 0o600
     assert not seen["ids_path"].exists()
 
@@ -411,3 +416,52 @@ def test_which_rejects_a_non_id(monkeypatch, tmp_path):
     _which(monkeypatch, tmp_path)
     r = CliRunner().invoke(app, ["topo", "which", "sha1:xyz"])
     assert isinstance(r.exception, UsageError) and r.exception.code == 2
+
+
+def test_capture_removes_the_identifiers_file_when_interrupted(monkeypatch, tmp_path):
+    _linux(monkeypatch, tmp_path)
+    monkeypatch.setenv("NODE_NAME", "gke-node-abcdef")
+    made = []
+
+    def interrupted(argv):
+        made.append(Path(argv[argv.index("--extra-identifiers") + 1]))
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("ostia_dev.topo.cli._run_tool", interrupted)
+    CliRunner().invoke(app, ["topo", "capture", "--print-id"])
+    assert made and not made[0].exists()
+
+
+def test_capture_non_executable_override_is_a_usage_error(monkeypatch, tmp_path):
+    _linux(monkeypatch, tmp_path)
+    tool = tmp_path / "not-executable"
+    tool.write_text("x")
+    tool.chmod(0o644)
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(tool))
+    r = CliRunner().invoke(app, ["topo", "capture", "--print-id"])
+    assert isinstance(r.exception, UsageError) and r.exception.code == 2
+    assert "$OSTIA_TOPO_CAPTURE names no executable" in r.exception.message
+    assert "fix:" in r.exception.message
+
+
+def test_capture_missing_built_tool_is_a_usage_error(monkeypatch, tmp_path):
+    _linux(monkeypatch, tmp_path)
+    (tmp_path / "b" / CAPTURE_TOOL).unlink()
+    r = CliRunner().invoke(app, ["topo", "capture", "--print-id"])
+    assert isinstance(r.exception, UsageError) and r.exception.code == 2
+
+
+def test_capture_does_not_echo_a_non_code_reason(monkeypatch, tmp_path):
+    doc = _manifest("partial", missing=[{"file": "nvml.json", "reason": "host-a.example 10.0.0.1"}])
+    _linux(monkeypatch, tmp_path, code=2, manifest=doc)
+    r = CliRunner().invoke(app, ["topo", "capture", "--out", str(tmp_path / "cap")])
+    assert r.exit_code == 2
+    assert "nvml.json missing (non-code reason)" in r.stderr
+    assert "example" not in r.stderr
+
+
+def test_diff_passes_an_interrupt_through(monkeypatch, tmp_path):
+    _diff_runner(monkeypatch, tmp_path, 130)
+    r = CliRunner().invoke(app, ["topo", "diff", "one", "pair-tcp"])
+    assert r.exit_code == 130
+    assert not isinstance(r.exception, OstiaError)

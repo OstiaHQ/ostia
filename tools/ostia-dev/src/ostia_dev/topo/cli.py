@@ -196,7 +196,7 @@ def _capture_tool(build_dir: Path | None) -> tuple[list[list[str]], str]:
     checkout's dev build inside pixi, then PATH."""
     override = os.environ.get("OSTIA_TOPO_CAPTURE")
     if override:
-        return [], override
+        return [], _executable(Path(override), "$OSTIA_TOPO_CAPTURE")
     if build_dir is not None:
         tool = build_dir.resolve() / CAPTURE_IN_BUILD
         if not tool.is_file():
@@ -220,9 +220,22 @@ def _capture_tool(build_dir: Path | None) -> tuple[list[list[str]], str]:
     )
 
 
+def _executable(tool: Path, source: str) -> str:
+    if not tool.is_file() or not os.access(tool, os.X_OK):
+        raise _capture_usage(
+            f"{source} names no executable {CAPTURE_TOOL}",
+            f"topo capture runs {CAPTURE_TOOL} from $OSTIA_TOPO_CAPTURE, --build-dir, this "
+            "checkout's build, or PATH",
+            f"unset $OSTIA_TOPO_CAPTURE or point it at a built {CAPTURE_TOOL}; inside pixi, "
+            "pixi run ostia-dev build",
+        )
+    return str(tool)
+
+
 def _identifiers(extra: Path | None) -> list[str]:
     """The lines of the caller's --extra-identifiers file, then the values a remote pod is given:
-    NODE_NAME and OSTIA_LEAK_IDENTIFIERS, split on newlines, commas and spaces."""
+    NODE_NAME and the lines of OSTIA_LEAK_IDENTIFIERS. Only newlines separate values, because the
+    leak check matches a multi-word identifier as one anchored substring (RFC-0003 §3)."""
     values = []
     if extra is not None:
         try:
@@ -234,11 +247,18 @@ def _identifiers(extra: Path | None) -> list[str]:
                 "check the path, or drop --extra-identifiers",
             ) from e
     env = [os.environ.get("NODE_NAME", ""), os.environ.get("OSTIA_LEAK_IDENTIFIERS", "")]
-    return values + [v for v in re.split(r"[\s,]+", "\n".join(env)) if v]
+    return values + [v.strip() for v in "\n".join(env).splitlines() if v.strip()]
 
 
 def _run_tool(argv: list[str]) -> int:
-    proc = subprocess.Popen(argv)
+    try:
+        proc = subprocess.Popen(argv)
+    except OSError as e:
+        raise _capture_usage(
+            f"{CAPTURE_TOOL} could not be started",
+            f"the tool must be an executable file ({e.strerror or type(e).__name__})",
+            "pixi run ostia-dev build, or point $OSTIA_TOPO_CAPTURE at a built tool",
+        ) from e
     try:
         return proc.wait()
     except KeyboardInterrupt:
@@ -266,6 +286,15 @@ def _leak_findings(diagnostics: Path) -> int:
     return sum(line.startswith("leak: ") for line in lines)
 
 
+# A manifest's missing[].reason is a code written by the tool; anything else is not echoed, since
+# a hand-edited manifest could carry any text.
+REASON_CODE = re.compile(r"[a-z][a-z0-9_]{0,40}")
+
+
+def _reason(value: object) -> str:
+    return value if isinstance(value, str) and REASON_CODE.fullmatch(value) else "non-code reason"
+
+
 def _interpretation(code: int, out: Path | None, since_ns: int) -> str:
     """One line on what the tool's exit code means (RFC-0003 §4), from the manifest it wrote."""
     doc = _fresh_manifest(out, since_ns) if out is not None else None
@@ -274,7 +303,7 @@ def _interpretation(code: int, out: Path | None, since_ns: int) -> str:
         return f"capture complete: {out}" if out is not None else "capture complete"
     if code == 2:
         missing = [
-            f"{m.get('file')} missing ({m.get('reason')})"
+            f"{m.get('file')} missing ({_reason(m.get('reason'))})"
             for m in (doc or {}).get("missing", [])
             if isinstance(m, dict)
         ]
@@ -329,8 +358,10 @@ def capture(
             "or run it on a Linux machine",
         )
     plan, tool = _capture_tool(build_dir)
-    if plan and (code := steps.run(plan)):
-        raise typer.Exit(code)
+    if plan:
+        if code := steps.run(plan):
+            raise typer.Exit(code)
+        tool = _executable(Path(tool), "the dev build")
     provider = provider or os.environ.get("OSTIA_CAPTURE_PROVIDER") or None
     instance_type = instance_type or os.environ.get("OSTIA_CAPTURE_INSTANCE_TYPE") or None
     # Absolute, so the interpretation line names the capture wherever it is read.
@@ -348,15 +379,15 @@ def capture(
         argv += ["--links", str(links_file)]
     identifiers = _identifiers(extra_identifiers)
     handle = None
-    if identifiers:
-        # mkstemp creates the file 0600: the identifiers are what the capture must not publish.
-        fd, handle = tempfile.mkstemp(prefix="ostia-identifiers-", suffix=".txt")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write("\n".join(identifiers) + "\n")
-        argv += ["--extra-identifiers", handle]
-    argv += list(ctx.args)
-    since = time.time_ns()
     try:
+        if identifiers:
+            # mkstemp creates the file 0600: the identifiers are what the capture must not publish.
+            fd, handle = tempfile.mkstemp(prefix="ostia-identifiers-", suffix=".txt")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write("\n".join(identifiers) + "\n")
+            argv += ["--extra-identifiers", handle]
+        argv += list(ctx.args)
+        since = time.time_ns()
         code = _run_tool(argv)
     finally:
         if handle is not None:
@@ -403,8 +434,7 @@ def links_cmd(
                         "RFC-0003 §8",
                     )
                 ) from e
-            if isinstance(record, dict):
-                loaded.append(record)
+            loaded.append(record)
     text = json.dumps(links.links_from_records(loaded, capture_dir), indent=2, sort_keys=True)
     if out is None:
         typer.echo(text)
@@ -425,6 +455,8 @@ def diff(
     if code:
         raise typer.Exit(code)
     code = steps.run([[str(_binary()), "diff", str(first), str(second)]])
+    if code == errors.INTERRUPTED:
+        raise typer.Exit(code)
     if code >= 2:
         raise errors.InfraError(
             violation(

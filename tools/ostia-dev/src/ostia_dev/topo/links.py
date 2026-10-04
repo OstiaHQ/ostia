@@ -8,6 +8,7 @@ one entry.
 """
 
 import json
+import math
 import re
 import statistics
 from collections.abc import Iterable
@@ -86,12 +87,14 @@ def _int_param(params: dict, key: str, index: int) -> int:
     return value
 
 
-def links_from_records(records: Iterable[dict], capture: Path) -> dict:
+def links_from_records(records: Iterable[object], capture: Path) -> dict:
     """links.json (schema 1) from benchmark records; `capture` is the measured machine's capture
     directory. Unmeasured links are absent, never zero."""
     gpus, nvlinked = _gpus_and_nvlinks(capture)
     groups: dict[tuple[str, str, int], dict] = {}
     for index, record in enumerate(records, 1):
+        if not isinstance(record, dict):
+            raise _bad_record(index, "is not a JSON object", "records are one JSON object per line")
         if record.get("bench") != "p2p_copy":
             continue
         params = record.get("params")
@@ -126,6 +129,15 @@ def links_from_records(records: Iterable[dict], capture: Path) -> dict:
         if record.get("unit") != UNIT or not isinstance(samples, list) or not samples:
             raise _bad_record(
                 index, f"p2p_copy has no samples in {UNIT}", "bandwidths are medians of samples"
+            )
+        if any(
+            isinstance(v, bool) or not isinstance(v, int | float) or not math.isfinite(v)
+            for v in samples
+        ):
+            raise _bad_record(
+                index,
+                "p2p_copy has a sample that is not a finite number",
+                "samples are numbers in GB/s",
             )
         group = groups.setdefault((src, dst, size), {"concurrency": concurrency, "samples": []})
         if group["concurrency"] != concurrency:
