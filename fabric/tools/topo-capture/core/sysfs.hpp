@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -18,6 +19,9 @@ class SysfsReader {
     [[nodiscard]] std::optional<std::string> read(std::string_view rel) const;
     // Unmodified bytes, for binary attributes such as VPD.
     [[nodiscard]] std::optional<std::string> read_bytes(std::string_view rel) const;
+    // At most max_bytes from the start, for attributes such as VPD whose full read is slow.
+    [[nodiscard]] std::optional<std::string> read_prefix(std::string_view rel,
+                                                         std::size_t max_bytes) const;
     // Entry names in sorted order; empty when the directory is absent.
     [[nodiscard]] std::vector<std::string> list(std::string_view rel) const;
     // Final component of a symlink's target; nullopt when rel is not a symlink.

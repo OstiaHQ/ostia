@@ -36,6 +36,26 @@ std::optional<std::string> SysfsReader::read_bytes(std::string_view rel) const {
     return data;
 }
 
+std::optional<std::string> SysfsReader::read_prefix(std::string_view rel,
+                                                    std::size_t max_bytes) const {
+    const std::filesystem::path path = resolve(rel);
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) {
+        return std::nullopt;
+    }
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        return std::nullopt;
+    }
+    std::string data(max_bytes, '\0');
+    in.read(data.data(), static_cast<std::streamsize>(max_bytes));
+    if (in.bad()) {
+        return std::nullopt;
+    }
+    data.resize(static_cast<std::size_t>(in.gcount()));
+    return data;
+}
+
 std::optional<std::string> SysfsReader::read(std::string_view rel) const {
     std::optional<std::string> data = read_bytes(rel);
     if (!data) {
