@@ -14,6 +14,7 @@
       "nvlinks": [
         {
           "active": true,
+          "remote_bus_id": "00000000:A1:00.0",
           "remote_type": "switch",
           "version": 4
         },

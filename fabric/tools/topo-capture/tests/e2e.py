@@ -106,7 +106,8 @@ def _check_capture(args: argparse.Namespace, root: Path) -> None:
         listed = set(manifest["files"])
         if case == "planted":
             _expect(manifest["leak_check"] == "failed", f"{case}: leak_check not failed")
-            _expect("leak" in manifest["errors"], f"{case}: no leak error")
+            codes = [e.get("code") for e in manifest["errors"]]
+            _expect("leak" in codes, f"{case}: errors {codes}, expected leak")
             left = _names(out)
             _expect(left == {"manifest.json", "diagnostics.txt"}, f"{case}: left {sorted(left)}")
             _expect(not listed and manifest["topology_id"] is None, f"{case}: not the failed form")
@@ -127,7 +128,11 @@ def _check_capture(args: argparse.Namespace, root: Path) -> None:
         else:
             gpus = json.loads((out / "nvml.json").read_text())["gpus"]
             _expect([g["bus_id"] for g in gpus] == ["0000:11:00.0"], f"{case}: GPU bus IDs")
-            _expect(len(gpus[0]["nvlinks"]) == 2, f"{case}: NVLink count")
+            links = gpus[0]["nvlinks"]
+            _expect(len(links) == 2, f"{case}: NVLink count")
+            # NVML spells bus IDs "00000000:A1:00.0"; nvml.json must hold the schema's form.
+            remote = links[0].get("remote_bus_id")
+            _expect(remote == "0000:a1:00.0", f"{case}: NVLink remote bus ID not normalised")
             _expect(gpus[0]["cuda_ordinal"] == 0, f"{case}: cuda_ordinal")
 
 

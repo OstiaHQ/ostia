@@ -2,7 +2,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <dlfcn.h>
 #include <memory>
@@ -231,10 +230,8 @@ class NvmlDl final : public NvmlApi {
         }
         unsigned board = 0;
         if (fns_.board != nullptr && fns_.board(dev, &board) == NVML_SUCCESS) {
-            // nvidia-smi prints the board ID in hex, the spelling most likely to be pasted.
-            std::array<char, 16> buf{};
-            std::snprintf(buf.data(), buf.size(), "0x%x", board);
-            g.board_id = buf.data();
+            // Decimal, NVML's own integer; the leak check adds nvidia-smi's hex spelling.
+            g.board_id = std::to_string(board);
         }
         return g;
     }

@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unistd.h>
 
 #include "live/live.hpp"
 
@@ -47,7 +48,7 @@ TopologyPtr load_live_topology(Diagnostics& diag) {
     // runner; refusing it keeps the substitution all or nothing.
     if (const char* xml = std::getenv("HWLOC_XMLFILE"); xml != nullptr) {
         std::error_code ec;
-        if (!std::filesystem::is_regular_file(xml, ec)) {
+        if (!std::filesystem::is_regular_file(xml, ec) || ::access(xml, R_OK) != 0) {
             diag.add("hwloc: HWLOC_XMLFILE names no readable file");
             return nullptr;
         }

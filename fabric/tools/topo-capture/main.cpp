@@ -89,7 +89,9 @@ Args parse(std::span<char* const> argv) {
             if (inline_value) {
                 return std::string(*inline_value);
             }
-            if (i + 1 >= argv.size()) {
+            // "--out --provider x" would otherwise write the capture into a directory named
+            // "--provider".
+            if (i + 1 >= argv.size() || std::string_view(argv[i + 1]).starts_with("--")) {
                 usage_error(std::string(arg) + " needs a value",
                             "every option except --print-id, --help and --version takes a value",
                             "see ostia-topo-capture --help");
@@ -253,6 +255,10 @@ int main(int argc, char** argv) {
     } catch (...) {
         diag.add("capture: unexpected non-standard exception outside the pipeline");
     }
-    std::cerr << "error: unexpected internal error (internal)\n";
+    std::cerr << "error: unexpected internal error (internal)\n"
+              << "  rule: every failure is reported in the manifest when --out is known "
+                 "(RFC-0003 §4)\n"
+              << "  fix: report it with diagnostics.txt, which names the failed step\n"
+              << "  see: RFC-0003 §4\n";
     return args.out ? write_failed_capture(*args.out, "internal", diag).exit_code : 1;
 }

@@ -7,6 +7,7 @@
 #include <charconv>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <ifaddrs.h>
 #include <initializer_list>
@@ -798,11 +799,26 @@ void collect_dmi(RawSet& raw, const SysfsReader& sysfs) {
     }
 }
 
+// NVML reports the board ID as an integer and the loader passes it in decimal; nvidia-smi prints
+// it in hex, so that spelling is searched for too.
+void add_board_hex(RawSet& raw, const std::string& board_id) {
+    std::uint32_t value = 0;
+    const char* last = board_id.c_str() + board_id.size();
+    const auto [ptr, ec] = std::from_chars(board_id.c_str(), last, value);
+    if (board_id.empty() || ec != std::errc{} || ptr != last) {
+        return;
+    }
+    std::array<char, 16> buf{};
+    std::snprintf(buf.data(), buf.size(), "0x%x", value);
+    raw.add(IdKind::serial, buf.data());
+}
+
 void collect_nvml(RawSet& raw, const NvmlFacts& nvml) {
     for (const NvmlGpu& gpu : nvml.gpus) {
         raw.add(IdKind::uuid, gpu.uuid);
         raw.add(IdKind::serial, gpu.serial);
         raw.add(IdKind::serial, gpu.board_id);
+        add_board_hex(raw, gpu.board_id);
     }
 }
 
