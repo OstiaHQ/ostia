@@ -20,7 +20,9 @@ parser and validates the result.
 
 - `valid-duplicate-key.json`: `status` appears twice, `"bogus"` then `"complete"`. nlohmann/json
   and Python's `json` both keep the last occurrence, so both validators see `"complete"` and accept
-  the manifest. The C++ writer never emits a duplicate key.
+  the manifest. The C++ writer never emits a duplicate key, so the Python consumer's
+  `check_manifest` is stricter than the schema: its parser rejects any repeated key before it
+  validates, and the corpus test checks that too.
 - `valid-schema-float.json`: `"schema": 1.0`. JSON Schema compares numbers by value, so `const: 1`
   accepts `1.0` in `jsonschema`, and nlohmann/json compares `1.0` equal to `1`. The manifest schema
   has no `"type": "integer"` field; for one, the C++ validator rejects `1.0` while JSON Schema
