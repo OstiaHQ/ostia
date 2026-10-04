@@ -25,6 +25,7 @@ using ostia::fabric::topology::capture::Manifest;
 using ostia::fabric::topology::capture::manifest_json;
 using ostia::fabric::topology::capture::MissingFile;
 using ostia::fabric::topology::capture::Status;
+using ostia::fabric::topology::capture::write_file_synced;
 using ostia::fabric::topology::capture::write_manifest_atomic;
 
 namespace {
@@ -138,6 +139,30 @@ TEST(WriteManifestAtomic, ThrowsAndLeavesNoTemporaryWhenTheDirectoryIsMissing) {
     EXPECT_THROW(write_manifest_atomic(dir, manifest_json(Manifest{})), std::system_error);
     EXPECT_FALSE(fs::exists(dir / "manifest.json.tmp"));
     fs::remove_all(dir.parent_path());
+}
+
+// A symlink planted at an output name must not redirect the write to its target.
+TEST(WriteFileSynced, RefusesToFollowASymlink) {
+    const fs::path dir = temp_dir("nofollow");
+    const fs::path target = dir / "target.txt";
+    std::ofstream(target) << "untouched";
+    fs::create_symlink(target, dir / "hwloc.xml");
+    EXPECT_THROW(write_file_synced(dir / "hwloc.xml", "written"), std::system_error);
+    EXPECT_EQ(read_file(target), "untouched");
+    fs::remove_all(dir);
+}
+
+TEST(WriteManifestAtomic, ReplacesALeftoverTemporaryWithoutFollowingIt) {
+    const fs::path dir = temp_dir("leftover");
+    const fs::path target = dir / "target.txt";
+    std::ofstream(target) << "untouched";
+    fs::create_symlink(target, dir / "manifest.json.tmp");
+    const json doc = manifest_json(Manifest{});
+    write_manifest_atomic(dir, doc);
+    EXPECT_EQ(read_file(target), "untouched");
+    EXPECT_EQ(read_file(dir / "manifest.json"), dump(doc));
+    EXPECT_FALSE(fs::exists(fs::symlink_status(dir / "manifest.json.tmp")));
+    fs::remove_all(dir);
 }
 
 // The C++ half of the validator agreement (RFC-0003 §4); the Python consumer runs the same

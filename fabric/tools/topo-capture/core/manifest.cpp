@@ -162,10 +162,13 @@ int exit_for(bool leak_or_schema, bool other_failure, bool partial) {
     return partial ? 2 : 0;
 }
 
-void write_file_synced(const fs::path& path, std::string_view bytes) {
+namespace {
+
+// O_NOFOLLOW: a symlink planted at an output name must not redirect the write elsewhere.
+void write_synced(const fs::path& path, std::string_view bytes, int create_flags) {
     // 0644: the capture is meant to be fetched and published; nothing in it is secret.
     constexpr mode_t kMode = 0644;
-    Fd fd(::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, kMode));
+    Fd fd(::open(path.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_CLOEXEC | create_flags, kMode));
     if (fd.get() < 0) {
         throw_errno("open");
     }
@@ -185,10 +188,20 @@ void write_file_synced(const fs::path& path, std::string_view bytes) {
     fd.close_checked();
 }
 
+} // namespace
+
+void write_file_synced(const fs::path& path, std::string_view bytes) {
+    write_synced(path, bytes, O_TRUNC);
+}
+
 void write_manifest_atomic(const fs::path& out, const json& manifest) {
     const fs::path tmp = out / "manifest.json.tmp";
     try {
-        write_file_synced(tmp, dump(manifest));
+        // A leftover from a killed run is removed, and O_EXCL then guarantees the file renamed
+        // into place is the one written here.
+        std::error_code ec;
+        fs::remove(tmp, ec);
+        write_synced(tmp, dump(manifest), O_EXCL);
         // The data files' directory entries are durable before a manifest can list them.
         fsync_dir(out);
         if (::rename(tmp.c_str(), (out / "manifest.json").c_str()) != 0) {

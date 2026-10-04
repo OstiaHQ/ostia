@@ -44,7 +44,7 @@ std::string file_hash(std::string_view bytes);
 int exit_for(bool leak_or_schema, bool other_failure, bool partial);
 
 // Writes, fsyncs and closes path; throws std::system_error on any failure (a full disk is the
-// usual one), leaving a partial file for the caller to remove.
+// usual one, a symlink at path another), leaving a partial file for the caller to remove.
 void write_file_synced(const std::filesystem::path& path, std::string_view bytes);
 
 // manifest.json in out, written last: a temporary file, fsync, fsync of the directory, rename,
