@@ -56,6 +56,10 @@ PATTERNS = [
     ("mig-uuid", re.compile(rf"\bMIG-{HEX}{{8}}-")),
     ("instance-id", re.compile(r"\bi-[0-9a-f]{8,17}\b")),
     ("ec2-hostname", re.compile(r"\bip-\d{1,3}-\d{1,3}-\d{1,3}-\d{1,3}\b")),
+    # systemd's MAC-derived interface name carries the whole MAC without separators.
+    ("enx-name", re.compile(r"\benx[0-9a-f]{12}\b")),
+    # An InfiniBand node, port or system-image GUID as sysfs prints it with the colons dropped.
+    ("guid", re.compile(rf"(?<!{HEX}){HEX}{{16}}(?!{HEX})")),
     ("mac", re.compile(rf"\b{HEX}{{2}}([:-]){HEX}{{2}}(?:\1{HEX}{{2}}){{4}}\b")),
     ("ipv4", re.compile(r"(?<![\d.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\d.])")),
     # Only the `::` shorthand or a full eight-group address: shorter colon runs are
@@ -71,6 +75,11 @@ PATTERNS = [
     # Schemas drop serials entirely (RFC-0003 §2), so the field name alone is a leak.
     ("serial", re.compile(r"(?i)\"serial(?:_?number)?\"\s*:|name=\"SerialNumber\"")),
 ]
+
+
+# The capture's own diagnostics and status name what the leak check found on the source
+# machine; they stay in the run's artifacts and never become part of a fixture.
+CAPTURE_ONLY = {"diagnostics.txt", "status.json"}
 
 
 @dataclass
@@ -134,6 +143,9 @@ def main(argv: list[str] | None = None) -> int:
     files = args.files if args.files else tracked_fixtures(ROOT)
     findings = []
     for f in files:
+        if f.name in CAPTURE_ONLY:
+            findings.append(Finding(str(f), 0, "capture-only-file"))
+            continue
         try:
             text = f.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
