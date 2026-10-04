@@ -24,9 +24,10 @@ std::optional<std::uint32_t> hex_field(std::string_view text, std::size_t digits
     if (text.empty() || (digits != 0 && text.size() != digits) || text.size() > 8) {
         return std::nullopt;
     }
+    const std::string field(text);
     std::uint32_t value = 0;
-    const char* const last = text.data() + text.size();
-    const auto [ptr, ec] = std::from_chars(text.data(), last, value, 16);
+    const char* const last = field.data() + field.size();
+    const auto [ptr, ec] = std::from_chars(field.data(), last, value, 16);
     if (ec != std::errc{} || ptr != last) {
         return std::nullopt;
     }
