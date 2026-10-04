@@ -65,22 +65,8 @@ bool is_cache(hwloc_obj_type_t type) {
     return type >= HWLOC_OBJ_L1CACHE && type <= HWLOC_OBJ_L3ICACHE;
 }
 
-bool has_bus_id(hwloc_obj_t obj) {
-    return obj->type == HWLOC_OBJ_PCI_DEVICE ||
-           (obj->type == HWLOC_OBJ_BRIDGE &&
-            obj->attr->bridge.upstream_type == HWLOC_OBJ_BRIDGE_PCI);
-}
-
 const PciAttr& pci_attr(hwloc_obj_t obj) {
     return obj->type == HWLOC_OBJ_PCI_DEVICE ? obj->attr->pcidev : obj->attr->bridge.upstream.pci;
-}
-
-std::string bus_id(const PciAttr& p) {
-    std::array<char, 32> buf{};
-    std::snprintf(buf.data(), buf.size(), "%04x:%02x:%02x.%01x", static_cast<unsigned>(p.domain),
-                  static_cast<unsigned>(p.bus), static_cast<unsigned>(p.dev),
-                  static_cast<unsigned>(p.func));
-    return buf.data();
 }
 
 // Subsystem IDs and the revision are not in the §2.1 allowlist but hwloc's parser needs all six
@@ -94,8 +80,9 @@ std::string pci_type(const PciAttr& p) {
 }
 
 // GB/s as hwloc reports it: transfer rate per lane after line coding, times lanes. Gen 1 and 2
-// use 8b/10b, gen 3 onward 128b/130b. The operation order matches generate.py so synthetic
-// fixtures and captures print the same digits.
+// use 8b/10b, gen 3 onward 128b/130b. generate.py applies 128b/130b to every generation, so the
+// two differ for gen 1-2, which no fixture uses; from gen 3 the operation order matches it, so
+// synthetic fixtures and captures print the same digits.
 std::optional<std::string> link_speed(const PcieMax& max) {
     if (max.gen < 1 || max.gen > 6 || max.width <= 0) {
         return std::nullopt;
@@ -310,10 +297,9 @@ class Emitter {
             }
         }
 
-        if (has_bus_id(obj)) {
-            const PciAttr& p = pci_attr(obj);
-            a.emplace_back("pci_busid", bus_id(p));
-            a.emplace_back("pci_type", pci_type(p));
+        if (std::optional<std::string> id = bus_id_of(obj)) {
+            a.emplace_back("pci_busid", std::move(*id));
+            a.emplace_back("pci_type", pci_type(pci_attr(obj)));
             // RFC-0003 §2.1: the maximum from sysfs, never hwloc's current speed, which drops to
             // gen 1 on an idle GPU.
             if (const std::optional<std::string> speed = link_speed(max_of(obj))) {
@@ -324,7 +310,8 @@ class Emitter {
     }
 
     PcieMax max_of(hwloc_obj_t obj) const {
-        const auto it = pcie_max_.find(bus_id(pci_attr(obj)));
+        const std::optional<std::string> id = bus_id_of(obj);
+        const auto it = id ? pcie_max_.find(*id) : pcie_max_.end();
         return it == pcie_max_.end() ? PcieMax{} : it->second;
     }
 
@@ -361,9 +348,10 @@ class Emitter {
                 ++dropped_infos_;
                 continue;
             }
-            element(depth, "info", {{"name", std::string(name)}, {"value", info.value}});
+            const std::string_view value = info.value != nullptr ? info.value : "";
+            element(depth, "info", {{"name", std::string(name)}, {"value", std::string(value)}});
         }
-        if (has_bus_id(obj)) {
+        if (bus_id_of(obj)) {
             const PcieMax max = max_of(obj);
             if (max.gen != 0) {
                 element(depth, "info",

@@ -2,6 +2,7 @@
 
 #include <hwloc.h>
 #include <map>
+#include <optional>
 #include <string>
 
 #include "topology/source.hpp"
@@ -13,6 +14,11 @@ struct PcieMax {
     int gen = 0, width = 0;
 };
 using PcieMaxMap = std::map<std::string, PcieMax>; // keyed by PCI bus ID
+
+// "dddd:bb:dd.f" for a PCI device or a bridge with a PCI upstream; nullopt for host bridges and
+// non-PCI objects. The one formatter for both the replay facts and the capture's PcieMaxMap keys,
+// so the two cannot drift apart.
+std::optional<std::string> bus_id_of(hwloc_obj_t obj);
 
 // Fills packages, NUMA nodes, PUs and PCI facts from a loaded topology. With a map, the map
 // supplies the maximum link facts (live capture, read from sysfs); without one, the

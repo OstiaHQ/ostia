@@ -90,7 +90,10 @@ TEST(NormalizeBusId, LowersAndShortensTheDomain) {
 }
 
 TEST(NormalizeBusId, RefusesAWideDomainAndMalformedIds) {
-    EXPECT_FALSE(normalize_bus_id("00010000:3b:00.0").ok());
+    const Result<std::string> wide = normalize_bus_id("00010000:3b:00.0");
+    ASSERT_FALSE(wide.ok());
+    EXPECT_EQ(wide.error(), "bus_id_domain");
+    EXPECT_EQ(normalize_bus_id("0000:3b:00").error(), "bus_id_format");
     EXPECT_FALSE(normalize_bus_id("").ok());
     EXPECT_FALSE(normalize_bus_id("0000:3b:00").ok());
     EXPECT_FALSE(normalize_bus_id("0000:3b:00.8").ok());

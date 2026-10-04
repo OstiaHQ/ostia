@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -23,6 +22,7 @@
 #include "topology/model.hpp"
 
 using ostia::fabric::topology::build;
+using ostia::fabric::topology::bus_id_of;
 using ostia::fabric::topology::FixtureSource;
 using ostia::fabric::topology::PcieMax;
 using ostia::fabric::topology::PcieMaxMap;
@@ -38,8 +38,6 @@ namespace {
 
 namespace fs = std::filesystem;
 using nlohmann::json;
-
-using PciAttr = hwloc_obj_attr_u::hwloc_pcidev_attr_s;
 
 struct TopologyDeleter {
     void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
@@ -66,16 +64,6 @@ int info_int(hwloc_obj_t obj, const char* name) {
     return value != nullptr ? std::atoi(value) : 0;
 }
 
-std::string busid_of(hwloc_obj_t obj) {
-    const PciAttr& p =
-        obj->type == HWLOC_OBJ_PCI_DEVICE ? obj->attr->pcidev : obj->attr->bridge.upstream.pci;
-    std::array<char, 32> buf{};
-    std::snprintf(buf.data(), buf.size(), "%04x:%02x:%02x.%01x", static_cast<unsigned>(p.domain),
-                  static_cast<unsigned>(p.bus), static_cast<unsigned>(p.dev),
-                  static_cast<unsigned>(p.func));
-    return buf.data();
-}
-
 // What a fixture recorded, as the map a live capture would read from sysfs.
 PcieMaxMap pcie_max_from_infos(hwloc_topology_t topo) {
     PcieMaxMap map;
@@ -83,7 +71,7 @@ PcieMaxMap pcie_max_from_infos(hwloc_topology_t topo) {
         const PcieMax max{.gen = info_int(obj, "OstiaPCIeMaxGen"),
                           .width = info_int(obj, "OstiaPCIeMaxWidth")};
         if (max.gen != 0 || max.width != 0) {
-            map[busid_of(obj)] = max;
+            map[bus_id_of(obj).value()] = max;
         }
     };
     for (hwloc_obj_t p = hwloc_get_next_pcidev(topo, nullptr); p != nullptr;
@@ -201,6 +189,9 @@ TEST_F(TempDir, EveryFixtureRoundTripsToItsGolden) {
 TEST(EmitXml, ScrubsIdentifiersAndOsDevices) {
     const TopologyPtr topo = load(input_xml());
     ASSERT_NE(topo, nullptr);
+    // The OS-device drop path must actually run. hwloc drops the planted Misc object on load,
+    // so only its absence from the output is asserted.
+    ASSERT_NE(hwloc_get_next_osdev(topo.get(), nullptr), nullptr);
     Diagnostics diag;
     const std::string xml = emit_xml(topo.get(), read_pcie_max(SysfsReader(fake_root())), diag);
 
@@ -267,7 +258,13 @@ TEST(EmitXml, ScrubsIdentifiersAndOsDevices) {
     EXPECT_NE(xml.find(R"(<info name="OstiaPCIeMaxGen" value="5"/>)"), std::string::npos);
 
     EXPECT_NO_THROW(reimport_check(xml));
-    EXPECT_TRUE(diag.render().find("dropped") != std::string::npos);
+    const std::vector<std::string>& lines = diag.lines();
+    EXPECT_NE(std::ranges::find_if(lines,
+                                   [](const std::string& line) {
+                                       return line.starts_with("hwloc.xml: dropped ") &&
+                                              line.ends_with(" OSDev object(s)");
+                                   }),
+              lines.end());
 }
 
 TEST(EmitXml, DiagnosticsCarryNoPlantedValue) {

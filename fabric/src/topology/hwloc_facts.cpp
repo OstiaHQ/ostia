@@ -4,16 +4,11 @@
 #include <array>
 #include <cstdio>
 #include <cstdlib>
+#include <utility>
 
 namespace ostia::fabric::topology {
 
 namespace {
-
-std::string bus_id(unsigned domain, unsigned bus, unsigned dev, unsigned func) {
-    std::array<char, 32> buf{};
-    std::snprintf(buf.data(), buf.size(), "%04x:%02x:%02x.%01x", domain, bus, dev, func);
-    return buf.data();
-}
 
 std::string host_bridge_key(unsigned domain, unsigned bus) {
     std::array<char, 40> buf{};
@@ -21,21 +16,11 @@ std::string host_bridge_key(unsigned domain, unsigned bus) {
     return buf.data();
 }
 
-// A PCI bridge has an upstream bus ID; a host bridge does not.
-bool has_bus_id(hwloc_obj_t obj) {
-    return obj->type == HWLOC_OBJ_PCI_DEVICE ||
-           (obj->type == HWLOC_OBJ_BRIDGE &&
-            obj->attr->bridge.upstream_type == HWLOC_OBJ_BRIDGE_PCI);
-}
+bool has_bus_id(hwloc_obj_t obj) { return bus_id_of(obj).has_value(); }
 
 std::string key_of(hwloc_obj_t obj) {
-    if (obj->type == HWLOC_OBJ_PCI_DEVICE) {
-        const auto& p = obj->attr->pcidev;
-        return bus_id(p.domain, p.bus, p.dev, p.func);
-    }
-    if (has_bus_id(obj)) {
-        const auto& p = obj->attr->bridge.upstream.pci;
-        return bus_id(p.domain, p.bus, p.dev, p.func);
+    if (std::optional<std::string> id = bus_id_of(obj)) {
+        return std::move(*id);
     }
     const auto& d = obj->attr->bridge.downstream.pci;
     return host_bridge_key(d.domain, d.secondary_bus);
@@ -86,6 +71,21 @@ PciFacts pci_facts(hwloc_topology_t topo, hwloc_obj_t obj, const PcieMaxMap* pci
 }
 
 } // namespace
+
+std::optional<std::string> bus_id_of(hwloc_obj_t obj) {
+    // A PCI bridge has an upstream bus ID; a host bridge does not.
+    const bool pci_bridge =
+        obj->type == HWLOC_OBJ_BRIDGE && obj->attr->bridge.upstream_type == HWLOC_OBJ_BRIDGE_PCI;
+    if (obj->type != HWLOC_OBJ_PCI_DEVICE && !pci_bridge) {
+        return std::nullopt;
+    }
+    const auto& p = pci_bridge ? obj->attr->bridge.upstream.pci : obj->attr->pcidev;
+    std::array<char, 32> buf{};
+    std::snprintf(buf.data(), buf.size(), "%04x:%02x:%02x.%01x", static_cast<unsigned>(p.domain),
+                  static_cast<unsigned>(p.bus), static_cast<unsigned>(p.dev),
+                  static_cast<unsigned>(p.func));
+    return std::string(buf.data());
+}
 
 void extract_hwloc_facts(hwloc_topology_t topo, const PcieMaxMap* pcie_max, Facts& facts) {
     const int packages = hwloc_get_nbobjs_by_type(topo, HWLOC_OBJ_PACKAGE);
