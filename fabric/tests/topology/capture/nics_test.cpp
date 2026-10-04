@@ -40,8 +40,11 @@ class CopiedRoot : public testing::Test {
     void SetUp() override {
         const testing::TestInfo* info = testing::UnitTest::GetInstance()->current_test_info();
         // Each discovered test runs in its own process, possibly in parallel.
-        copy_ = fs::path(testing::TempDir()) / (std::string("ostia-capture-root-") + info->name() +
-                                                "-" + std::to_string(getpid()));
+        std::string dir = "ostia-capture-root-";
+        dir += info->name();
+        dir += "-";
+        dir += std::to_string(getpid());
+        copy_ = fs::path(testing::TempDir()) / dir;
         fs::remove_all(copy_);
         fs::create_directories(copy_);
         fs::copy(fake_root(), copy_, fs::copy_options::recursive | fs::copy_options::copy_symlinks);
@@ -105,7 +108,14 @@ std::vector<NicFacts> scan_with_verbs(const fs::path& root, const VerbsPort& por
 } // namespace
 
 TEST_F(CopiedRoot, VerbsCodesConvertToMbps) {
-    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 128, 2};
+    VerbsPort port{.device = "mlx5_1",
+                   .bus_id = "0000:12:00.0",
+                   .state = "ACTIVE",
+                   .link_layer = "InfiniBand",
+                   .gpudirect = "yes",
+                   .port = 1,
+                   .active_speed = 128,
+                   .active_width = 2};
     Diagnostics diag;
     const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
     ASSERT_EQ(nics.size(), 2U);
@@ -116,7 +126,14 @@ TEST_F(CopiedRoot, VerbsCodesConvertToMbps) {
 }
 
 TEST_F(CopiedRoot, UnknownVerbsCodeLeavesSpeedUnknown) {
-    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 999, 2};
+    VerbsPort port{.device = "mlx5_1",
+                   .bus_id = "0000:12:00.0",
+                   .state = "ACTIVE",
+                   .link_layer = "InfiniBand",
+                   .gpudirect = "yes",
+                   .port = 1,
+                   .active_speed = 999,
+                   .active_width = 2};
     Diagnostics diag;
     const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
     ASSERT_EQ(nics.size(), 2U);
@@ -127,8 +144,14 @@ TEST_F(CopiedRoot, UnknownVerbsCodeLeavesSpeedUnknown) {
 }
 
 TEST_F(CopiedRoot, StringVerbsSpeedLeavesSpeedUnknown) {
-    VerbsPort port{"mlx5_1", "0000:12:00.0",     "ACTIVE", "InfiniBand", "yes",
-                   1,        std::string("NDR"), 2};
+    VerbsPort port{.device = "mlx5_1",
+                   .bus_id = "0000:12:00.0",
+                   .state = "ACTIVE",
+                   .link_layer = "InfiniBand",
+                   .gpudirect = "yes",
+                   .port = 1,
+                   .active_speed = std::string("NDR"),
+                   .active_width = 2};
     Diagnostics diag;
     const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
     ASSERT_EQ(nics.size(), 2U);
@@ -159,7 +182,14 @@ TEST_F(CopiedRoot, DownIpoibNetdevStillUsesTheIbSysfsRate) {
 
 TEST_F(CopiedRoot, DownIpoibNetdevStillUsesTheVerbsSpeed) {
     add_down_ipoib_netdev(copy_);
-    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 128, 2};
+    VerbsPort port{.device = "mlx5_1",
+                   .bus_id = "0000:12:00.0",
+                   .state = "ACTIVE",
+                   .link_layer = "InfiniBand",
+                   .gpudirect = "yes",
+                   .port = 1,
+                   .active_speed = 128,
+                   .active_width = 2};
     Diagnostics diag;
     const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
     ASSERT_EQ(nics.size(), 2U);

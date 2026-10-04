@@ -1,6 +1,7 @@
 #include <cstring>
 #include <gtest/gtest.h>
 #include <string>
+#include <type_traits>
 
 #include "core/diagnostics.hpp"
 #include "core/result.hpp"
@@ -33,5 +34,5 @@ TEST(CaptureDeps, ToolVersionIsDefined) { EXPECT_GT(std::strlen(OSTIA_TOOL_VERSI
 
 #ifdef __linux__
 // RFC-0003 §1: the probe compiles against rdma-core headers and dlopens the library.
-static_assert(sizeof(ibv_port_attr) > 0);
+static_assert(std::is_class_v<ibv_port_attr>);
 #endif

@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <initializer_list>
 #include <optional>
+#include <string>
 #include <utility>
 
 namespace ostia::fabric::topology::capture {
@@ -23,18 +25,26 @@ struct GenEntry {
     int gen;
 };
 constexpr std::array<GenEntry, 6> kGenTable{{
-    {"2.5", 1},
-    {"5.0", 2},
-    {"8.0", 3},
-    {"16.0", 4},
-    {"32.0", 5},
-    {"64.0", 6},
+    {.text = "2.5", .gen = 1},
+    {.text = "5.0", .gen = 2},
+    {.text = "8.0", .gen = 3},
+    {.text = "16.0", .gen = 4},
+    {.text = "32.0", .gen = 5},
+    {.text = "64.0", .gen = 6},
 }};
 
 struct PortFacts {
     std::variant<int, std::string> speed_mbps;
     std::string link_layer;
 };
+
+std::string join(std::initializer_list<std::string_view> parts) {
+    std::string out;
+    for (const std::string_view part : parts) {
+        out += part;
+    }
+    return out;
+}
 
 std::optional<std::uint32_t> parse_hex(const std::string& text) {
     if (text.empty()) {
@@ -87,34 +97,36 @@ std::string link_layer_from_type(const std::string& type) {
 }
 
 std::optional<PortFacts> net_facts(const SysfsReader& sysfs, const std::string& dev) {
-    const std::string net = std::string(kPciDevices) + dev + "/net";
+    const std::string net = join({kPciDevices, dev, "/net"});
     std::optional<PortFacts> down;
     for (const std::string& ifname : sysfs.list(net)) {
-        const std::optional<std::string> speed = sysfs.read(net + "/" + ifname + "/speed");
-        const std::optional<std::string> type = sysfs.read(net + "/" + ifname + "/type");
+        const std::optional<std::string> speed = sysfs.read(join({net, "/", ifname, "/speed"}));
+        const std::optional<std::string> type = sysfs.read(join({net, "/", ifname, "/type"}));
         const std::optional<int> mbps = speed ? parse_int(*speed) : std::nullopt;
         std::string layer = type ? link_layer_from_type(*type) : "unknown";
         // A link that is down reports -1: the speed is unknown but the type still names the layer.
         if (mbps && *mbps > 0) {
-            return PortFacts{*mbps, std::move(layer)};
+            return PortFacts{.speed_mbps = *mbps, .link_layer = std::move(layer)};
         }
         if (!down && layer != "unknown") {
-            down = PortFacts{std::string("unknown"), std::move(layer)};
+            down = PortFacts{.speed_mbps = std::string("unknown"), .link_layer = std::move(layer)};
         }
     }
     return down;
 }
 
 std::optional<PortFacts> ib_facts(const SysfsReader& sysfs, const std::string& dev) {
-    const std::string ib = std::string(kPciDevices) + dev + "/infiniband";
+    const std::string ib = join({kPciDevices, dev, "/infiniband"});
     for (const std::string& ibdev : sysfs.list(ib)) {
-        const std::string ports = ib + "/" + ibdev + "/ports";
+        const std::string ports = join({ib, "/", ibdev, "/ports"});
         for (const std::string& port : sysfs.list(ports)) {
-            const std::optional<std::string> rate = sysfs.read(ports + "/" + port + "/rate");
-            const std::optional<std::string> layer = sysfs.read(ports + "/" + port + "/link_layer");
+            const std::optional<std::string> rate = sysfs.read(join({ports, "/", port, "/rate"}));
+            const std::optional<std::string> layer =
+                sysfs.read(join({ports, "/", port, "/link_layer"}));
             const std::optional<int> mbps = rate ? parse_rate_mbps(*rate) : std::nullopt;
             if (mbps) {
-                return PortFacts{*mbps, layer ? lowered(*layer) : "unknown"};
+                return PortFacts{.speed_mbps = *mbps,
+                                 .link_layer = layer ? lowered(*layer) : "unknown"};
             }
         }
     }
@@ -126,17 +138,21 @@ struct CodeValue {
     int value;
 };
 // ibverbs active_speed codes: per-lane Mb/s.
-constexpr std::array<CodeValue, 9> kVerbsSpeeds{{{1, 2500},
-                                                 {2, 5000},
-                                                 {4, 10000},
-                                                 {8, 10000},
-                                                 {16, 14000},
-                                                 {32, 25000},
-                                                 {64, 50000},
-                                                 {128, 100000},
-                                                 {256, 200000}}};
+constexpr std::array<CodeValue, 9> kVerbsSpeeds{{{.code = 1, .value = 2500},
+                                                 {.code = 2, .value = 5000},
+                                                 {.code = 4, .value = 10000},
+                                                 {.code = 8, .value = 10000},
+                                                 {.code = 16, .value = 14000},
+                                                 {.code = 32, .value = 25000},
+                                                 {.code = 64, .value = 50000},
+                                                 {.code = 128, .value = 100000},
+                                                 {.code = 256, .value = 200000}}};
 // ibverbs active_width codes: lane counts.
-constexpr std::array<CodeValue, 5> kVerbsWidths{{{1, 1}, {2, 4}, {4, 8}, {8, 12}, {16, 2}}};
+constexpr std::array<CodeValue, 5> kVerbsWidths{{{.code = 1, .value = 1},
+                                                 {.code = 2, .value = 4},
+                                                 {.code = 4, .value = 8},
+                                                 {.code = 8, .value = 12},
+                                                 {.code = 16, .value = 2}}};
 
 template <std::size_t N>
 std::optional<int> lookup(const std::array<CodeValue, N>& table,
@@ -164,7 +180,7 @@ std::optional<PortFacts> verbs_facts(const std::vector<VerbsPort>& verbs, const 
         if (lane && lanes) {
             speed = *lane * *lanes;
         }
-        return PortFacts{std::move(speed), lowered(port.link_layer)};
+        return PortFacts{.speed_mbps = std::move(speed), .link_layer = lowered(port.link_layer)};
     }
     return std::nullopt;
 }
@@ -192,8 +208,8 @@ std::vector<NicFacts> scan_nics(const SysfsReader& sysfs, const std::vector<Verb
     std::vector<NicFacts> nics;
     std::size_t skipped_vfs = 0;
     for (const std::string& dev : sysfs.list(kPciDevices)) {
-        const std::string base = std::string(kPciDevices) + dev;
-        const std::optional<std::string> cls_text = sysfs.read(base + "/class");
+        const std::string base = join({kPciDevices, dev});
+        const std::optional<std::string> cls_text = sysfs.read(join({base, "/class"}));
         const std::optional<std::uint32_t> cls = cls_text ? parse_hex(*cls_text) : std::nullopt;
         if (!cls) {
             continue;
@@ -202,28 +218,28 @@ std::vector<NicFacts> scan_nics(const SysfsReader& sysfs, const std::vector<Verb
         if (top != kClassEthernet && top != kClassInfiniband) {
             continue;
         }
-        if (sysfs.link_name(base + "/physfn")) {
+        if (sysfs.link_name(join({base, "/physfn"}))) {
             ++skipped_vfs;
             continue;
         }
 
-        NicFacts nic{dev,
-                     sysfs.link_name(base + "/driver").value_or("unknown"),
-                     "unknown",
-                     0,
-                     0,
-                     -1,
-                     std::string("unknown")};
-        const std::optional<std::string> speed = sysfs.read(base + "/max_link_speed");
+        NicFacts nic{.bus_id = dev,
+                     .driver = sysfs.link_name(join({base, "/driver"})).value_or("unknown"),
+                     .link_layer = "unknown",
+                     .max_gen = 0,
+                     .max_width = 0,
+                     .numa = -1,
+                     .port_speed_mbps = std::string("unknown")};
+        const std::optional<std::string> speed = sysfs.read(join({base, "/max_link_speed"}));
         if (speed) {
             nic.max_gen = parse_pcie_gen(*speed);
             if (nic.max_gen == 0) {
-                diag.add("nic " + dev + ": unrecognised max_link_speed");
+                diag.add(join({"nic ", dev, ": unrecognised max_link_speed"}));
             }
         }
-        const std::optional<std::string> width = sysfs.read(base + "/max_link_width");
+        const std::optional<std::string> width = sysfs.read(join({base, "/max_link_width"}));
         nic.max_width = width ? parse_int(*width).value_or(0) : 0;
-        const std::optional<std::string> numa = sysfs.read(base + "/numa_node");
+        const std::optional<std::string> numa = sysfs.read(join({base, "/numa_node"}));
         nic.numa = numa ? parse_int(*numa).value_or(-1) : -1;
 
         // The first source with a known speed wins; a source that only knows the layer (a down
@@ -251,12 +267,13 @@ std::vector<NicFacts> scan_nics(const SysfsReader& sysfs, const std::vector<Verb
             }
         }
         if (std::holds_alternative<std::string>(nic.port_speed_mbps)) {
-            diag.add("nic " + dev + ": port facts unknown (host network namespace not visible)");
+            diag.add(
+                join({"nic ", dev, ": port facts unknown (host network namespace not visible)"}));
         }
         nics.push_back(std::move(nic));
     }
     if (skipped_vfs > 0) {
-        diag.add("skipped " + std::to_string(skipped_vfs) + " SR-IOV virtual function(s)");
+        diag.add(join({"skipped ", std::to_string(skipped_vfs), " SR-IOV virtual function(s)"}));
     }
     return nics;
 }
