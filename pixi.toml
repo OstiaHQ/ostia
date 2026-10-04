@@ -36,6 +36,13 @@ git = ">=2.56"          # CPM fetches inside remote pods, which cannot apt-get (
 setuptools = ">=77"     # build backend of the ostia-dev editable, without build isolation
 libhwloc = "2.12.*"     # topology fixture replay on every platform (RFC-0003 §9)
 
+# rdma-core's infiniband/verbs.h, so ostia-topo-capture compiles its ibverbs probe in every
+# environment; the library is dlopened at run time (RFC-0003 §1).
+[target.linux-64.dependencies]
+rdma-core = "65.*"
+[target.linux-aarch64.dependencies]
+rdma-core = "65.*"
+
 # ostia-dev, the contributor CLI, editable in every environment (RFC-0005 §1.1).
 [pypi-dependencies]
 ostia-dev = { path = "tools/ostia-dev", editable = true }

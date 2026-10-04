@@ -79,6 +79,21 @@ macro(ostia_dep_hwloc)
   endif()
 endmacro()
 
+# rdma-core headers for ostia-topo-capture's ibverbs probe; the library is dlopened, so
+# only infiniband/verbs.h is needed (RFC-0003 §1).
+macro(ostia_dep_ibverbs_headers)
+  find_package(ibverbs MODULE)
+  if(NOT ibverbs_FOUND)
+    ostia_fail(
+      PROBLEM "rdma-core headers (infiniband/verbs.h) were not found"
+      RULE "ostia-topo-capture compiles its ibverbs probe against rdma-core headers"
+      FIX
+        "use pixi (pixi install), or install libibverbs-dev (Debian/Ubuntu) or rdma-core-devel (Rocky/RHEL), or configure with -DOSTIA_BUILD_TOOLS=OFF"
+      SEE "RFC-0003 §1"
+    )
+  endif()
+endmacro()
+
 # CUDA benchmark dependencies (RFC-0001 §2.3, §6.1): CCCL from GitHub, and nvbench.
 # nvbench has no C++ release tags; its python-X.Y.Z tags mark the whole repository.
 function(ostia_dep_cccl)

@@ -30,3 +30,24 @@ target_compile_definitions(
   PRIVATE OSTIA_TOPO_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/fabric/tests/fixtures/topology"
 )
 gtest_discover_tests(ostia_fabric_topology_tests PROPERTIES LABELS cpu)
+
+# The capture core is built with the tools; its host-only tests run on every platform.
+if(TARGET ostia_topo_capture_core)
+  add_executable(ostia_topo_capture_tests topology/capture/deps_test.cpp)
+  target_link_libraries(ostia_topo_capture_tests PRIVATE ostia_topo_capture_core GTest::gtest_main)
+  if(OSTIA_SANITIZE)
+    target_compile_definitions(ostia_topo_capture_tests PRIVATE OSTIA_TOPO_SANITIZED)
+  endif()
+  target_compile_definitions(
+    ostia_topo_capture_tests
+    PRIVATE
+      OSTIA_TOPO_DATA_DIR="${PROJECT_SOURCE_DIR}/fabric/tests/topology/data"
+      OSTIA_TOPO_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/fabric/tests/fixtures/topology"
+  )
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(ostia_topo_capture_tests PRIVATE ibverbs::headers)
+  endif()
+  gtest_discover_tests(ostia_topo_capture_tests PROPERTIES LABELS cpu)
+else()
+  message(STATUS "ostia: capture tests skipped (OSTIA_BUILD_TOOLS=OFF)")
+endif()

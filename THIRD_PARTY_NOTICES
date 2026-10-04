@@ -9,7 +9,8 @@ This file lists the third-party software Ostia uses, as approved by RFC-0001 §2
 downloads a pinned release at build time (RFC-0001 §2.4). "System" means the build
 finds an existing installation. "dlopen" means it is loaded at runtime and never
 linked or bundled. Full license texts are included here for vendored code and for
-code the topology model compiles in or links (nlohmann/json, hwloc); they are added
+code the topology model compiles in or links (nlohmann/json, hwloc) and for the
+rdma-core headers the capture tool compiles against; they are added
 for any other component before a binary release that bundles it (PRD, Third-party
 code).
 
@@ -21,7 +22,7 @@ nanobind            BSD-3-Clause                     Fetched, Python bindings   
 nlohmann/json       MIT                              Fetched, header-only, topology model      M0
 hwloc               BSD-3-Clause                     System (pixi), topology discovery         M0/M1
 UCX                 BSD-3-Clause                     System (pixi, Linux), transports          M0/M1
-rdma-core           BSD-2-Clause or GPL-2.0          System (pixi, Linux), with UCX            M0/M1
+rdma-core           BSD-2-Clause or GPL-2.0          System (pixi, Linux), with UCX                M0/M1
 opentelemetry-cpp   Apache-2.0                       Fetched, static, symbols hidden           RFC-0002
 protobuf            BSD-3-Clause                     Fetched, static, symbols hidden           RFC-0002
 abseil              Apache-2.0                       Fetched, static, symbols hidden           RFC-0002
@@ -121,6 +122,35 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+rdma-core headers (system, from conda-forge's rdma-core; https://github.com/linux-rdma/rdma-core)
+------------------------------------------------------------------------------------------------
+
+rdma-core is dual licensed BSD-2-Clause or GPL-2.0; Ostia uses it under BSD-2-Clause
+(COPYING.BSD_FB). The topology capture tool compiles against infiniband/verbs.h and loads
+libibverbs.so.1 at run time; it links no rdma-core library.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 
 nlohmann/json (fetched at 55f93686c01528224f448c19128836e7df245f72; https://github.com/nlohmann/json)
