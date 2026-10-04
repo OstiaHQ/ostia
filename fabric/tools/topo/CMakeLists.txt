@@ -39,4 +39,36 @@ if(OSTIA_BUILD_TESTS)
       ${CMAKE_CURRENT_SOURCE_DIR}/expect-exit.cmake
   )
   set_tests_properties(fabric.topo.bad_pair_exit PROPERTIES LABELS cpu)
+
+  # `ostia-topo diff`: equal ids exit 0, different ids exit 1, and the identity diff names the
+  # NVLink count that changed.
+  set(
+    _ostia_diff
+    ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/diff-case.py
+    --tool
+    $<TARGET_FILE:ostia-topo>
+    --fixture
+    ${PROJECT_SOURCE_DIR}/fabric/tests/fixtures/topology/synthetic/broken-nvlink
+  )
+  add_test(
+    NAME fabric.topo.diff.self
+    COMMAND ${_ostia_diff} --mutation none --expect 0
+  )
+  add_test(
+    NAME fabric.topo.diff.nvlink
+    COMMAND
+      ${_ostia_diff} --mutation nvlink --expect 1 --output
+      "(?m)^-  \\[.*\"kind\":\"nvlink\",\"links\":[0-9]+"
+  )
+  add_test(
+    NAME fabric.topo.diff.renumbered
+    COMMAND ${_ostia_diff} --mutation renumber --expect 0
+  )
+  set_tests_properties(
+    fabric.topo.diff.self
+    fabric.topo.diff.nvlink
+    fabric.topo.diff.renumbered
+    PROPERTIES LABELS cpu
+  )
 endif()
