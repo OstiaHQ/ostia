@@ -397,10 +397,11 @@ def _script(path, body):
 
 
 def _tool(path, *, code=0, out=TOPO, err="", count=None):
+    # The planted text goes through files, so no character in it can break the script.
+    path.with_name(path.name + ".out").write_text(out + "\n")
+    path.with_name(path.name + ".err").write_text(err + "\n")
     tally = f'echo call >> "{count}"\n' if count else ""
-    return _script(
-        path, f"{tally}printf '%s\\n' '{out}'\nprintf '%s\\n' '{err}' >&2\nexit {code}\n"
-    )
+    return _script(path, f'{tally}cat "$0.out"\ncat "$0.err" >&2\nexit {code}\n')
 
 
 DEVICES = '{"src_bus": "0000:3b:00.0", "dst_bus": "0000:86:00.0"}'
@@ -582,9 +583,10 @@ def test_nvbench_runs_in_pci_bus_order(tmp_path, monkeypatch):
 
 
 def test_a_warning_line_in_the_tools_stderr_stays_indented(program, tmp_path, monkeypatch, capsys):
-    err = "warning: the tool's own\n  status: partial, exit 2"
+    err = "warning: the capture tool own warning\n  status: partial, exit 2"
     monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(_tool(tmp_path / "cap", code=2, err=err)))
     assert _drive(tmp_path, program) == 0
     lines = capsys.readouterr().err.splitlines()
     assert len([ln for ln in lines if ln.startswith("warning:")]) == 1
-    assert "  warning: the tool's own" not in lines  # its text is quoted, never a second warning
+    assert "  warning: the capture tool own warning" in lines
+    assert "  status: partial, exit 2" in lines
