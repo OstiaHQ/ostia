@@ -1,34 +1,11 @@
 #include <cstdlib>
 #include <filesystem>
-#include <string>
-#include <string_view>
 #include <system_error>
 #include <unistd.h>
 
 #include "live/live.hpp"
 
 namespace ostia::fabric::topology::capture {
-
-namespace {
-
-// A cgroup or cpuset can hide PUs and NUMA nodes from the capturing process; the capture keeps
-// them (INCLUDE_DISALLOWED) but says so, as counts only.
-void report_disallowed(hwloc_const_bitmap_t allowed, hwloc_const_bitmap_t complete,
-                       std::string_view what, Diagnostics& diag) {
-    if (allowed == nullptr || complete == nullptr || hwloc_bitmap_isequal(allowed, complete) != 0) {
-        return;
-    }
-    std::string line = "hwloc: the allowed ";
-    line += what;
-    line += " set is narrower than the complete one (";
-    line += std::to_string(hwloc_bitmap_weight(allowed));
-    line += " of ";
-    line += std::to_string(hwloc_bitmap_weight(complete));
-    line += " allowed)";
-    diag.add(line);
-}
-
-} // namespace
 
 TopologyPtr load_live_topology(Diagnostics& diag) {
     hwloc_topology_t raw = nullptr;
@@ -58,10 +35,7 @@ TopologyPtr load_live_topology(Diagnostics& diag) {
         diag.add("hwloc: topology load failed");
         return nullptr;
     }
-    report_disallowed(hwloc_topology_get_allowed_cpuset(raw),
-                      hwloc_topology_get_complete_cpuset(raw), "PU", diag);
-    report_disallowed(hwloc_topology_get_allowed_nodeset(raw),
-                      hwloc_topology_get_complete_nodeset(raw), "NUMA node", diag);
+    // A cgroup-narrowed cpuset or nodeset is reported once, by emit_xml, which writes the file.
     return topo;
 }
 

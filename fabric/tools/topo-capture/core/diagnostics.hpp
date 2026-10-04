@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,5 +17,8 @@ class Diagnostics {
   private:
     std::vector<std::string> lines_;
 };
+
+// "12.345": milliseconds with three decimals, the one duration form diagnostics use.
+std::string fixed_ms(std::chrono::steady_clock::duration elapsed);
 
 } // namespace ostia::fabric::topology::capture

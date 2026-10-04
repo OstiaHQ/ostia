@@ -15,11 +15,6 @@ namespace {
 namespace fs = std::filesystem;
 using nlohmann::json;
 
-struct TopologyDeleter {
-    void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
-};
-using TopologyPtr = std::unique_ptr<hwloc_topology, TopologyDeleter>;
-
 json read_json(const fs::path& dir, const std::string& name, bool required, const char* schema) {
     const fs::path path = dir / name;
     if (!fs::exists(path)) {

@@ -78,10 +78,7 @@ constexpr std::array<std::string_view, 8> kPlanted{
     "OSTIA-GPU-SERIAL-0001", "OSTIA-BOARD-0001",
 };
 
-struct TopologyDeleter {
-    void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
-};
-using TopologyPtr = std::unique_ptr<hwloc_topology, TopologyDeleter>;
+using ostia::fabric::topology::TopologyPtr;
 
 // The flags the live capture and FixtureSource use.
 TopologyPtr load(const fs::path& xml) {

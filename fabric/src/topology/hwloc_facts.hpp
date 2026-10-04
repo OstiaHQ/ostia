@@ -2,12 +2,20 @@
 
 #include <hwloc.h>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 
 #include "topology/source.hpp"
 
 namespace ostia::fabric::topology {
+
+// The one owner type for a loaded hwloc topology: replay, the capture's re-import check and
+// live discovery all release it the same way.
+struct TopologyDeleter {
+    void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
+};
+using TopologyPtr = std::unique_ptr<hwloc_topology, TopologyDeleter>;
 
 // Maximum PCIe link generation and width; 0 means unknown (RFC-0003 §2.1).
 struct PcieMax {

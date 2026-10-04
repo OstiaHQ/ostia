@@ -42,14 +42,7 @@ constexpr unsigned kVendorNvidia = 0x10de;
 constexpr unsigned kClassDisplay = 0x03;
 
 std::string ms_since(Clock::time_point start) {
-    const auto us =
-        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start).count();
-    constexpr long long kUsPerMs = 1000;
-    std::string out = std::to_string(us / kUsPerMs);
-    out += '.';
-    const std::string frac = std::to_string(us % kUsPerMs);
-    out.append(3 - frac.size(), '0');
-    out += frac;
+    std::string out = fixed_ms(Clock::now() - start);
     out += " ms";
     return out;
 }

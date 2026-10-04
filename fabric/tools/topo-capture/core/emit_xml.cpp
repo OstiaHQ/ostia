@@ -409,10 +409,6 @@ void report_restriction(hwloc_topology_t topo, Diagnostics& diag) {
     }
 }
 
-struct TopologyDeleter {
-    void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
-};
-
 std::optional<int> parse_int(const std::string& text) {
     int value = 0;
     const char* const last = text.data() + text.size();
@@ -438,7 +434,7 @@ void reimport_check(const std::string& xml) {
     if (hwloc_topology_init(&raw) != 0) {
         throw TopologyError("xml", "hwloc.xml", "hwloc_topology_init failed");
     }
-    const std::unique_ptr<hwloc_topology, TopologyDeleter> topo(raw);
+    const TopologyPtr topo(raw);
     // The replay flags (RFC-0003 §2.1), so what passes here is what FixtureSource loads.
     hwloc_topology_set_flags(raw, HWLOC_TOPOLOGY_FLAG_INCLUDE_DISALLOWED);
     hwloc_topology_set_io_types_filter(raw, HWLOC_TYPE_FILTER_KEEP_IMPORTANT);

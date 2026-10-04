@@ -6,15 +6,13 @@
 #include "core/apis.hpp"
 #include "core/diagnostics.hpp"
 #include "core/sysfs.hpp"
+#include "topology/hwloc_facts.hpp"
 
 // The Linux-only sources (RFC-0003 §1): hwloc's own discovery, and NVML and ibverbs through
 // dlopen, so the tool runs on machines without either library and never links them.
 namespace ostia::fabric::topology::capture {
 
-struct TopologyDeleter {
-    void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
-};
-using TopologyPtr = std::unique_ptr<hwloc_topology, TopologyDeleter>;
+using topology::TopologyPtr;
 
 // Discovery with the replay flags (RFC-0003 §2.1). hwloc itself honours HWLOC_XMLFILE, which is
 // how tests substitute a machine. nullptr when hwloc cannot load a topology.

@@ -39,10 +39,7 @@ namespace {
 namespace fs = std::filesystem;
 using nlohmann::json;
 
-struct TopologyDeleter {
-    void operator()(hwloc_topology* topo) const { hwloc_topology_destroy(topo); }
-};
-using TopologyPtr = std::unique_ptr<hwloc_topology, TopologyDeleter>;
+using ostia::fabric::topology::TopologyPtr;
 
 // The flags FixtureSource replays with, so emit sees what replay sees.
 TopologyPtr load(const fs::path& xml) {
