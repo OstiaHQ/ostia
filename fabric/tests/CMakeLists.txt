@@ -59,3 +59,12 @@ if(TARGET ostia_topo_capture_core)
   endif()
   gtest_discover_tests(ostia_topo_capture_tests PROPERTIES LABELS cpu)
 endif()
+
+# Captures the machine it runs on and replays the capture, so it needs a GPU: the executable
+# supplies its own main to skip with 77 when NVML lists none (RFC-0001 §4.2).
+if(TARGET ostia_topo_capture_live)
+  add_executable(ostia_topo_capture_live_tests topology/capture/live_vs_replay_test.cpp)
+  target_link_libraries(ostia_topo_capture_live_tests PRIVATE ostia_topo_capture_live GTest::gtest)
+  add_test(NAME fabric.topo.live_vs_replay COMMAND ostia_topo_capture_live_tests)
+  set_tests_properties(fabric.topo.live_vs_replay PROPERTIES LABELS gpu SKIP_RETURN_CODE 77)
+endif()
