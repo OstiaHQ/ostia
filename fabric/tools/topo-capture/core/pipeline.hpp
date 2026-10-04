@@ -24,6 +24,9 @@ struct PipelineHooks {
     // Runs in --out after diagnostics.txt is written and before the manifest; a throw stands
     // for a failed write there.
     std::function<void(const std::filesystem::path& out)> before_manifest;
+    // Runs in print_id after the capture into its temporary directory returns and before that
+    // directory is removed: the window a late signal can hit.
+    std::function<void(const std::filesystem::path& dir)> after_print_id_capture;
 };
 
 struct Inputs {

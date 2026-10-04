@@ -697,6 +697,65 @@ TEST_F(Pipeline, AVerbsPortOutsideHwlocIsSkipped) {
     EXPECT_EQ(nics["rdma"][0]["bus_id"], "0000:12:00.0");
 }
 
+// A VMD domain above 0xffff has no place in nics.json's bus ID form, so the NIC or port is
+// dropped and counted rather than failing the capture on the schema.
+TEST_F(Pipeline, BusIdsNicsJsonCannotHoldAreSkipped) {
+    const fs::path root = dir_ / "root";
+    fs::copy(data_dir() / "capture-root" / "sys", root,
+             fs::copy_options::recursive | fs::copy_options::copy_symlinks);
+    write_file(root / "bus" / "pci" / "devices" / "10000:00:01.0" / "class", "0x020000\n");
+    auto machine = gpu_machine(
+        FakeNvml(l4_facts()),
+        FakeVerbs(std::vector<VerbsPort>{ib_port("0000:12:00.0"), ib_port("10000:12:00.0")}));
+    machine->sysfs = SysfsReader(root);
+    Diagnostics diag;
+    const CaptureOutcome outcome = capture(machine->inputs(), out_, diag);
+    ASSERT_EQ(outcome.exit_code, 0);
+    const std::string text = diag.render();
+    EXPECT_EQ(count_lines_with(text, "nics: skipped 1 NIC(s) whose bus ID nics.json cannot hold"),
+              1U);
+    EXPECT_EQ(count_lines_with(text, "verbs: skipped 1 port(s) whose bus ID nics.json cannot hold"),
+              1U);
+    const json nics = read_json(out_ / "nics.json");
+    EXPECT_EQ(nics["nics"].size(), 2U);
+    EXPECT_EQ(nics["rdma"].size(), 1U);
+}
+
+TEST_F(Pipeline, AnUnusableTmpdirIsInternalNotWriteFailed) {
+    if (::geteuid() == 0) {
+        GTEST_SKIP() << "root writes into a mode 0500 directory";
+    }
+    const auto machine = gpu_machine();
+    fs::permissions(tmp_, fs::perms::owner_read | fs::perms::owner_exec);
+    Diagnostics diag;
+    const CaptureOutcome outcome = capture(machine->inputs(), out_, diag);
+    fs::permissions(tmp_, fs::perms::owner_all);
+    ASSERT_EQ(outcome.exit_code, 1);
+    expect_failed_shape(outcome);
+    const json m = manifest();
+    ASSERT_EQ(m["errors"].size(), 1U);
+    EXPECT_EQ(m["errors"][0]["code"], "internal");
+    EXPECT_EQ(count_lines_with(diagnostics(), "no scratch directory"), 1U);
+}
+
+// The capture's own tracking ends when it returns; print_id keeps every name it could have
+// written tracked until its directory is gone, so a signal in between leaves nothing.
+TEST_F(Pipeline, ALateSignalInPrintIdLeavesNothing) {
+    const auto machine = gpu_machine();
+    Inputs in = machine->inputs();
+    bool ran = false;
+    in.hooks.after_print_id_capture = [&ran](const fs::path& dir) {
+        ran = true;
+        EXPECT_TRUE(fs::exists(dir / "hwloc.xml"));
+        run_signal_cleanup();
+        EXPECT_FALSE(fs::exists(dir));
+    };
+    Diagnostics diag;
+    ASSERT_EQ(print_id(in, diag).exit_code, 0);
+    EXPECT_TRUE(ran);
+    EXPECT_TRUE(tmp_is_empty());
+}
+
 // RFC-0003 Performance: the largest expected machine. A whole-pipeline budget, so wider than the
 // 1 s replay bound.
 TEST_F(Pipeline, PrintIdOfTheLargestShapeIsFast) {

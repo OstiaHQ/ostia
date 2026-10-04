@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -20,6 +19,7 @@
 #include "core/leak.hpp"
 #include "core/manifest.hpp"
 #include "core/nics.hpp"
+#include "core/writers.hpp"
 #include "topology/builder.hpp"
 #include "topology/error.hpp"
 #include "topology/fixture_source.hpp"
@@ -82,6 +82,16 @@ std::string count_of(std::size_t n, std::string_view noun) {
     return out;
 }
 
+// A bus ID nics.json cannot hold (a VMD domain above 0xffff, say) drops its NIC or port, as an
+// unwritable NVLink remote is dropped, rather than failing the whole capture on the schema.
+template <typename Item> std::size_t drop_unwritable_bus_ids(std::vector<Item>& items) {
+    const auto dropped = std::ranges::remove_if(
+        items, [](const Item& item) { return !normalize_bus_id(item.bus_id).ok(); });
+    const auto count = static_cast<std::size_t>(std::ranges::distance(dropped));
+    items.erase(dropped.begin(), dropped.end());
+    return count;
+}
+
 // Everything the writers consume, read once so capture and live_facts see the same sources.
 struct Sources {
     PcieMaxMap pcie_max;
@@ -129,6 +139,11 @@ Sources read_sources(const Inputs& in, Diagnostics& diag) {
         s.ports = in.verbs->ports();
     }
     if (s.ports) {
+        const std::size_t malformed = drop_unwritable_bus_ids(*s.ports);
+        if (malformed > 0) {
+            diag.add("verbs: skipped " +
+                     count_of(malformed, "port(s) whose bus ID nics.json cannot hold"));
+        }
         // A port hwloc does not list (rxe, siw, a device outside a fake root) would be a dangling
         // reference in the model, so it is dropped here rather than failing the replay.
         const auto dropped = std::ranges::remove_if(*s.ports, [&s](const VerbsPort& port) {
@@ -154,6 +169,10 @@ Sources read_sources(const Inputs& in, Diagnostics& diag) {
 
     start = Clock::now();
     s.nics = scan_nics(*in.sysfs, s.ports.value_or(std::vector<VerbsPort>{}), diag);
+    if (const std::size_t malformed = drop_unwritable_bus_ids(s.nics); malformed > 0) {
+        diag.add("nics: skipped " +
+                 count_of(malformed, "NIC(s) whose bus ID nics.json cannot hold"));
+    }
     const auto dropped = std::ranges::remove_if(
         s.nics, [&s](const NicFacts& nic) { return !s.hwloc_devices.contains(nic.bus_id); });
     const auto skipped = static_cast<std::size_t>(std::ranges::distance(dropped));
@@ -249,8 +268,6 @@ bool validate_staged(const fs::path& dir, const std::vector<Staged>& files, Diag
     return ok;
 }
 
-// An unusable $TMPDIR is not a write to --out, so it surfaces as internal rather than
-// write_failed.
 std::string temp_pattern(std::string_view name) {
     std::error_code ec;
     const fs::path base = fs::temp_directory_path(ec);
@@ -260,13 +277,22 @@ std::string temp_pattern(std::string_view name) {
     return (base / name).string();
 }
 
+// An unusable $TMPDIR (missing, EACCES, EROFS) is not a write to --out, so it is internal, not
+// write_failed.
+struct NoScratch {};
+
 // The scratch directory (RFC-0003 §1: private, outside --out, removed on every exit).
 class Scratch {
   public:
     Scratch() {
-        std::string pattern = temp_pattern("ostia-topo-capture-XXXXXX");
+        std::string pattern;
+        try {
+            pattern = temp_pattern("ostia-topo-capture-XXXXXX");
+        } catch (const std::runtime_error&) {
+            throw NoScratch{};
+        }
         if (::mkdtemp(pattern.data()) == nullptr) {
-            throw std::system_error(errno, std::generic_category(), "mkdtemp");
+            throw NoScratch{};
         }
         path_ = pattern;
         track_for_cleanup(path_, true);
@@ -365,6 +391,9 @@ class Run {
             stage_and_check(scratch.path());
         } catch (const Abort& a) {
             fail(a.code, false);
+        } catch (const NoScratch&) {
+            diag_.add("capture: no scratch directory could be created under TMPDIR");
+            fail("internal", false);
         } catch (const std::system_error&) {
             diag_.add("capture: an output file could not be written");
             fail("write_failed", false);
@@ -627,11 +656,21 @@ CaptureOutcome print_id(const Inputs& in, Diagnostics& diag) {
         return {.exit_code = 1, .topology_id = std::nullopt};
     }
     const fs::path dir = pattern;
+    // capture() drops its own tracking when it returns, so every name it can write stays tracked
+    // here until RemoveTree has run: a late signal then leaves nothing behind.
     track_for_cleanup(dir, true);
-    track_for_cleanup(dir / "diagnostics.txt", false);
-    track_for_cleanup(dir / "manifest.json", false);
+    for (const std::string_view name : kDataFiles) {
+        track_for_cleanup(dir / name, false);
+    }
+    for (const char* name : {"diagnostics.txt", "manifest.json.tmp", "manifest.json"}) {
+        track_for_cleanup(dir / name, false);
+    }
     const RemoveTree remove(dir);
-    return capture(in, dir, diag);
+    CaptureOutcome outcome = capture(in, dir, diag);
+    if (in.hooks.after_print_id_capture) {
+        in.hooks.after_print_id_capture(dir);
+    }
+    return outcome;
 }
 
 Facts live_facts(const Inputs& in) {
