@@ -9,6 +9,9 @@ add_library(
   core/emit_xml.cpp
   core/writers.cpp
   core/leak.cpp
+  core/manifest.cpp
+  core/cleanup.cpp
+  core/pipeline.cpp
 )
 set_target_properties(ostia_topo_capture_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(ostia_topo_capture_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -1,0 +1,160 @@
+{
+  "nics": [
+    {
+      "bus_id": "0000:12:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:22:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:32:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:42:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 0,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:52:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 1,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:62:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 1,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:72:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 1,
+      "port_speed_mbps": 400000
+    },
+    {
+      "bus_id": "0000:82:01.0",
+      "driver": "mlx5_core",
+      "link_layer": "infiniband",
+      "max_pcie_gen": 5,
+      "max_pcie_width": 16,
+      "numa_node": 1,
+      "port_speed_mbps": 400000
+    }
+  ],
+  "rdma": [
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:12:01.0",
+      "device": "mlx5_0",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:22:01.0",
+      "device": "mlx5_1",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:32:01.0",
+      "device": "mlx5_2",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:42:01.0",
+      "device": "mlx5_3",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:52:01.0",
+      "device": "mlx5_4",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:62:01.0",
+      "device": "mlx5_5",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:72:01.0",
+      "device": "mlx5_6",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    },
+    {
+      "active_speed": "NDR",
+      "active_width": "4x",
+      "bus_id": "0000:82:01.0",
+      "device": "mlx5_7",
+      "gpudirect": "nvidia_peermem",
+      "link_layer": "infiniband",
+      "port": 1,
+      "state": "ACTIVE"
+    }
+  ],
+  "rdma_probe": "ok",
+  "schema": 1
+}

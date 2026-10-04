@@ -1,0 +1,19 @@
+{
+  "expect": "invalid",
+  "manifest": {
+    "errors": [],
+    "files": {
+      "hwloc.xml": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "meta.json": "sha256:0123",
+      "nics.json": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "nvml.json": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    "leak_check": "passed",
+    "missing": [],
+    "sanitized": true,
+    "schema": 1,
+    "status": "complete",
+    "tool_version": "0.1.0",
+    "topology_id": "topo1:sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  }
+}
