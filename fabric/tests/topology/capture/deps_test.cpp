@@ -9,8 +9,8 @@
 #include <infiniband/verbs.h>
 #endif
 
-using ostia::topo_capture::Diagnostics;
-using ostia::topo_capture::Result;
+using ostia::fabric::topology::capture::Diagnostics;
+using ostia::fabric::topology::capture::Result;
 
 TEST(CaptureDeps, DiagnosticsRecordsAndRenders) {
     Diagnostics d;

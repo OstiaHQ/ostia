@@ -60,7 +60,7 @@ pixi run ostia-dev topo show fabric/tests/fixtures/topology/synthetic/nvswitch-h
 
 - Run a command in another environment with `-e`, for example `pixi run -e cuda-12 ostia-dev build`.
 - `OSTIA_ENABLE_CUDA` is set per environment: `OFF` in `default`, `ON` in the CUDA environments. A plain CMake build outside pixi defaults to `AUTO`.
-- `OSTIA_BUILD_TOOLS` defaults to `ON` and builds `ostia-topo` (`ostia-topo-capture` joins it on Linux once the capture tool lands). With `OFF`, the configure summary says `tools: OFF (topology golden tests skipped)`.
+- `OSTIA_BUILD_TOOLS` defaults to `ON` and builds `ostia-topo` (`ostia-topo-capture` joins it on Linux once the capture tool lands). With `OFF`, the configure summary says `tools: OFF (topology golden and capture tests skipped)`.
 - Ostia's own C and C++ targets build with `-Wall -Wextra -Wpedantic`. `OSTIA_WARNINGS_AS_ERRORS` adds `-Werror`; it defaults to `ON` when the `CI` environment variable is set (GitHub Actions sets it) and `OFF` otherwise, so reproduce a CI warnings failure with `CI=1 pixi run ostia-dev build` in a fresh build directory. Dependencies keep their own flags.
 - Each environment builds into its own directory, `build/<env>/<preset>`, so switching environments never reuses a cache made with another compiler.
 - CI also uses Linux-only environments `gcc11`, `clang`, `ucx` (UCX over TCP for the multi-process tests) and `gcc15` (only for a configure test).
