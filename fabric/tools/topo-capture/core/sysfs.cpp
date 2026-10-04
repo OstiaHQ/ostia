@@ -19,12 +19,17 @@ std::filesystem::path SysfsReader::resolve(std::string_view rel) const {
 }
 
 std::optional<std::string> SysfsReader::read_bytes(std::string_view rel) const {
-    std::ifstream in(resolve(rel), std::ios::binary);
+    const std::filesystem::path path = resolve(rel);
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) {
+        return std::nullopt;
+    }
+    std::ifstream in(path, std::ios::binary);
     if (!in) {
         return std::nullopt;
     }
     std::string data{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
-    // Reading a directory opens but fails on read; sysfs attributes that error out do likewise.
+    // A sysfs attribute that errors on read sets badbit.
     if (in.bad()) {
         return std::nullopt;
     }

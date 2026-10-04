@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <string>
+#include <vector>
 
 #include "core/sysfs.hpp"
 
@@ -23,6 +24,11 @@ TEST(Sysfs, ReadTrimsTheTrailingNewline) {
 TEST(Sysfs, ReadBytesKeepsTheNewline) {
     const SysfsReader sysfs = fake_root();
     EXPECT_EQ(sysfs.read_bytes("class/dmi/id/product_name"), "g6.4xlarge\n");
+}
+
+TEST(Sysfs, DirectoriesAreNotReadable) {
+    const SysfsReader sysfs = fake_root();
+    EXPECT_FALSE(sysfs.read_bytes("bus/pci/devices").has_value());
 }
 
 TEST(Sysfs, AbsentFilesAreNullopt) {

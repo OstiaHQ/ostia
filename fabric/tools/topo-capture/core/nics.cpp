@@ -4,6 +4,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
@@ -87,16 +88,21 @@ std::string link_layer_from_type(const std::string& type) {
 
 std::optional<PortFacts> net_facts(const SysfsReader& sysfs, const std::string& dev) {
     const std::string net = std::string(kPciDevices) + dev + "/net";
+    std::optional<PortFacts> down;
     for (const std::string& ifname : sysfs.list(net)) {
         const std::optional<std::string> speed = sysfs.read(net + "/" + ifname + "/speed");
         const std::optional<std::string> type = sysfs.read(net + "/" + ifname + "/type");
         const std::optional<int> mbps = speed ? parse_int(*speed) : std::nullopt;
-        // A link that is down reports -1; treat it as no information, not as a speed.
+        std::string layer = type ? link_layer_from_type(*type) : "unknown";
+        // A link that is down reports -1: the speed is unknown but the type still names the layer.
         if (mbps && *mbps > 0) {
-            return PortFacts{*mbps, type ? link_layer_from_type(*type) : "unknown"};
+            return PortFacts{*mbps, std::move(layer)};
+        }
+        if (!down && layer != "unknown") {
+            down = PortFacts{std::string("unknown"), std::move(layer)};
         }
     }
-    return std::nullopt;
+    return down;
 }
 
 std::optional<PortFacts> ib_facts(const SysfsReader& sysfs, const std::string& dev) {
@@ -115,12 +121,50 @@ std::optional<PortFacts> ib_facts(const SysfsReader& sysfs, const std::string& d
     return std::nullopt;
 }
 
-// The verbs probe reports a speed code, not Mb/s, so only the link layer is taken from it.
+struct CodeValue {
+    int code;
+    int value;
+};
+// ibverbs active_speed codes: per-lane Mb/s.
+constexpr std::array<CodeValue, 9> kVerbsSpeeds{{{1, 2500},
+                                                 {2, 5000},
+                                                 {4, 10000},
+                                                 {8, 10000},
+                                                 {16, 14000},
+                                                 {32, 25000},
+                                                 {64, 50000},
+                                                 {128, 100000},
+                                                 {256, 200000}}};
+// ibverbs active_width codes: lane counts.
+constexpr std::array<CodeValue, 5> kVerbsWidths{{{1, 1}, {2, 4}, {4, 8}, {8, 12}, {16, 2}}};
+
+template <std::size_t N>
+std::optional<int> lookup(const std::array<CodeValue, N>& table,
+                          const std::variant<int, std::string>& code) {
+    const int* value = std::get_if<int>(&code);
+    if (value == nullptr) {
+        return std::nullopt;
+    }
+    for (const CodeValue& entry : table) {
+        if (entry.code == *value) {
+            return entry.value;
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<PortFacts> verbs_facts(const std::vector<VerbsPort>& verbs, const std::string& dev) {
     for (const VerbsPort& port : verbs) {
-        if (port.bus_id == dev && !port.link_layer.empty()) {
-            return PortFacts{std::string("unknown"), lowered(port.link_layer)};
+        if (port.bus_id != dev || port.link_layer.empty()) {
+            continue;
         }
+        const std::optional<int> lane = lookup(kVerbsSpeeds, port.active_speed);
+        const std::optional<int> lanes = lookup(kVerbsWidths, port.active_width);
+        std::variant<int, std::string> speed = std::string("unknown");
+        if (lane && lanes) {
+            speed = *lane * *lanes;
+        }
+        return PortFacts{std::move(speed), lowered(port.link_layer)};
     }
     return std::nullopt;
 }
@@ -193,7 +237,7 @@ std::vector<NicFacts> scan_nics(const SysfsReader& sysfs, const std::vector<Verb
             nic.port_speed_mbps = facts->speed_mbps;
             nic.link_layer = facts->link_layer;
         }
-        if (!facts || std::holds_alternative<std::string>(nic.port_speed_mbps)) {
+        if (std::holds_alternative<std::string>(nic.port_speed_mbps)) {
             diag.add("nic " + dev + ": port facts unknown (host network namespace not visible)");
         }
         nics.push_back(std::move(nic));

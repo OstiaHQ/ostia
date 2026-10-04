@@ -2,6 +2,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <string>
+#include <unistd.h>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -37,7 +38,10 @@ bool has_line(const Diagnostics& diag, const std::string& line) {
 class CopiedRoot : public testing::Test {
   protected:
     void SetUp() override {
-        copy_ = fs::path(testing::TempDir()) / "ostia-capture-root-copy";
+        const testing::TestInfo* info = testing::UnitTest::GetInstance()->current_test_info();
+        // Each discovered test runs in its own process, possibly in parallel.
+        copy_ = fs::path(testing::TempDir()) / (std::string("ostia-capture-root-") + info->name() +
+                                                "-" + std::to_string(getpid()));
         fs::remove_all(copy_);
         fs::create_directories(copy_);
         fs::copy(fake_root(), copy_, fs::copy_options::recursive | fs::copy_options::copy_symlinks);
@@ -90,13 +94,44 @@ TEST_F(CopiedRoot, MissingInfinibandWithoutVerbsLeavesPortFactsUnknown) {
         diag, "nic 0000:12:00.0: port facts unknown (host network namespace not visible)"));
 }
 
-TEST_F(CopiedRoot, MissingInfinibandFallsBackToTheVerbsLinkLayer) {
-    fs::remove_all(copy_ / "bus/pci/devices/0000:12:00.0/infiniband");
-    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 0, 0};
+namespace {
+
+std::vector<NicFacts> scan_with_verbs(const fs::path& root, const VerbsPort& port,
+                                      Diagnostics& diag) {
+    fs::remove_all(root / "bus/pci/devices/0000:12:00.0/infiniband");
+    return scan_nics(SysfsReader(root), {port}, diag);
+}
+
+} // namespace
+
+TEST_F(CopiedRoot, VerbsCodesConvertToMbps) {
+    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 128, 2};
     Diagnostics diag;
-    const std::vector<NicFacts> nics = scan_nics(SysfsReader(copy_), {port}, diag);
+    const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
     ASSERT_EQ(nics.size(), 2U);
     EXPECT_EQ(nics[1].link_layer, "infiniband");
+    EXPECT_EQ(std::get<int>(nics[1].port_speed_mbps), 400000);
+    EXPECT_FALSE(has_line(
+        diag, "nic 0000:12:00.0: port facts unknown (host network namespace not visible)"));
+}
+
+TEST_F(CopiedRoot, UnknownVerbsCodeLeavesSpeedUnknown) {
+    VerbsPort port{"mlx5_1", "0000:12:00.0", "ACTIVE", "InfiniBand", "yes", 1, 999, 2};
+    Diagnostics diag;
+    const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
+    ASSERT_EQ(nics.size(), 2U);
+    EXPECT_EQ(nics[1].link_layer, "infiniband");
+    EXPECT_EQ(std::get<std::string>(nics[1].port_speed_mbps), "unknown");
+    EXPECT_TRUE(has_line(
+        diag, "nic 0000:12:00.0: port facts unknown (host network namespace not visible)"));
+}
+
+TEST_F(CopiedRoot, StringVerbsSpeedLeavesSpeedUnknown) {
+    VerbsPort port{"mlx5_1", "0000:12:00.0",     "ACTIVE", "InfiniBand", "yes",
+                   1,        std::string("NDR"), 2};
+    Diagnostics diag;
+    const std::vector<NicFacts> nics = scan_with_verbs(copy_, port, diag);
+    ASSERT_EQ(nics.size(), 2U);
     EXPECT_EQ(std::get<std::string>(nics[1].port_speed_mbps), "unknown");
 }
 
@@ -109,6 +144,7 @@ TEST_F(CopiedRoot, DownLinkSpeedIsUnknown) {
     const std::vector<NicFacts> nics = scan_nics(SysfsReader(copy_), {}, diag);
     ASSERT_EQ(nics.size(), 2U);
     EXPECT_EQ(std::get<std::string>(nics[0].port_speed_mbps), "unknown");
+    EXPECT_EQ(nics[0].link_layer, "ethernet");
 }
 
 TEST(Nics, ParsesEveryPcieGeneration) {
