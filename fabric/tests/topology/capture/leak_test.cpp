@@ -458,7 +458,7 @@ TEST_F(Leak, NothingIsFoundInTheSyntheticFixtures) {
                                 .memory_bytes = 0,
                                 .nvlinks = {},
                                 .uuid = "GPU-6b9f5664-1234-5678-9abc-def012345678",
-                                .serial = "1652520012345",
+                                .serial = "0000000000001",
                                 .board_id = "6400"});
     const std::vector<std::string> extra{"OstiaFakeGPU-0001", "gke-test-pool-1a2b3c4d",
                                          "node-a1b2c3"};
@@ -469,7 +469,7 @@ TEST_F(Leak, NothingIsFoundInTheSyntheticFixtures) {
     raw.add(IdKind::ipv6, "2001:db8::17");
     raw.add(IdKind::mac, "0c:42:a1:5e:6f:70");
     raw.add(IdKind::guid, "0c42:a103:00a1:b2c3");
-    raw.add(IdKind::machine_id, "4c4c4544003510108035b4c04f4e3432");
+    raw.add(IdKind::machine_id, "0123456789abcdef0123456789abcdef");
     raw.add(IdKind::hostname, "ip-10-0-1-23.ec2.internal");
     expand_derived(raw);
 

@@ -15,7 +15,7 @@ PLANTED = [
     ('"id": "i-0a1b2c3d4e5f67890"', "instance-id"),
     ('"host": "ip-10-0-1-23"', "ec2-hostname"),
     ('<info name="SerialNumber" value="1323020034567"/>', "serial"),
-    ('"serial": "1652520012345"', "serial"),
+    ('"serial": "0000000000001"', "serial"),
     ('<info name="HostName" value="x"/>', "hwloc-key"),
     ('<info name="DMIProductUUID" value="x"/>', "hwloc-key"),
     ('<info value="x" name="HostName"/>', "hwloc-key"),

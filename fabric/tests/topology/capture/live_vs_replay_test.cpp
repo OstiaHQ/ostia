@@ -43,8 +43,8 @@ namespace {
 
 constexpr int kSkip = 77; // SKIP_RETURN_CODE in fabric/tests/CMakeLists.txt
 
-// RFC-0003 §4 sets the capture budget; a probe that hangs fails here rather than in the pod's
-// own timeout.
+// RFC-0003 "Performance" sets the capture budget; a probe that hangs fails here rather than in the
+// pod's own timeout.
 constexpr std::chrono::seconds kCaptureBudget{60};
 
 // The directory goes under $TMPDIR and never under a path a remote run collects.
