@@ -29,3 +29,6 @@ documentation ranges (192.0.2.0/24, 2001:db8::/32) or the locally administered `
 
 `hwloc-input.xml` (next to this directory) holds exactly the PCI devices in the table above,
 with the same bus IDs, classes and vendor/device IDs.
+It also plants identifier-bearing hwloc infos (`HostName`, `DMI*`, `OSRelease`, `NVIDIAUUID`,
+`Address`, `PCISlot`, `SerialNumber`) and OS devices (a GPU, a MAC-derived `enx...` netdev) that
+the hwloc.xml emitter must drop (RFC-0003 §2.1). Keep the two in step when adding a device.

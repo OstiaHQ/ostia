@@ -36,8 +36,10 @@ if(TARGET ostia_topo_capture_core)
   add_executable(
     ostia_topo_capture_tests
     topology/capture/deps_test.cpp
+    topology/capture/emit_xml_test.cpp
     topology/capture/sysfs_test.cpp
     topology/capture/nics_test.cpp
+    topology/capture/writers_test.cpp
   )
   target_link_libraries(ostia_topo_capture_tests PRIVATE ostia_topo_capture_core GTest::gtest_main)
   if(OSTIA_SANITIZE)
