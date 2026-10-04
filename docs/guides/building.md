@@ -54,13 +54,13 @@ pixi run ostia-dev topo show fabric/tests/fixtures/topology/synthetic/nvswitch-h
 
 | Environment | Platforms | What it adds | Use it for |
 | --- | --- | --- | --- |
-| `default` | macOS arm64, Linux x86_64 and aarch64 | Host toolchain: conda-forge Clang 19 + libc++ on macOS, GCC 14 on Linux, and hwloc. No CUDA, UCX or rdma-core | Everything on this page. About 1.0 GB |
+| `default` | macOS arm64, Linux x86_64 and aarch64 | Host toolchain: conda-forge Clang 19 + libc++ on macOS, GCC 14 on Linux, and hwloc; on Linux also the rdma-core headers for `ostia-topo-capture`. No CUDA or UCX | Everything on this page. About 1.0 GB |
 | `cuda-12` | Linux x86_64 and aarch64 | CUDA 12.8, GCC 11, CUDA-enabled UCX and rdma-core | The CUDA floor; compile-only without a GPU |
 | `cuda-13` | Linux x86_64 and aarch64 | CUDA 13.4, GCC 14, CUDA-enabled UCX and rdma-core | The newest supported CUDA |
 
 - Run a command in another environment with `-e`, for example `pixi run -e cuda-12 ostia-dev build`.
 - `OSTIA_ENABLE_CUDA` is set per environment: `OFF` in `default`, `ON` in the CUDA environments. A plain CMake build outside pixi defaults to `AUTO`.
-- `OSTIA_BUILD_TOOLS` defaults to `ON` and builds `ostia-topo` (`ostia-topo-capture` joins it on Linux once the capture tool lands). With `OFF`, the configure summary says `tools: OFF (topology golden and capture tests skipped)`.
+- `OSTIA_BUILD_TOOLS` defaults to `ON` and builds `ostia-topo` (`ostia-topo-capture` joins it on Linux). With `OFF`, the configure summary says `tools: OFF (topology golden and capture tests skipped)`.
 - Ostia's own C and C++ targets build with `-Wall -Wextra -Wpedantic`. `OSTIA_WARNINGS_AS_ERRORS` adds `-Werror`; it defaults to `ON` when the `CI` environment variable is set (GitHub Actions sets it) and `OFF` otherwise, so reproduce a CI warnings failure with `CI=1 pixi run ostia-dev build` in a fresh build directory. Dependencies keep their own flags.
 - Each environment builds into its own directory, `build/<env>/<preset>`, so switching environments never reuses a cache made with another compiler.
 - CI also uses Linux-only environments `gcc11`, `clang`, `ucx` (UCX over TCP for the multi-process tests) and `gcc15` (only for a configure test).
@@ -178,6 +178,7 @@ This is tier 2 or 3: supported on Ubuntu 22.04 and Rocky 9 through CI, best effo
 
 - Install CMake 4.1 or newer from [Kitware](https://cmake.org/download/), Ninja, and a supported compiler: GCC 11 or newer, or Clang 17 or newer.
 - Install hwloc 2.4 or newer with its headers: `libhwloc-dev` on Debian and Ubuntu, `hwloc-devel` on Rocky and RHEL (enable the CRB repository first).
+- On Linux, `ostia-topo-capture` also needs the rdma-core headers (`infiniband/verbs.h`; the library is loaded at run time): `libibverbs-dev` on Debian and Ubuntu, `rdma-core-devel` on Rocky and RHEL. Without them, configure with `-DOSTIA_BUILD_TOOLS=OFF`.
 - Configure and build:
   ```bash
   cmake --preset release -DOSTIA_ENABLE_CUDA=OFF

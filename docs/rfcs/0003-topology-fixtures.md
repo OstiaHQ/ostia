@@ -81,7 +81,7 @@ ostia-topo-capture --out capture/ --provider runpod --instance-type 4xA100-SXM-8
 | `manifest.json` | The artifact manifest (§4), written last | always |
 | `diagnostics.txt` | What was read, skipped and why, with no values from the machine | always |
 
-The capture tool uses **nlohmann/json** (MIT, via CPM) to read and write JSON; this RFC approves it as a dependency. Fixtures are plain text and not compressed.
+The capture tool uses **nlohmann/json** (MIT, via CPM) to read and write JSON; this RFC approves it as a dependency. Fixtures are plain text and not compressed. *(update: Rollout PR 6b: the tool takes `--out`, `--provider`, `--instance-type`, `--links`, `--node-index`, `--extra-identifiers` and `--print-id`. `--print-id` runs the whole capture, validation and leak check included, in a private temporary directory, prints only the topology id and returns the capture's exit code; it excludes `--out`, and `--provider` and `--instance-type` then default to `unknown`. The emitter drops every OS device from `hwloc.xml`, because network interface names can be derived from a MAC and the builder ignores OS devices. A GPU's `cuda_ordinal` is its rank by PCI bus ID among the GPUs NVML lists, so the tool needs no CUDA runtime. `nvml.json` is required exactly when hwloc lists a device with vendor `0x10de` and a `0x03xx` class; if NVML is then absent or fails, the capture is partial. `rdma_probe` is `ok` when `libibverbs.so.1` loads and `ibv_get_device_list` succeeds, including with zero devices (#45).)*
 
 ### 2. Closed schemas: what may be published
 
@@ -100,7 +100,7 @@ Only fields listed here are ever written. Everything else the sources report is 
   - PCI link speed and width. The tool reports the **maximum** link speed from sysfs, not the current one, because idle NVIDIA GPUs drop to PCIe gen 1.
   - OS device names (such as `mlx5_0`);
   - bridge types.
-- Kept `info` keys: `PCIVendor`, `PCIDevice`, `CPUVendor`, `CPUModel`, `CPUFamilyNumber`, `CPUModelNumber`, `GPUVendor`, `GPUModel`, `Backend`. *(update: Rollout PR 6a: also `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`, the maximum PCIe link generation and width the capture writes into the PCI object's info (#32).)*
+- Kept `info` keys: `PCIVendor`, `PCIDevice`, `CPUVendor`, `CPUModel`, `CPUFamilyNumber`, `CPUModelNumber`, `GPUVendor`, `GPUModel`, `Backend`. *(update: Rollout PR 6a: also `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`, the maximum PCIe link generation and width the capture writes into the PCI object's info (#32).)* *(update: Rollout PR 6b: the maximum PCIe generation and width come from sysfs `max_link_speed` and `max_link_width` into `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`, and `pci_link_speed` is written from those same maxima; the keys are omitted when sysfs lacks them (#45).)*
 - **Everything else is removed,** including `HostName`, every `DMI*` key, `OSName`, `OSRelease`, `OSVersion`, `Architecture` strings with a kernel version, `NVIDIAUUID`, `NodeGUID`, `SysImageGUID`, `Port*GID*`, `Address`, `PCISlot` and any serial number.
 - The rewritten XML is re-imported with `hwloc_topology_set_xml()` and `hwloc_topology_load()` before writing, and both must succeed.
 
@@ -128,7 +128,7 @@ Only fields listed here are ever written. Everything else the sources report is 
   - port speed;
   - NUMA node.
 - **From ibverbs, when devices exist:** device name, port number, port state, link layer, active speed and width, and whether GPUDirect RDMA is available (`nvidia_peermem` loaded, or dma-buf support).
-- **No RDMA devices is a capability, not a failure.** A TCP-only machine gets `"rdma": []` and a complete capture. *(update: Rollout PR 6a: a NIC's `link_layer` may be `"unknown"` and its `port_speed_mbps` an integer or `"unknown"`; the root has `rdma_probe: ok|unavailable`, so a machine where the probe could not run differs from one with no RDMA; a NIC's PCI vendor and device IDs come from `hwloc.xml` (#32).)*
+- **No RDMA devices is a capability, not a failure.** A TCP-only machine gets `"rdma": []` and a complete capture. *(update: Rollout PR 6a: a NIC's `link_layer` may be `"unknown"` and its `port_speed_mbps` an integer or `"unknown"`; the root has `rdma_probe: ok|unavailable`, so a machine where the probe could not run differs from one with no RDMA; a NIC's PCI vendor and device IDs come from `hwloc.xml` (#32).)* *(update: Rollout PR 6b: NICs are found by a scan of PCI class `0x02xx` devices in sysfs, so a NIC whose driver exposes no network interface is still listed, and a port fact that cannot be read is written as `"unknown"` rather than omitted (#45).)*
 - **Dropped:** MAC addresses, IP addresses, GUIDs, GIDs, firmware versions, board IDs, VPD and interface names derived from MACs.
 
 #### 2.4 `meta.json`
@@ -164,7 +164,7 @@ In CI, a second pass runs a format-regex scan over every committed fixture, both
 - `ip-\d+-\d+-\d+-\d+` hostnames;
 - serial-number fields.
 
-PCI bus IDs and the placeholder grammar in §6 are explicit exceptions. A corpus test checks the regex's false positives, and failures report `file:line:type` only. *(update: Rollout PR 6a: the pass is `ostia-dev check fixture-leaks`, part of `ostia-dev lint` and so of pre-commit. It scans only git-tracked files under `fabric/tests/fixtures/topology/`, and also flags any hwloc `<info>` name outside §2.1's allowlist (including `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`). Output is `path:line: kind`, never the value (#32).)*
+PCI bus IDs and the placeholder grammar in §6 are explicit exceptions. A corpus test checks the regex's false positives, and failures report `file:line:type` only. *(update: Rollout PR 6a: the pass is `ostia-dev check fixture-leaks`, part of `ostia-dev lint` and so of pre-commit. It scans only git-tracked files under `fabric/tests/fixtures/topology/`, and also flags any hwloc `<info>` name outside §2.1's allowlist (including `OstiaPCIeMaxGen` and `OstiaPCIeMaxWidth`). Output is `path:line: kind`, never the value (#32).)* *(update: Rollout PR 6b: the raw set comes from sources independent of what the capture reads: sysfs network addresses, InfiniBand GUIDs and GIDs, NIC VPD serial keywords, the identifying DMI fields only (serial numbers, UUIDs, asset tags and instance-ID-shaped values), live interface addresses, the hostname and FQDN, `/etc/machine-id`, NVML UUIDs, serial numbers and board IDs, and the lines of `--extra-identifiers`, which is where a caller puts site names and asset tags. Loopback and unspecified addresses and all-zero or all-`f` values are skipped. Hex identifiers match case- and separator-insensitively; names, addresses and extra identifiers match as whole tokens, and a multi-word value as a boundary-anchored substring; values shorter than six normalised characters are skipped and counted. A finding names the file, line and a locator (a JSON pointer, or an element path with `/@attribute` for XML) with the kind. The CI regex pass also flags bare 16-hex GUIDs and `enx` interface names with twelve hex digits. A known limit of the remote runner's own identifiers (node name, kube context and kubeconfig cluster name): segments shaped like cloud regions or zones are skipped as shared by every account, while whole values are still searched (#45).)*
 
 ### 4. Artifact manifest contract
 
@@ -199,7 +199,7 @@ This RFC owns the contract between the capture tool and anything that consumes a
   - verify every hash;
   - reject symlinks and unexpected paths;
   - publish a capture only when `sanitized` is `true` and `leak_check` is `passed`.
-  `diagnostics.txt` is values-free by construction and may be fetched for debugging, but is never committed.
+  `diagnostics.txt` is values-free by construction and may be fetched for debugging, but is never committed. *(update: Rollout PR 6b: `topology_id` is the `topo1` id of replaying the written files, and is `null` unless the exit code is 0 or 2. A failed manifest carries `status`, `leak_check`, `missing` and `errors`. A consumer fetches the manifest first, checks it, and only then fetches the files it lists, rejecting symlinks and unlisted paths; `ostia-dev` validates it with `jsonschema` against `manifest.schema.json` (#45).)*
 
 ### 5. Topology identity (`topo1`)
 
@@ -211,7 +211,7 @@ This RFC owns the contract between the capture tool and anything that consumes a
 - **Canonical ordering** uses three rounds of Weisfeiler–Lehman relabelling over the graph. Node order therefore never depends on enumeration. Nodes are then sorted by final label. *(update: Rollout PR 6a: the identity input is fixed. A GPU contributes its model and compute capability, a NIC its PCI vendor and device IDs, a PCIe edge its generation and width, an NVLink edge its link count; every other node contributes its kind only. NIC port speed, link layer and RDMA state are data, not identity, so a probe that fails does not change the identity. The canonical form is a stable refinement followed by individualisation-refinement with twin pruning. It accepts models of at most 256 nodes, and the search stops after 1,000,000 leaves. The search also prunes with automorphisms found from equal leaf certificates: it backjumps to the common prefix and skips children in the same orbit of the path stabiliser, computed with deterministic Schreier–Sims. No `topo1` id changed. Symmetric shapes whose vertices are not twins, such as one bridge per GPU or NIC with 8 GPUs and 8 NICs, now finish in milliseconds, and some models that hit `leaf_cap` before now get an id. Known limit: the stabiliser chain is rebuilt per search node, so very symmetric shapes far beyond real machines (such as 64 disjoint edge pairs, or 32 GPU plus 32 NIC branches) can take up to about a minute (Release); an incremental chain is the follow-up (#33).)*
 - **Output:** `topo1:sha256:` followed by the SHA-256 of the canonical JSON (sorted keys, integers only, no floats). A change to the input definition bumps the prefix to `topo2`.
 - **Pair identity** is the SHA-256 of the two node IDs in sorted order plus `pair.json`'s structural fields (§7).
-- **Sequencing with RFC-0001.** The identity is implemented with the model in PR 6. Benchmark records from before PR 6 carry `"topology": null`, which `compare.py` treats as compatible only with `null`. Baselines recorded before PR 6 are re-recorded once it lands.
+- **Sequencing with RFC-0001.** The identity is implemented with the model in PR 6. Benchmark records from before PR 6 carry `"topology": null`, which `compare.py` treats as compatible only with `null`. Baselines recorded before PR 6 are re-recorded once it lands. *(update: Rollout PR 6b: benchmark records now carry the machine's `topo1` id in `compat.topology`, taken with `ostia-topo-capture --print-id`, and the `bench-smoke` suite requires it with `--require-topology`. In a two-pod gate the records carry the pair id instead, and the gate marks them with `provenance.topology_source: gate`; when either capture is rejected or partial the records stay unstamped, and a gate compared against a baseline with a pair id exits 1 (#45).)*
 
 ### 6. Minimal M0 topology model
 
@@ -244,6 +244,7 @@ Each node of a pair is captured and scrubbed **independently**; no identifier or
 - The pair's status is the worse of the two node statuses. The pair's `topology_id` follows §5.
 - There is no fabric discovery: switch GUIDs and node descriptions are never collected.
 - *(update: Rollout PR 6a: `pair_id` puts the two node ids in sorted order. When that swaps them, it also swaps each rail's `node-0` and `node-1` entries, so a rail stays attached to its node (#32).)*
+- *(update: Rollout PR 6b: `pair.json` is written by the gate, until RFC-0004 PR 7 brings the rent tool, from the rail NIC facts and the rank-1 records, and the pair id is computed by the host's `ostia-topo id`. The records are stamped only when both captures are `complete`; the captures land under `capture/node-0` and `capture/node-1` next to `pair.json` (#45).)*
 
 ### 8. `links.json`
 
@@ -257,7 +258,7 @@ Each node of a pair is captured and scrubbed **independently**; no identifier or
 
 - Links are keyed by the endpoints' PCI bus IDs.
 - Values are integers (MB/s and ns): medians from RFC-0001's harness, converted from its JSONL records. The harness runs with `CUDA_DEVICE_ORDER=PCI_BUS_ID`, so CUDA ordinals map to bus IDs.
-- A link that was not measured is absent, never written as zero. *(update: Rollout PR 6a: links are keyed only by their `from` and `to` bus IDs. The benchmark records will carry the measured devices' bus IDs, in PR 6b, so CUDA ordinals are never mapped (#32).)*
+- A link that was not measured is absent, never written as zero. *(update: Rollout PR 6a: links are keyed only by their `from` and `to` bus IDs. The benchmark records will carry the measured devices' bus IDs, in PR 6b, so CUDA ordinals are never mapped (#32).)* *(update: Rollout PR 6b: benchmark records carry the bus IDs they measured in a top-level `devices` field, with `src_bus` and `dst_bus` for `p2p_copy`, `pipelining` and `batching`, and `src_bus`, `dst_a_bus` and `dst_b_bus` for `dual_link --mode nvlink`, so CUDA ordinals are never mapped. `ostia-dev topo links` converts only unidirectional `p2p_copy` records, skips records whose source and destination bus IDs are equal, takes the link kind from the capture's NVLinks, and writes one entry per source, destination and transfer size (#45).)*
 
 ### 9. Layout and replay
 
@@ -273,6 +274,8 @@ fabric/tests/fixtures/topology/
 ```
 
 *(update: Rollout PR 6a: every fixture lives at `<group>/<case>/`, which supersedes the depth-1 layout above. Synthetic cases are under `synthetic/`: `broken-nvlink`, `no-nic`, `multi-numa`, `asymmetric-links`, `partial-discovery`, `nvswitch-hidden`, `disallowed-pu`, `unknown-port` and `pair-tcp`. Captured machines go under a group directory, such as `captured/<provider>-<instance>/`. A pair is `<group>/<setup>-<provider>-<instance>/` holding `node-0/`, `node-1/` and `pair.json` (#32).)*
+
+*(update: Rollout PR 6b: the synthetic case `nvswitch-8nic-2numa` adds the largest expected shape: eight GPUs on NVSwitch, one rail NIC per GPU and two sockets with one NUMA node each. `ostia-dev topo diff` compares two topologies by id (exit 0 when equal, 1 when they differ), `ostia-dev topo which` lists the fixtures whose id starts with a given prefix, and `ostia-dev topo import` adds an accepted, complete capture as `captured/<provider>-<instance>` with its golden, after a second leak scan; `docs/guides/fixtures.md` describes all three (#45).)*
 
 Discovery is split into **sources** and a **pure builder**:
 
@@ -311,7 +314,7 @@ graph LR
 - [ ] `ostia-topo-capture` produces schema-valid, leak-checked captures on the GPU CI machine and on each rented setup.
 - [ ] The manifest contract is implemented, including atomic writes, the exit-code precedence and consumer-side hash verification in RFC-0004's tool.
 - [ ] `topo1` is implemented and RFC-0001's benchmark records carry it.
-- [ ] At least one fixture per RFC-0004 setup and every synthetic case have golden files that pass on Linux and macOS.
+- [ ] At least one fixture per RFC-0004 setup and every synthetic case have golden files that pass on Linux and macOS. *(update: Rollout PR 6b: the per-setup fixtures arrive with RFC-0004 PR 7, and the L4 fixtures in a follow-up pull request after this one merges; `docs/guides/fixtures.md` now shows how to capture a machine and add a fixture (#45).)*
 - [ ] `docs/guides/fixtures.md` shows how to capture a machine and add a fixture (RFC-0001 Rollout).
 
 ## Failure handling

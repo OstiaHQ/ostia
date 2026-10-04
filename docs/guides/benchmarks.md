@@ -22,7 +22,7 @@ One JSON object per line:
   - **provenance** (git SHA, date, run ID), which never affects comparisons;
   - **compatibility** (GPU, driver, CUDA, NIC, topology, telemetry build level, compiler, dependencies), which must be equal for two results to be compared.
 
-`topology` is `null` until topology fixtures land (Rollout PR 6). Tools reject schema versions they do not know.
+`topology` is the machine's `topo1` id, taken with `ostia-topo-capture --print-id` ([fixtures.md](fixtures.md)), or `null` when the tool is not available on that machine. Records may also carry a top-level `devices` object with the PCI bus IDs of the devices a program measured (`p2p_copy`, `pipelining`, `batching` and `dual_link --mode nvlink` write it), which `ostia-dev topo links` turns into a fixture's `links.json`. A gate stamps `provenance.topology_source` as `gate` when it sets the pair id afterwards; the driver never sets it. Tools reject schema versions they do not know.
 
 ## Running a benchmark
 
@@ -36,6 +36,7 @@ pixi run -e cuda-12 ostia-dev bench run --needs-gpu --runs 10 \
   --build-dir build/cuda-12/release
 ```
 
+- `--require-topology` fails the run unless every record gets a `topo1` id, instead of warning and writing `null`. If it fails because the capture tool exited 3, that is a leak-check finding: see [fixtures.md](fixtures.md#leak-check). The `bench-smoke` suite runs with it.
 - Without a GPU, `--needs-gpu` stops with an error naming the fix. On a Mac, `pixi run ostia-dev remote container --env cuda-12 --env cuda-13 --suite cuda-compile` compiles the benchmarks.
 - Multi-process benchmarks run through the multi-process launcher: pass `--format ostia --ranks N`.
 - Across two pods, `--remote` runs one rank: rank 0 gets `--listen` and rank 1 `--connect`, from the pod's `OSTIA_RANK`, `OSTIA_PEER_HOST` and `OSTIA_PORT` (`ostia-dev remote k8s --pods 2`, [remote-runs.md](remote-runs.md)). Only rank 1, the source, writes the record and the evidence. A second `run` with the same `--run-id` appends to its `results.jsonl`.
@@ -77,7 +78,7 @@ fi
 - A run with missing, duplicate, malformed or non-finite results is `invalid`. So is a missing or empty result file.
 - Give `--manifest cases.json` (a list of `{"bench", "params"}`) to require every expected case.
 - A required gate passes `--require-pass`, so `inconclusive` fails it.
-- Results from different compatibility fields are `skipped` and listed in the summary.
+- Results from different compatibility fields are `skipped` and listed in the summary. For a topology mismatch the message names both topologies by the first 12 hex digits of their ids and points at `pixi run ostia-dev topo which <id>`, which lists the fixtures with that id.
 
 ## Updating a baseline
 

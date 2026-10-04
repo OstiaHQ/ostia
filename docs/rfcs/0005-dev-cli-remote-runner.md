@@ -110,7 +110,7 @@ error: namespace ostia-test has no ResourceQuota
 
 #### 1.4 Exit codes
 
-For every subcommand: **0** success, **1** the checked thing failed (tests, lint, a check), **2** usage or configuration error. `remote` adds three (§3.5). *(update: Rollout PR B: commands that wrap an external tool (`build`, `test`, `check`, `check graph|macros|tidy`, `py-dev`, `hooks`) exit with that tool's own code, as the pixi tasks they replace did, so a failing ctest still exits 8; §2.3 allows only names and paths to change.)*
+For every subcommand: **0** success, **1** the checked thing failed (tests, lint, a check), **2** usage or configuration error. `remote` adds three (§3.5). *(update: Rollout PR B: commands that wrap an external tool (`build`, `test`, `check`, `check graph|macros|tidy`, `py-dev`, `hooks`) exit with that tool's own code, as the pixi tasks they replace did, so a failing ctest still exits 8; §2.3 allows only names and paths to change.)* *(update: Rollout PR 6b: `topo capture` passes the capture tool's exit code through: 0 complete, 2 partial, 1 failed, 3 leak or schema violation, so 2 here means a partial capture rather than a usage error (#45).)*
 
 #### 1.5 Prompts and non-interactive use
 
@@ -188,6 +188,8 @@ This RFC is the approval that `docs/README.md` requires.
 | kind *(update: Rollout PR A)* | Apache-2.0 | CI only: a local cluster for the `remote.yml` kind job (Testing) | conda-forge (`kubernetes-kind`) | `remote-ci` (CI only) |
 
 PR A measures whether `typer-slim` (without rich) is enough; if it is, that is used instead and the table is updated in the PR. *Update (Rollout PR A): measured. `typer-slim` 0.24 is a shim that depends on `typer` itself, on conda-forge and on PyPI alike, so choosing it drops nothing; PR A uses plain `typer` (`>=0.27,<0.28`). conda-forge's `typer` depends on colorama on every platform, though typer only uses it on Windows.* Cloud credential plugins (`gke-gcloud-auth-plugin`, `aws`, `kubelogin`) are not dependencies: kubectl uses whatever the developer's kubeconfig names, and the guide lists them per provider.
+
+*(update: Rollout PR 6b: `jsonschema` (MIT, conda-forge, all environments) is added for the consumer-side validation of `manifest.json` against `manifest.schema.json`, which RFC-0003 §4 requires (#45).)*
 
 ### 3. Remote runs
 
@@ -281,9 +283,10 @@ build/remote/k8s-l4-20261002-141501-a1b2c3/
   junit.xml           # or junit-<level>.xml for the gpu suite
   Testing/            # ctest's own output
   rank-0/ rank-1/     # the same, per pod, for two-pod runs (§4.11)
+  capture/            # a topology capture, when a pod wrote /w/capture/manifest.json (RFC-0003 §4)
 ```
 
-Benchmark output is also copied to `bench/results/<run-id>/`, evidence included, where `compare.py` expects it (RFC-0001 §6.2). Only an allowlist of paths is copied back. Symlinks and anything past the 2 GiB cap are dropped with a warning listing them; the run keeps its exit code. The run ID is `<backend>-<profile>-<UTC yyyymmdd-HHMMSS>-<6 hex>`.
+Benchmark output is also copied to `bench/results/<run-id>/`, evidence included, where `compare.py` expects it (RFC-0001 §6.2). Only an allowlist of paths is copied back. Symlinks and anything past the 2 GiB cap are dropped with a warning listing them; the run keeps its exit code. The run ID is `<backend>-<profile>-<UTC yyyymmdd-HHMMSS>-<6 hex>`. *(update: Rollout PR 6b: `capture/` holds one pod's capture, or `node-0/`, `node-1/` and `pair.json` for two pods, plus `status.json` (per node: accepted, rejected or absent, the status and the reason), and `summary.json` has a `capture` entry. The runner fetches the manifest first, then only the files it lists, before teardown; a capture never changes the run's exit code. The `topo-capture` suite is an ordinary command step, so a failed capture fails that suite, while a gate's capture step only reports (#45).)*
 
 At the end the CLI prints one summary line, which is also what goes into a pull request (ADR-0014):
 
@@ -570,7 +573,7 @@ A setup file whose k8s machine has no mapping is exit 2, naming the key to add. 
 
 - RFC-0004 §1.1's preflight and active capability probes;
 - RFC-0001 §6.4's transport evidence;
-- RFC-0003's manifest-gated captures.
+- RFC-0003's manifest-gated captures. *(update: Rollout PR 6b: captures are now checked: a gate whose setup lists `topo_capture` in `also_run` fetches them, writes `pair.json` for two pods and stamps the records with the pair id only when both captures are complete. A rejected or partial capture leaves the records unstamped, and a gate compared with a baseline that has a pair id exits 1 (#45).)*
 
 Before any gate workload runs, a probe checks that every evidence counter it needs is readable in the pod (InfiniBand port counters in sysfs; `nvidia-smi nvlink` counters). If one isn't, the gate fails closed on that machine. RDMA gate workloads (`rdma_put`, `gdr_stream`, `dual_link` rails) must use an `rdma` profile (§4.12): loading a setup file that puts them on another kind of profile is an exit 2, because the counters that prove RDMA traffic are only visible with RDMA devices in the pod. NVLink workloads may use normal GPU profiles.
 
