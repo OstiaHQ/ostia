@@ -12,7 +12,6 @@
 #include <initializer_list>
 #include <iterator>
 #include <map>
-#include <netdb.h>
 #include <netinet/in.h>
 #include <optional>
 #include <set>
@@ -238,6 +237,27 @@ std::vector<std::string> instance_ids(std::string_view text) {
     return out;
 }
 
+void expand_token(RawSet& raw, const RawEntry& entry);
+
+// A ::ffff:a.b.c.d GID carries an IPv4 address, which leaks in its own spellings too.
+void add_mapped_ipv4(RawSet& raw, IdKind kind, const Ip6& gid) {
+    const bool mapped =
+        std::all_of(gid.begin(), gid.begin() + 10, [](std::uint8_t x) { return x == 0; }) &&
+        gid[10] == 0xff && gid[11] == 0xff;
+    if (!mapped) {
+        return;
+    }
+    std::string dotted;
+    for (std::size_t i = 12; i < gid.size(); ++i) {
+        if (!dotted.empty()) {
+            dotted += '.';
+        }
+        dotted += std::to_string(gid[i]);
+    }
+    raw.add(kind, dotted, MatchMode::token);
+    expand_token(raw, RawEntry{.kind = kind, .mode = MatchMode::token, .needle = dotted});
+}
+
 void expand_hex(RawSet& raw, const RawEntry& entry) {
     constexpr std::size_t kMacBytes = 6;
     constexpr std::size_t kGuidBytes = 8;
@@ -272,11 +292,13 @@ void expand_hex(RawSet& raw, const RawEntry& entry) {
         Ip6 gid{};
         std::ranges::copy(b, gid.begin());
         raw.add(entry.kind, ipv6_text(gid), MatchMode::token);
+        add_mapped_ipv4(raw, entry.kind, gid);
     } else if (b.size() == kIpoibBytes) {
         // 4 bytes of flags and queue pair number, then the port GID.
         Ip6 gid{};
         std::ranges::copy(b.last<16>(), gid.begin());
         add_ipv6_forms(raw, entry.kind, gid);
+        add_mapped_ipv4(raw, entry.kind, gid);
         raw.add(entry.kind, hex_of(b.last<8>()), MatchMode::hex);
     }
 }
@@ -302,6 +324,7 @@ void expand_token(RawSet& raw, const RawEntry& entry) {
     }
     if (const auto v6 = parse_ipv6(entry.needle)) {
         raw.add(entry.kind, hex_of(*v6), MatchMode::hex);
+        add_mapped_ipv4(raw, entry.kind, *v6);
         return;
     }
     if (entry.kind == IdKind::dmi || entry.kind == IdKind::serial) {
@@ -731,6 +754,28 @@ void collect_vpd(RawSet& raw, const SysfsReader& sysfs) {
     }
 }
 
+// Firmware fills unset DMI fields with stock strings shared by many machines; they identify
+// nothing and could match unrelated text.
+bool is_dmi_placeholder(std::string_view low) {
+    constexpr std::array<std::string_view, 12> kPlaceholders{"not specified",
+                                                             "to be filled by o.e.m.",
+                                                             "default string",
+                                                             "none",
+                                                             "system serial number",
+                                                             "chassis serial number",
+                                                             "base board serial number",
+                                                             "not applicable",
+                                                             "n/a",
+                                                             "0123456789",
+                                                             "123456789",
+                                                             "unknown"};
+    if (std::ranges::find(kPlaceholders, low) != kPlaceholders.end()) {
+        return true;
+    }
+    // A run of one repeated character, such as "00000000" or "xxxxxxxx".
+    return !low.empty() && low.find_first_not_of(low.front()) == std::string_view::npos;
+}
+
 void collect_dmi(RawSet& raw, const SysfsReader& sysfs) {
     constexpr std::string_view kDmi = "class/dmi/id/";
     for (const std::string& name : sysfs.list(kDmi)) {
@@ -738,7 +783,10 @@ void collect_dmi(RawSet& raw, const SysfsReader& sysfs) {
         if (!value) {
             continue;
         }
-        const std::string low = lowered(*value);
+        const std::string low = lowered(trimmed(*value));
+        if (is_dmi_placeholder(low)) {
+            continue;
+        }
         const std::vector<std::string> ids = instance_ids(low);
         if (ids.size() == 1 && ids.front() == low) {
             raw.add(IdKind::instance_id, std::move(*value));
@@ -783,10 +831,13 @@ void collect_interfaces(RawSet& raw) {
         }
 #ifdef __linux__
         else if (family == AF_PACKET) {
-            // sll_addr holds 8 bytes, so a 20-byte IPoIB address is truncated here; sysfs has it.
+            // sll_addr holds 8 bytes, so a 20-byte IPoIB address arrives truncated and would be
+            // a bogus value; sysfs supplies those whole.
             const auto* ll = reinterpret_cast<const sockaddr_ll*>(it->ifa_addr);
-            const std::size_t len = std::min<std::size_t>(ll->sll_halen, sizeof(ll->sll_addr));
-            raw.add(IdKind::mac, hex_of(std::span<const std::uint8_t>(ll->sll_addr, len)));
+            const std::size_t len = ll->sll_halen;
+            if (len <= sizeof(ll->sll_addr)) {
+                raw.add(IdKind::mac, hex_of(std::span<const std::uint8_t>(ll->sll_addr, len)));
+            }
         }
 #endif
     }
@@ -799,20 +850,7 @@ void collect_hostname(RawSet& raw) {
     if (gethostname(buf.data(), buf.size() - 1) != 0) {
         return;
     }
-    const std::string host = buf.data();
-    raw.add(IdKind::hostname, host);
-    raw.add(IdKind::hostname, host.substr(0, host.find('.')));
-    addrinfo hints{};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_flags = AI_CANONNAME;
-    addrinfo* result = nullptr;
-    if (getaddrinfo(host.c_str(), nullptr, &hints, &result) != 0) {
-        return;
-    }
-    if (result != nullptr && result->ai_canonname != nullptr) {
-        raw.add(IdKind::hostname, result->ai_canonname);
-    }
-    freeaddrinfo(result);
+    add_host_names(raw, buf.data(), "/proc/sys/kernel/domainname");
 }
 
 void collect_machine_id(RawSet& raw) {
@@ -853,6 +891,8 @@ std::string_view to_string(IdKind kind) {
         return "instance-id";
     case IdKind::extra:
         return "extra";
+    case IdKind::unreadable:
+        return "unreadable";
     }
     return "unknown";
 }
@@ -958,7 +998,7 @@ std::vector<Finding> search(const RawSet& raw, const std::vector<fs::path>& file
         std::ifstream in(path, std::ios::binary);
         if (!in) {
             out.push_back(
-                Finding{.file = file, .line = 0, .locator = "unreadable", .kind = IdKind::extra});
+                Finding{.file = file, .line = 0, .locator = {}, .kind = IdKind::unreadable});
             continue;
         }
         const std::string text{std::istreambuf_iterator<char>(in),
@@ -989,6 +1029,24 @@ std::vector<Finding> search(const RawSet& raw, const std::vector<fs::path>& file
     return out;
 }
 
+void add_host_names(RawSet& raw, const std::string& hostname, const fs::path& domainname_file) {
+    raw.add(IdKind::hostname, hostname);
+    raw.add(IdKind::hostname, hostname.substr(0, hostname.find('.')));
+    std::ifstream in(domainname_file);
+    std::string line;
+    if (!in || !std::getline(in, line)) {
+        return;
+    }
+    const std::string domain = trimmed(line);
+    if (domain.empty() || domain == "(none)") {
+        return;
+    }
+    std::string fqdn = hostname;
+    fqdn += '.';
+    fqdn += domain;
+    raw.add(IdKind::hostname, std::move(fqdn));
+}
+
 std::vector<std::string> read_extra_identifiers(const fs::path& path) {
     std::vector<std::string> out;
     std::ifstream in(path);
@@ -1004,6 +1062,10 @@ std::vector<std::string> read_extra_identifiers(const fs::path& path) {
 
 std::string to_string(const Finding& finding) {
     std::string out = finding.file;
+    if (finding.kind == IdKind::unreadable) {
+        out += ":0 unreadable";
+        return out;
+    }
     out += ':';
     out += std::to_string(finding.line);
     if (!finding.locator.empty()) {

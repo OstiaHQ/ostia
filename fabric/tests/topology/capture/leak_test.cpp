@@ -16,6 +16,7 @@
 #include "core/leak.hpp"
 #include "core/sysfs.hpp"
 
+using ostia::fabric::topology::capture::add_host_names;
 using ostia::fabric::topology::capture::collect_raw;
 using ostia::fabric::topology::capture::Diagnostics;
 using ostia::fabric::topology::capture::expand_derived;
@@ -29,6 +30,7 @@ using ostia::fabric::topology::capture::read_extra_identifiers;
 using ostia::fabric::topology::capture::search;
 using ostia::fabric::topology::capture::SysfsReader;
 using ostia::fabric::topology::capture::to_string;
+using ostia::fabric::topology::capture::vpd_identifiers;
 
 namespace {
 
@@ -150,6 +152,17 @@ TEST_F(Leak, Ipv4IsFoundAsAMappedGidAndAnEc2Hostname) {
     EXPECT_EQ(described(raw, search(raw, {out})), expected);
 }
 
+TEST_F(Leak, AMappedGidIsFoundAsItsIpv4) {
+    RawSet raw;
+    raw.add(IdKind::gid, "0000:0000:0000:0000:0000:ffff:c000:0211");
+    expand_derived(raw);
+    const fs::path out = write("out.txt", "addr 192.0.2.17\n"
+                                          "host ip-192-0-2-17\n"
+                                          "addr 192.0.2.170\n");
+    const std::vector<std::string> expected{"out.txt:1: gid", "out.txt:2: gid"};
+    EXPECT_EQ(described(raw, search(raw, {out})), expected);
+}
+
 TEST_F(Leak, IpoibAddressesAndTheirGidsAreFoundBothWays) {
     RawSet raw;
     raw.add(IdKind::gid, "fe80:0000:0000:0000:0200:5eff:fe20:0001");
@@ -243,6 +256,33 @@ TEST_F(Leak, VpdSerialAndVendorFieldsOfNicsAreCollected) {
     EXPECT_EQ(described(raw, search(raw, {out})), expected);
 }
 
+TEST_F(Leak, DmiPlaceholdersAreNotCollected) {
+    const fs::path root = copied_root();
+    std::ofstream(root / "class/dmi/id/product_serial") << "To Be Filled By O.E.M.\n";
+    Diagnostics diag;
+    const RawSet raw = collect_raw(SysfsReader(root), nullptr, {}, diag, false);
+    EXPECT_EQ(count_of(raw, IdKind::dmi), 0U);
+    EXPECT_EQ(count_of(raw, IdKind::instance_id), 1U);
+}
+
+TEST_F(Leak, VpdIdentifiersStopAtTheEndTag) {
+    std::string read_only = vpd_field("PN", "MCX623106AN-CDAT");
+    read_only += vpd_field("SN", "MT2231X01234");
+    read_only += vpd_field("VA", "OstiaVendorVA");
+    read_only += vpd_field("Vx", "lower-case-keyword");
+    std::string vpd = large_resource(kIdString, "ConnectX-6 Dx");
+    vpd += large_resource(kVpdR, read_only);
+    vpd += kEndTag;
+    vpd += large_resource(kVpdR, vpd_field("SN", "MT9999AFTEREND"));
+    const std::vector<std::string> ids = vpd_identifiers(vpd);
+    ASSERT_EQ(ids.size(), 2U);
+    EXPECT_TRUE(ids[0] == "MT2231X01234");
+    EXPECT_TRUE(ids[1] == "OstiaVendorVA");
+    // Cut inside the PN field: a length running past the end is clipped, not read out of bounds.
+    constexpr std::size_t kInsidePn = 29;
+    EXPECT_TRUE(vpd_identifiers(vpd.substr(0, kInsidePn)).empty());
+}
+
 TEST_F(Leak, VpdBeyondFourKibIsNotRead) {
     const fs::path root = copied_root();
     constexpr std::size_t kPastCap = 4100;
@@ -299,6 +339,28 @@ TEST_F(Leak, ExtraIdentifiersAndNamesMatchAsTokens) {
     const std::vector<std::string> expected{"out.json:1 /model: extra",
                                             "out.json:1 /name: hostname"};
     EXPECT_EQ(described(raw, search(raw, {out})), expected);
+}
+
+TEST_F(Leak, FqdnComesFromTheDomainnameFileWithoutALookup) {
+    const fs::path domain = write("domainname", "example.internal\n");
+    const fs::path none = write("none", "(none)\n");
+    const fs::path empty = write("empty", "\n");
+    for (const fs::path& file : {none, empty, dir_ / "absent"}) {
+        RawSet raw;
+        add_host_names(raw, "node-a1b2c3", file);
+        EXPECT_EQ(count_of(raw, IdKind::hostname), 1U) << file.filename();
+    }
+    RawSet raw;
+    add_host_names(raw, "node-a1b2c3", domain);
+    EXPECT_EQ(count_of(raw, IdKind::hostname), 2U);
+    const fs::path out = write("out.txt", "host node-a1b2c3.example.internal\n");
+    const std::vector<std::string> expected{"out.txt:1: hostname"};
+    EXPECT_EQ(described(raw, search(raw, {out})), expected);
+
+    // A dotted hostname is already an FQDN; its first label is added too.
+    RawSet dotted;
+    add_host_names(dotted, "node-a1b2c3.corp.internal", dir_ / "absent");
+    EXPECT_EQ(count_of(dotted, IdKind::hostname), 2U);
 }
 
 TEST_F(Leak, ExtraIdentifiersFileIgnoresCommentsAndBlankLines) {
@@ -366,7 +428,7 @@ TEST_F(Leak, ALocatorThatWouldCarryAValueIsWithheld) {
 TEST_F(Leak, UnreadableFilesAreReported) {
     RawSet raw;
     raw.add(IdKind::extra, "OstiaFakeGPU-0001");
-    const std::vector<std::string> expected{"missing.json:0 unreadable: extra"};
+    const std::vector<std::string> expected{"missing.json:0 unreadable"};
     EXPECT_EQ(described(raw, search(raw, {dir_ / "missing.json"})), expected);
 }
 

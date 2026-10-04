@@ -28,7 +28,9 @@ enum class IdKind {
     machine_id,
     dmi,
     instance_id,
-    extra
+    extra,
+    // Not an identifier: a file the search could not read, which cannot be shown clean.
+    unreadable
 };
 
 std::string_view to_string(IdKind kind);
@@ -70,15 +72,25 @@ class RawSet {
 // net addresses, InfiniBand GUIDs and GIDs, NIC VPD (SN and V0-VZ), the identifying DMI fields
 // (*_serial, *_uuid, *_asset_tag and instance-ID-shaped values; never product_name or
 // sys_vendor), NVML UUIDs, serials and board IDs, and the extra identifiers. live_host adds
-// getifaddrs, the hostname and FQDN, and /etc/machine-id, which read the real machine whatever
-// the sysfs root. Each source's count and wall time go to diag.
+// getifaddrs, the hostname and the FQDN built from it (see add_host_names), and /etc/machine-id,
+// which read the real machine whatever the sysfs root. No source performs a DNS or network
+// lookup. Each source's count and wall time go to diag.
 RawSet collect_raw(const SysfsReader& sysfs, const NvmlFacts* nvml,
                    const std::vector<std::string>& extra, Diagnostics& diag, bool live_host);
 
+// The hostname, its first label, and the FQDN: the hostname itself when it contains a dot, and
+// hostname + "." + the domain read from domainname_file (/proc/sys/kernel/domainname on a live
+// host), which is skipped when absent, empty or "(none)". The file is a parameter so tests can
+// supply one.
+void add_host_names(RawSet& raw, const std::string& hostname,
+                    const std::filesystem::path& domainname_file);
+
 // RFC-0003 §3 step 2: EUI-64 link-local GIDs from MACs (ff:fe inserted, universal/local bit
-// flipped) and GUIDs, IPv4-mapped GIDs, the GID and GUID inside a 20-byte IPoIB address,
-// ip-a-b-c-d hostnames, the full and compressed spellings of every IPv6 address or GID, bare
-// GPU/MIG UUIDs and instance IDs embedded in DMI values. Derived forms keep their source's kind.
+// flipped) and GUIDs, IPv4-mapped GIDs (both ways: an IPv4 gives its mapped GID, and a mapped
+// GID gives its IPv4 with that IPv4's own derived forms), the GID and GUID inside a 20-byte IPoIB
+// address, ip-a-b-c-d hostnames, the full and compressed spellings of every IPv6 address or GID,
+// bare GPU/MIG UUIDs and instance IDs embedded in DMI values. Derived forms keep their source's
+// kind.
 void expand_derived(RawSet& raw);
 
 // locator is a JSON pointer for .json files and an element path with "/@attribute" for .xml
@@ -92,14 +104,15 @@ struct Finding {
 
 // Indexed: each line is hashed by sliding windows of every distinct needle length and split into
 // tokens, so the cost grows with the output size times the number of distinct lengths, not with
-// the number of identifiers. A file that cannot be read is reported with line 0.
+// the number of identifiers. A file that cannot be read is reported with line 0 and kind
+// unreadable, so a caller can tell it from a leak.
 std::vector<Finding> search(const RawSet& raw, const std::vector<std::filesystem::path>& files);
 
 // One identifier per line; surrounding whitespace is trimmed, and blank lines and lines
 // starting with '#' are ignored. A missing file gives an empty list.
 std::vector<std::string> read_extra_identifiers(const std::filesystem::path& path);
 
-// "file:line locator: kind", never the value.
+// "file:line locator: kind", never the value; "file:0 unreadable" for an unreadable file.
 std::string to_string(const Finding& finding);
 
 // The identifiers in a PCI VPD image (PCI Local Bus 3.0 §I): SN and V0-VZ from the read-only
