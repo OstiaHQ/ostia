@@ -11,7 +11,17 @@ pixi run ostia-dev remote container --env default --suite cpu     # the CPU test
 pixi run ostia-dev topo show fabric/tests/fixtures/topology/synthetic/nvswitch-8nic-2numa   # any platform
 ```
 
-On a Linux box, `pixi run ostia-dev build` builds the tool, and `build/default/dev/fabric/tools/topo-capture/ostia-topo-capture --help` lists its flags. A machine without NVIDIA GPUs gives a complete capture with no `nvml.json`.
+On a Linux box, `pixi run ostia-dev build` builds the tool, and `build/default/dev/fabric/tools/topo-capture/ostia-topo-capture --help` lists its flags. To run it on the committed fake machine, set what `fabric/tools/topo-capture/tests/e2e.py` sets: hwloc reads the made-up topology through `HWLOC_XMLFILE`, and the fake NVML is a test-built `libnvidia-ml.so.1` found through `LD_LIBRARY_PATH` and configured by `OSTIA_FAKE_NVML`. `--sysfs-root` and `--no-verbs` exist for this and for the tests only.
+
+```bash
+# Linux only; <fake-nvml-dir> is where the tests build libnvidia-ml.so.1
+D=fabric/tests/topology/data
+HWLOC_XMLFILE=$D/hwloc-input.xml LD_LIBRARY_PATH=<fake-nvml-dir> OSTIA_FAKE_NVML=$D/fake-nvml/complete.json \
+  build/default/dev/fabric/tools/topo-capture/ostia-topo-capture --out /tmp/fake-capture \
+  --provider test --instance-type test --sysfs-root $D/capture-root/sys --no-verbs
+```
+
+A machine without NVIDIA GPUs gives a complete capture with no `nvml.json`.
 
 ## Capture a machine
 
@@ -41,7 +51,7 @@ Put every site-specific name in `--extra-identifiers`: the data-centre or rack n
 pixi run ostia-dev remote k8s --context <ctx> --profile l4 --suite topo-capture
 ```
 
-The `topo-capture` suite runs `topo capture` in the pod. The pod's node name, the kube context and the kubeconfig's cluster name go into the leak check automatically, so none of them can appear in the capture. The runner fetches the capture before it removes the pod and leaves it in `build/remote/<run-id>/capture/` ([remote-runs.md](remote-runs.md#topology-captures)). Add `--env-var OSTIA_CAPTURE_INSTANCE_TYPE=<type>` if the instance type was not detected. A failed capture fails this suite; a capture step in a gate never fails the run.
+The `topo-capture` suite runs `topo capture` in the pod. The pod's node name (one whole value), the kube context and the kubeconfig's cluster name (each as a whole value and as long segments) go into the leak check automatically, so none of them can appear in the capture. The runner fetches the capture before it removes the pod and leaves it in `build/remote/<run-id>/capture/` ([remote-runs.md](remote-runs.md#topology-captures)). Add `--env-var OSTIA_CAPTURE_INSTANCE_TYPE=<type>` if the instance type was not detected. A failed capture fails this suite; a capture step in a gate never fails the run.
 
 ## What a fixture publishes
 
@@ -88,7 +98,7 @@ A failed capture still writes a manifest, with `topology_id` `null` and the reas
 | 2 | Partial: a required source failed (for example NVML on a GPU machine) | For debugging; not importable |
 | 3 | A leak or schema violation; the data files are removed | No |
 
-The same codes apply to `ostia-dev topo capture` and to `remote` runs ([remote-runs.md](remote-runs.md#topology-captures)).
+The same codes apply to `ostia-dev topo capture`, with one addition: its own failures before the tool runs (the tool is missing or not executable, or the machine is not Linux) also exit 2, with a contract error and no capture line. Otherwise 2 means a partial capture. The codes also apply to `remote` runs ([remote-runs.md](remote-runs.md#topology-captures)).
 
 ## Add a fixture
 
@@ -137,13 +147,15 @@ Hex identifiers match case- and separator-insensitively. Names, IPs and `--extra
 
 A finding is `file:line locator: kind`, never the value. The locator is a JSON pointer for a `.json` file and an element path for `hwloc.xml` (attribute names follow `/@`). The kind is `mac`, `guid`, `gid`, `ipv4`, `ipv6`, `ipoib`, `uuid`, `serial`, `hostname`, `machine-id`, `dmi`, `instance-id` or similar.
 
-1. Open the named file at the locator in the capture's directory (the tool removes the data files on exit 3; rerun with a fresh `--out` and keep the machine, or reproduce with the fake root).
-2. **A real leak:** the value in that field comes from the machine. Do not publish. Report it as a bug: send the file, locator and kind, never the value, to the maintainers' address in `SECURITY.md`.
-3. **A false positive:** the field is a structural value that happens to equal a short identifier, for example a bus ID that equals part of a serial. Report it the same way; the leak check is not loosened by a flag.
+1. On exit 3 no data file reaches `--out`; the files are staged and removed. Read the `leak:` lines in the capture's `diagnostics.txt`, each `<file>:<line> <locator>: <kind>`, and judge from the machine's side whether that field should hold a value of that kind.
+2. **A real leak** (an identifier passed the schemas): do not publish. Report it privately as `SECURITY.md` describes, GitHub private vulnerability reporting first, with file, locator and kind only.
+3. **A false positive** (the field is structural and only looks like an identifier, for example a short hostname that equals a token of a GPU model string): open an ordinary public issue with file, locator and kind only. The check has no flag to loosen it.
+
+Never include the value itself in a report.
 
 A `--require-topology` run that fails with capture exit 3 is a finding of this check.
 
-Known limit: when the gate or a pod builds identifiers from the node name, the kube context and the kubeconfig's cluster name, segments shaped like cloud regions or zones (such as `us-central1-a`) and short or provider-word segments are skipped, because every account shares them. Whole values are still searched. Put a distinctive site name in `--extra-identifiers` if it would otherwise survive.
+Known limit: the node name is searched as one whole value, and the kube context and the kubeconfig's cluster name are searched whole and as long segments; segments shaped like cloud regions or zones (such as `us-central1-a`) and short or provider-word segments are skipped, because every account shares them. Whole values are still searched. Put a distinctive site name in `--extra-identifiers` if it would otherwise survive.
 
 ## Troubleshooting
 
@@ -156,5 +168,6 @@ Known limit: when the gate or a pod builds identifiers from the node name, the k
 | `rdma_probe` is `unavailable` | `libibverbs.so.1` did not load or `ibv_get_device_list` failed; the capture is still complete |
 | Exit 3 | The leak check or a schema failed; see [Leak check](#leak-check) |
 | Exit 1 with `--provider` or `--instance-type` | `--out` needs both; set the flags or the two `OSTIA_CAPTURE_*` variables |
-| `--print-id` takes long | It runs the whole capture and replay; the timing is in `diagnostics.txt` of a kept capture |
+| `bench run` records have `topology: null` | The driver gives `--print-id` 120 seconds; on a timeout or failure it warns and writes `null`, or fails under `--require-topology`. Run `topo capture --print-id` by hand to see why |
 | `topo import` refuses | The capture is not complete, was not accepted, or the target exists; the error names the rule |
+| `topo import` asks for `--name` | `meta.json` records the provider or instance type as `unknown` (a `--print-id` default); pass `--name <provider>-<instance-type>` |

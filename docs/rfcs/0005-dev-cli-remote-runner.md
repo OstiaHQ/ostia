@@ -110,7 +110,7 @@ error: namespace ostia-test has no ResourceQuota
 
 #### 1.4 Exit codes
 
-For every subcommand: **0** success, **1** the checked thing failed (tests, lint, a check), **2** usage or configuration error. `remote` adds three (§3.5). *(update: Rollout PR B: commands that wrap an external tool (`build`, `test`, `check`, `check graph|macros|tidy`, `py-dev`, `hooks`) exit with that tool's own code, as the pixi tasks they replace did, so a failing ctest still exits 8; §2.3 allows only names and paths to change.)* *(update: Rollout PR 6b: `topo capture` passes the capture tool's exit code through: 0 complete, 2 partial, 1 failed, 3 leak or schema violation, so 2 here means a partial capture rather than a usage error (#45).)*
+For every subcommand: **0** success, **1** the checked thing failed (tests, lint, a check), **2** usage or configuration error. `remote` adds three (§3.5). *(update: Rollout PR B: commands that wrap an external tool (`build`, `test`, `check`, `check graph|macros|tidy`, `py-dev`, `hooks`) exit with that tool's own code, as the pixi tasks they replace did, so a failing ctest still exits 8; §2.3 allows only names and paths to change.)* *(update: Rollout PR 6b: `topo capture` passes the capture tool's exit code through: 0 complete, 2 partial, 1 failed, 3 leak or schema violation, so 2 means a partial capture, except that ostia-dev's own failures before the tool runs (the tool is missing or not executable, or the machine is not Linux) also exit 2, with a contract error and no capture line (#45).)*
 
 #### 1.5 Prompts and non-interactive use
 
@@ -189,7 +189,6 @@ This RFC is the approval that `docs/README.md` requires.
 
 PR A measures whether `typer-slim` (without rich) is enough; if it is, that is used instead and the table is updated in the PR. *Update (Rollout PR A): measured. `typer-slim` 0.24 is a shim that depends on `typer` itself, on conda-forge and on PyPI alike, so choosing it drops nothing; PR A uses plain `typer` (`>=0.27,<0.28`). conda-forge's `typer` depends on colorama on every platform, though typer only uses it on Windows.* Cloud credential plugins (`gke-gcloud-auth-plugin`, `aws`, `kubelogin`) are not dependencies: kubectl uses whatever the developer's kubeconfig names, and the guide lists them per provider.
 
-*(update: Rollout PR 6b: `jsonschema` (MIT, conda-forge, all environments) is added for the consumer-side validation of `manifest.json` against `manifest.schema.json`, which RFC-0003 §4 requires (#45).)*
 
 ### 3. Remote runs
 
