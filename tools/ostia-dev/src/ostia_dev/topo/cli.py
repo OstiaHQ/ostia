@@ -295,6 +295,11 @@ def _reason(value: object) -> str:
     return value if isinstance(value, str) and REASON_CODE.fullmatch(value) else "non-code reason"
 
 
+def _data_file(value: object) -> str:
+    """A manifest's file name, echoed only when it is one of the data files a capture writes."""
+    return value if isinstance(value, str) and value in manifest.FILES else "non-data file"
+
+
 def _interpretation(code: int, out: Path | None, since_ns: int) -> str:
     """One line on what the tool's exit code means (RFC-0003 §4), from the manifest it wrote."""
     doc = _fresh_manifest(out, since_ns) if out is not None else None
@@ -303,7 +308,7 @@ def _interpretation(code: int, out: Path | None, since_ns: int) -> str:
         return f"capture complete: {out}" if out is not None else "capture complete"
     if code == 2:
         missing = [
-            f"{m.get('file')} missing ({_reason(m.get('reason'))})"
+            f"{_data_file(m.get('file'))} missing ({_reason(m.get('reason'))})"
             for m in (doc or {}).get("missing", [])
             if isinstance(m, dict)
         ]
@@ -314,8 +319,10 @@ def _interpretation(code: int, out: Path | None, since_ns: int) -> str:
             return f"capture rejected by the leak check: {findings} findings, {see}"
         return f"capture rejected by the leak check or the schema check, {see}"
     if code == 1:
-        codes = [e.get("code") for e in (doc or {}).get("errors", []) if isinstance(e, dict)]
-        return f"capture failed: {', '.join(map(str, codes)) or 'no manifest written'}, {see}"
+        codes = [
+            _reason(e.get("code")) for e in (doc or {}).get("errors", []) if isinstance(e, dict)
+        ]
+        return f"capture failed: {', '.join(codes) or 'no manifest written'}, {see}"
     return f"capture ended with exit code {code}"
 
 
@@ -360,7 +367,18 @@ def capture(
     plan, tool = _capture_tool(build_dir)
     if plan:
         if code := steps.run(plan):
-            raise typer.Exit(code)
+            if code == errors.INTERRUPTED:
+                raise typer.Exit(code)
+            # The tool's own exit codes are this command's, so cmake's must not pass as one.
+            raise errors.InfraError(
+                violation(
+                    f"{CAPTURE_TOOL} did not build",
+                    [f"exit code: {code}"],
+                    f"topo capture builds {CAPTURE_TOOL} from this checkout before it runs it",
+                    "pixi run ostia-dev build, or pass --build-dir with a built tree",
+                    "RFC-0003 §1",
+                )
+            )
         tool = _executable(Path(tool), "the dev build")
     provider = provider or os.environ.get("OSTIA_CAPTURE_PROVIDER") or None
     instance_type = instance_type or os.environ.get("OSTIA_CAPTURE_INSTANCE_TYPE") or None
@@ -524,7 +542,11 @@ def import_(
             )
         ) from e
     if accepted["status"] != "complete":
-        missing = [f"missing: {m['file']} ({m['reason']})" for m in accepted["missing"]]
+        missing = [
+            f"missing: {_data_file(m.get('file'))} ({_reason(m.get('reason'))})"
+            for m in accepted["missing"]
+            if isinstance(m, dict)
+        ]
         raise errors.CheckFailed(
             violation(
                 f"the capture is {accepted['status']}, not complete",
@@ -546,12 +568,16 @@ def import_(
         files = sorted(str(p) for p in target.iterdir())
         code = steps.run([steps.py("ci.check_fixture_leaks", "--files", *files)])
         if code:
+            # diagnostics.txt is never imported and fixture-leaks rejects it, so the fix names
+            # only what was copied.
+            copied = [*sorted(map(_data_file, accepted["files"])), "manifest.json"]
+            rerun = " ".join(str(capture_dir / name) for name in copied)
             raise errors.CheckFailed(
                 violation(
                     f"fixture-leaks found identifiers in {shown}; the folder was removed",
                     [f"capture: {capture_dir}"],
                     "a committed fixture holds no machine identifier (RFC-0003 §3)",
-                    f"pixi run ostia-dev check fixture-leaks --files {capture_dir}/*",
+                    f"pixi run ostia-dev check fixture-leaks --files {rerun}",
                     "RFC-0003 §3",
                 )
             )

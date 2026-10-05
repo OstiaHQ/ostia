@@ -465,3 +465,25 @@ def test_diff_passes_an_interrupt_through(monkeypatch, tmp_path):
     r = CliRunner().invoke(app, ["topo", "diff", "one", "pair-tcp"])
     assert r.exit_code == 130
     assert not isinstance(r.exception, OstiaError)
+
+
+def test_capture_does_not_echo_a_non_data_file_or_a_non_code_error(monkeypatch, tmp_path):
+    doc = _manifest("partial", missing=[{"file": "host-a.example", "reason": "nvml_init"}])
+    _linux(monkeypatch, tmp_path, code=2, manifest=doc)
+    r = CliRunner().invoke(app, ["topo", "capture", "--out", str(tmp_path / "cap")])
+    assert "non-data file missing (nvml_init)" in r.stderr and "example" not in r.stderr
+    doc = _manifest("failed", errors_=[{"code": "host-b.example", "message": "m"}])
+    _linux(monkeypatch, tmp_path, code=1, manifest=doc)
+    r = CliRunner().invoke(app, ["topo", "capture", "--out", str(tmp_path / "cap2")])
+    assert "capture failed: non-code reason, see " in r.stderr and "example" not in r.stderr
+
+
+@pytest.mark.parametrize("code", [1, 2, 3])
+def test_a_failed_build_is_an_infra_error_not_a_capture_exit_code(monkeypatch, tmp_path, code):
+    seen = _linux(monkeypatch, tmp_path)
+    monkeypatch.setattr("ostia_dev.topo.cli.steps.run", lambda plan: code)
+    r = CliRunner().invoke(app, ["topo", "capture", "--print-id"])
+    assert isinstance(r.exception, InfraError) and r.exception.code == 3
+    assert "ostia-topo-capture did not build" in r.exception.message
+    assert f"exit code: {code}" in r.exception.message and "fix:" in r.exception.message
+    assert seen["argv"] is None

@@ -122,6 +122,17 @@ def test_import_refuses_a_partial_capture(fake, tmp_path):
     assert not fake["fixtures"].exists()
 
 
+def test_import_echoes_no_manifest_string_that_is_not_a_file_or_code(fake, tmp_path):
+    capture = _capture(tmp_path, status="partial")
+    doc = json.loads((capture / "manifest.json").read_text())
+    doc["missing"] = [{"file": "host-a.example", "reason": "10.0.0.1 rack-7"}]
+    (capture / "manifest.json").write_text(json.dumps(doc))
+    r = CliRunner().invoke(app, ["topo", "import", str(capture)])
+    assert isinstance(r.exception, CheckFailed)
+    assert "missing: non-data file (non-code reason)" in r.exception.message
+    assert "example" not in r.exception.message and "10.0.0.1" not in r.exception.message
+
+
 def test_import_refuses_a_rejected_capture(fake, tmp_path):
     capture = _capture(tmp_path)
     (capture / "extra.txt").write_text("x")
@@ -135,6 +146,9 @@ def test_import_removes_the_folder_when_fixture_leaks_finds_something(fake, tmp_
     r = CliRunner().invoke(app, ["topo", "import", str(_capture(tmp_path))])
     assert isinstance(r.exception, CheckFailed) and r.exception.code == 1
     assert not (fake["fixtures"] / "captured" / "aws-g6-4xlarge").exists()
+    fix = next(line for line in r.exception.message.splitlines() if "fix:" in line)
+    names = sorted(part.rpartition("/")[2] for part in fix.split("--files ", 1)[1].split())
+    assert names == ["hwloc.xml", "manifest.json", "meta.json", "nics.json", "nvml.json"]
 
 
 def test_import_never_overwrites_a_fixture(fake, tmp_path):
