@@ -24,7 +24,7 @@ from fakes.kube import (
 from ostia_dev import config
 from ostia_dev.remote import core
 from ostia_dev.remote.k8s import manifests
-from ostia_dev.remote.k8s.backend import FINISHED, K8sBackend
+from ostia_dev.remote.k8s.backend import FINISHED, INSTANCE_TYPE_FILE, K8sBackend
 from ostia_dev.remote.k8s.preflight import Target
 
 OK_LOG = [
@@ -455,17 +455,35 @@ def test_the_job_env_names_the_capture_provider(
     assert env["NODE_NAME"] == {"fieldRef": {"fieldPath": "spec.nodeName"}}
 
 
-@pytest.mark.parametrize(
-    ("types", "expected"),
-    [(["g6.4xlarge", "g6.4xlarge"], "g6.4xlarge"), (["g6.4xlarge", "g6.2xlarge"], "unknown"),
-     (["g6.4xlarge", None], "unknown"), ([], "unknown")],
-)  # fmt: skip
-def test_the_job_env_names_the_instance_type_only_when_unique(
-    fake, clock, cfg, repo, tmp_path, types, expected
+def _pod_files(fake, path: str) -> dict[str, str]:
+    """What each pod's exec wrote to `path`, keyed by pod name."""
+    out = {}
+    for c in fake.calls:
+        if c.verb == "exec_out" and c.args[1][:2] == ("sh", "-c") and c.args[1][-1] == path:
+            out[c.args[0]] = c.args[1][-2]
+    return out
+
+
+def test_each_pod_is_told_its_own_node_instance_type(fake, clock, cfg, repo, tmp_path):
+    fake.apply({"kind": "Node", **_node("node-1", "g6.4xlarge")}, record=False)
+    env = _job_env(fake, clock, cfg, repo, tmp_path)
+    assert env["OSTIA_CAPTURE_INSTANCE_TYPE_FILE"] == INSTANCE_TYPE_FILE
+    assert "OSTIA_CAPTURE_INSTANCE_TYPE" not in env
+    assert list(_pod_files(fake, INSTANCE_TYPE_FILE).values()) == ["g6.4xlarge"]
+    writes = [i for i, c in enumerate(fake.calls) if c.verb == "exec_out"]
+    ready = next(i for i in writes if fake.calls[i].args[1][0] == "touch")
+    told = next(i for i in writes if fake.calls[i].args[1][-1] == INSTANCE_TYPE_FILE)
+    assert told < ready
+
+
+@pytest.mark.parametrize("node", [None, {"kind": "Node", **_node("node-1", None)}])
+def test_no_instance_type_is_written_without_a_labelled_node(
+    fake, clock, cfg, repo, tmp_path, node
 ):
-    nodes = [_node(f"n{i}", t) for i, t in enumerate(types)]
-    env = _job_env(fake, clock, cfg, repo, tmp_path, nodes=nodes)
-    assert env["OSTIA_CAPTURE_INSTANCE_TYPE"] == expected
+    if node:
+        fake.apply(node, record=False)
+    assert _drive(fake, clock, cfg, repo, tmp_path) == 0
+    assert _pod_files(fake, INSTANCE_TYPE_FILE) == {}
 
 
 @pytest.mark.parametrize(

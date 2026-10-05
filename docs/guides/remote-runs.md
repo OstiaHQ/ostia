@@ -190,7 +190,7 @@ build/remote/<run-id>/capture/            # two pods
 ```
 
 - `summary.json` has a `capture` entry with the same per-node result.
-- A pod gets `NODE_NAME` (downward API), `OSTIA_CAPTURE_PROVIDER`, `OSTIA_CAPTURE_INSTANCE_TYPE` and `OSTIA_LEAK_IDENTIFIERS`. `topo capture` adds `NODE_NAME` (as one whole value), the kube context and the kubeconfig's cluster name (each whole and as long segments) to the leak check (region and zone names are skipped, [fixtures.md](fixtures.md#leak-check)).
+- A pod gets `NODE_NAME` (downward API), `OSTIA_CAPTURE_PROVIDER`, `OSTIA_LEAK_IDENTIFIERS` and `OSTIA_CAPTURE_INSTANCE_TYPE_FILE`. Once the pod runs, the runner writes its node's `node.kubernetes.io/instance-type` label into that file (best effort: without node access or the label the capture records `unknown`); `--env-var OSTIA_CAPTURE_INSTANCE_TYPE=<type>` overrides it. `topo capture` adds `NODE_NAME` (as one whole value), the kube context and the kubeconfig's cluster name (each whole and as long segments) to the leak check (region and zone names are skipped, [fixtures.md](fixtures.md#leak-check)).
 - Exit codes of the capture tool: 0 complete, 2 partial, 1 failed, 3 leak or schema violation ([fixtures.md](fixtures.md#the-manifest-and-exit-codes)). `status.json` records `accepted` for 0 and 2, `rejected` for the rest, and `absent` when the pod wrote no manifest.
 - Run `--suite topo-capture` to capture a node, with `--pods 2 --same-node` for two. The suite step is an ordinary command, so a failed capture fails that suite. In a gate, the capture is a report step instead.
 - Without a pair id, a one-pod run's bench records carry the driver's own `topo1` id from `ostia-topo-capture --print-id`.

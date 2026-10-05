@@ -232,6 +232,19 @@ def _executable(tool: Path, source: str) -> str:
     return str(tool)
 
 
+def _read_default(path: str | None) -> str | None:
+    """The first line of a defaults file a remote runner wrote, or None. A missing or unreadable
+    file only leaves the default unset: the tool then records "unknown"."""
+    if not path:
+        return None
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+    value = lines[0].strip() if lines else ""
+    return value or None
+
+
 def _identifiers(extra: Path | None) -> list[str]:
     """The lines of the caller's --extra-identifiers file, then the values a remote pod is given:
     NODE_NAME and the lines of OSTIA_LEAK_IDENTIFIERS. Only newlines separate values, because the
@@ -340,7 +353,10 @@ def capture(
     ] = None,
     instance_type: Annotated[
         str | None,
-        typer.Option(help="Recorded in meta.json; default $OSTIA_CAPTURE_INSTANCE_TYPE."),
+        typer.Option(
+            help="Recorded in meta.json; default $OSTIA_CAPTURE_INSTANCE_TYPE, else the file "
+            "$OSTIA_CAPTURE_INSTANCE_TYPE_FILE names (remote k8s writes it from the pod's node)."
+        ),
     ] = None,
     extra_identifiers: Annotated[
         Path | None, typer.Option(help="More identifiers for the leak check, one per line.")
@@ -381,7 +397,11 @@ def capture(
             )
         tool = _executable(Path(tool), "the dev build")
     provider = provider or os.environ.get("OSTIA_CAPTURE_PROVIDER") or None
-    instance_type = instance_type or os.environ.get("OSTIA_CAPTURE_INSTANCE_TYPE") or None
+    instance_type = (
+        instance_type
+        or os.environ.get("OSTIA_CAPTURE_INSTANCE_TYPE")
+        or _read_default(os.environ.get("OSTIA_CAPTURE_INSTANCE_TYPE_FILE"))
+    )
     # Absolute, so the interpretation line names the capture wherever it is read.
     out = out.absolute() if out is not None else None
     argv = [tool]

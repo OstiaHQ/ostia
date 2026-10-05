@@ -288,17 +288,11 @@ def test_capture_provider_names_the_cloud(provider, expected):
     assert preflight.capture_provider(provider) == expected
 
 
-def _labelled(selected: bool, instance_type: str | None) -> dict:
-    labels = {"cloud.google.com/gke-accelerator": "nvidia-l4"} if selected else {}
-    if instance_type:
-        labels["node.kubernetes.io/instance-type"] = instance_type
-    return {"metadata": {"name": "n", "labels": labels}}
-
-
-def test_instance_type_comes_from_the_nodes_the_profile_selects(tmp_path):
-    l4 = profiles.resolve("l4", "gke", config.load(tmp_path / "none.toml"))
-    nodes = [_labelled(True, "g2-standard-8"), _labelled(False, "e2-standard-4")]
-    assert preflight.instance_type(nodes, l4) == "g2-standard-8"
-    assert preflight.instance_type([*nodes, _labelled(True, "g2-standard-16")], l4) == "unknown"
-    assert preflight.instance_type([_labelled(True, None)], l4) == "unknown"
-    assert preflight.instance_type([], l4) == "unknown"
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [({"node.kubernetes.io/instance-type": "g6.4xlarge"}, "g6.4xlarge"),
+     ({"beta.kubernetes.io/instance-type": "g2-standard-16"}, "g2-standard-16"),
+     ({"node.kubernetes.io/instance-type": ""}, None), ({}, None)],
+)  # fmt: skip
+def test_node_instance_type_reads_the_well_known_labels(labels, expected):
+    assert preflight.node_instance_type({"metadata": {"name": "n", "labels": labels}}) == expected

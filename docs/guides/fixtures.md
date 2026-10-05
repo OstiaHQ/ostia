@@ -32,7 +32,7 @@ pixi run ostia-dev topo capture --out capture/ --provider onprem --instance-type
   --extra-identifiers site-names.txt
 ```
 
-`topo capture` builds the tool if needed (it looks in `$OSTIA_TOPO_CAPTURE`, then `--build-dir`, then this checkout's dev build, then `PATH`), runs it and prints one line on what its exit code means. `--provider` and `--instance-type` default to `$OSTIA_CAPTURE_PROVIDER` and `$OSTIA_CAPTURE_INSTANCE_TYPE`. Other flags:
+`topo capture` builds the tool if needed (it looks in `$OSTIA_TOPO_CAPTURE`, then `--build-dir`, then this checkout's dev build, then `PATH`), runs it and prints one line on what its exit code means. `--provider` defaults to `$OSTIA_CAPTURE_PROVIDER`; `--instance-type` defaults to `$OSTIA_CAPTURE_INSTANCE_TYPE`, else the first line of the file `$OSTIA_CAPTURE_INSTANCE_TYPE_FILE` names. Other flags:
 
 | Flag | Meaning |
 | --- | --- |
@@ -51,7 +51,7 @@ Put every site-specific name in `--extra-identifiers`: the data-centre or rack n
 pixi run ostia-dev remote k8s --context <ctx> --profile l4 --suite topo-capture
 ```
 
-The `topo-capture` suite runs `topo capture` in the pod. The pod's node name (one whole value), the kube context and the kubeconfig's cluster name (each as a whole value and as long segments) go into the leak check automatically, so none of them can appear in the capture. The runner fetches the capture before it removes the pod and leaves it in `build/remote/<run-id>/capture/` ([remote-runs.md](remote-runs.md#topology-captures)). Add `--env-var OSTIA_CAPTURE_INSTANCE_TYPE=<type>` if the instance type was not detected. A failed capture fails this suite; a capture step in a gate never fails the run.
+The `topo-capture` suite runs `topo capture` in the pod. The pod's node name (one whole value), the kube context and the kubeconfig's cluster name (each as a whole value and as long segments) go into the leak check automatically, so none of them can appear in the capture. The runner fetches the capture before it removes the pod and leaves it in `build/remote/<run-id>/capture/` ([remote-runs.md](remote-runs.md#topology-captures)). The runner reads the instance type from the label of the node the pod landed on, so a node group that scales from zero is detected too; add `--env-var OSTIA_CAPTURE_INSTANCE_TYPE=<type>` if the node has no `node.kubernetes.io/instance-type` label or you can't read nodes. A failed capture fails this suite; a capture step in a gate never fails the run.
 
 ## What a fixture publishes
 

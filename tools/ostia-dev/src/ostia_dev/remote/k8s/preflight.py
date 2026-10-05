@@ -61,15 +61,9 @@ def capture_provider(provider: str) -> str:
     return CAPTURE_PROVIDERS.get(provider, "unknown")
 
 
-def instance_type(nodes: list[dict], profile: Profile) -> str:
-    """The instance type of the nodes the profile selects, or "unknown" when they don't share
-    one: the pod may land on any of them."""
-    types = set()
-    for node in nodes:
-        labels = node.get("metadata", {}).get("labels", {})
-        if all(labels.get(k) == v for k, v in profile.node_selector.items()):
-            types.add(next((labels[k] for k in INSTANCE_TYPE_LABELS if labels.get(k)), None))
-    return types.pop() if len(types) == 1 and None not in types else "unknown"
+def node_instance_type(node: dict) -> str | None:
+    labels = node.get("metadata", {}).get("labels", {})
+    return next((labels[k] for k in INSTANCE_TYPE_LABELS if labels.get(k)), None)
 
 
 def _namespace(spec: RunSpec, ctx: dict, context: str, cfg: Config) -> str:

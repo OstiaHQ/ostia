@@ -39,6 +39,7 @@ LOST_FOR_GOOD = 120
 TEARDOWN_WAIT = 60
 PULL_ERRORS = ("ErrImagePull", "ImagePullBackOff", "InvalidImageName")
 CACHE_ERRORS = ("volume node affinity conflict", "Multi-Attach error", "had volume")
+INSTANCE_TYPE_FILE = f"{suites.WORK}/.ostia/instance-type"
 
 
 def _secret_keys(env_vars: dict[str, str]) -> set[str]:
@@ -113,7 +114,8 @@ class K8sBackend:
             self.notes.append("the kubeconfig cluster name could not be read for the leak check")
         return {
             "OSTIA_CAPTURE_PROVIDER": preflight.capture_provider(self.target.provider),
-            "OSTIA_CAPTURE_INSTANCE_TYPE": preflight.instance_type(self.target.nodes, run.profile),
+            # Written per pod once it runs: a scale-from-zero group has no node to read before.
+            "OSTIA_CAPTURE_INSTANCE_TYPE_FILE": INSTANCE_TYPE_FILE,
             # topo capture splits this on newlines only, so a value may hold spaces
             "OSTIA_LEAK_IDENTIFIERS": "\n".join(
                 capture.leak_identifiers([self.target.context, cluster])
@@ -248,6 +250,7 @@ class K8sBackend:
             running = [p for p in pods if p.get("status", {}).get("phase") == "Running"]
             if pods and len(running) == run.state["n"]:
                 run.state["pods"] = [p["metadata"]["name"] for p in running]
+                run.state["nodes"] = [p["spec"].get("nodeName") for p in running]
                 run.state["pod"] = run.state["pods"][0]
                 if run.state["n"] == 1:
                     run.node = running[0]["spec"].get("nodeName")
@@ -278,9 +281,25 @@ class K8sBackend:
         t0 = self.clock.monotonic()
         for pod in run.state["pods"]:
             self._upload_one(run, pod)
+        for pod, node in zip(run.state["pods"], run.state["nodes"], strict=True):
+            self._write_instance_type(pod, node)
         for pod in run.state["pods"]:
             self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/ready"])
         run.phases["upload"] = round(self.clock.monotonic() - t0)
+
+    def _write_instance_type(self, pod: str, node: str | None) -> None:
+        """The instance type of the node the pod runs on, for topo capture (RFC-0003 §1).
+        Best effort: without it the capture records "unknown", which it also may on any
+        machine, so a missing label or node access never fails the run."""
+        if not node or not self.target.node_access:
+            return
+        try:
+            obj = self.kube.get("node", node, namespaced=False)
+            if obj and (value := preflight.node_instance_type(obj)):
+                script = 'printf "%s\\n" "$1" >"$2"'
+                self.kube.exec_out(pod, ["sh", "-c", script, "sh", value, INSTANCE_TYPE_FILE])
+        except OstiaError:
+            return
 
     def _upload_one(self, run: Run, pod: str) -> None:
         with run.tarball.path.open("rb") as f:

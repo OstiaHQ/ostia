@@ -183,7 +183,7 @@ def _linux(monkeypatch, tmp_path, code=0, manifest=None, diagnostics=""):
     monkeypatch.setattr("ostia_dev.topo.cli._on_linux", lambda: True)
     monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "default")
     monkeypatch.delenv("OSTIA_TOPO_CAPTURE", raising=False)
-    for var in ("NODE_NAME", "OSTIA_LEAK_IDENTIFIERS"):
+    for var in ("NODE_NAME", "OSTIA_LEAK_IDENTIFIERS", "OSTIA_CAPTURE_INSTANCE_TYPE_FILE"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("OSTIA_CAPTURE_PROVIDER", "gcp")
     monkeypatch.setenv("OSTIA_CAPTURE_INSTANCE_TYPE", "g2-standard-16")
@@ -249,6 +249,30 @@ def test_capture_flags_override_the_environment(monkeypatch, tmp_path):
     argv = seen["argv"]
     assert argv[argv.index("--provider") + 1] == "aws"
     assert argv[argv.index("--instance-type") + 1] == "g6"
+
+
+@pytest.mark.parametrize(
+    ("env", "content", "expected"),
+    [(None, "g6.4xlarge\n", "g6.4xlarge"), ("g2-standard-16", "g6.4xlarge\n", "g2-standard-16"),
+     (None, "\n", None), (None, None, None)],
+)  # fmt: skip
+def test_capture_reads_the_instance_type_file_after_the_environment(
+    monkeypatch, tmp_path, env, content, expected
+):
+    seen = _linux(monkeypatch, tmp_path)
+    if env is None:
+        monkeypatch.delenv("OSTIA_CAPTURE_INSTANCE_TYPE")
+    else:
+        monkeypatch.setenv("OSTIA_CAPTURE_INSTANCE_TYPE", env)
+    path = tmp_path / "instance-type"
+    if content is not None:
+        path.write_text(content)
+    monkeypatch.setenv("OSTIA_CAPTURE_INSTANCE_TYPE_FILE", str(path))
+    r = CliRunner().invoke(app, ["topo", "capture", "--print-id"])
+    assert r.exit_code == 0, r.output
+    argv = seen["argv"]
+    got = argv[argv.index("--instance-type") + 1] if "--instance-type" in argv else None
+    assert got == expected
 
 
 def test_capture_uses_build_dir_without_building(monkeypatch, tmp_path):
