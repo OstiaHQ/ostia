@@ -23,6 +23,7 @@ All notable changes to Ostia are documented here. The format follows [Keep a Cha
 
 ### Changed
 
+- `remote k8s` reads a capture's instance type from the label of the node each pod landed on, after it runs, instead of from the nodes that existed before the run; a node group that scales from zero no longer records `unknown`. Pods get `OSTIA_CAPTURE_INSTANCE_TYPE_FILE`, and `OSTIA_CAPTURE_INSTANCE_TYPE` is now only an override.
 - The `topo1` canonical search now prunes with automorphisms found from equal leaf certificates, so symmetric shapes that are not twins finish in milliseconds instead of minutes, and some models that hit `leaf_cap` before now get an id. No `topo1` id changed: the 43 pinned shapes and all 9 synthetic fixtures match the previous algorithm (RFC-0003 §5, #33).
 - Every contributor command is now an `ostia-dev` command (RFC-0005 §2, Rollout PR B), run as `pixi run ostia-dev …` or as `ostia-dev …` inside `pixi shell`. The old pixi tasks and script paths are gone, with no aliases; `pixi run ostia-dev --help` lists everything. The tools themselves moved into `tools/ostia-dev/src/ostia_dev/{ci,dev,docs,bench}/`; their behaviour, output and exit codes are unchanged apart from the names.
 
