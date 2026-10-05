@@ -56,6 +56,10 @@ BANDWIDTH = "nv/cold/bw/global/bytes_per_second"
 DEVICE_ORDER = {"CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
 CAPTURE_TOOL = "ostia-topo-capture"
 CAPTURE_TIMEOUT = 120
+# After a timeout the tool gets SIGTERM and this long to remove its scratch directory.
+CAPTURE_TERM_GRACE = 10
+# ostia-topo-capture's exit codes (RFC-0003 §4).
+CAPTURE_EXITS = {1: "a failed capture", 2: "a partial capture", 3: "a leak or schema violation"}
 TOPO_ID = re.compile(r"topo1:sha256:[0-9a-f]{64}")
 
 
@@ -239,21 +243,38 @@ def capture_topology(build_dir: Path | None) -> tuple[str | None, list[str]]:
             "  looked in $OSTIA_TOPO_CAPTURE, --build-dir and PATH",
         ]
     try:
-        proc = subprocess.run(
-            [tool, "--print-id"], capture_output=True, text=True, timeout=CAPTURE_TIMEOUT
-        )
+        code, stdout, stderr = _print_id(tool)
     except subprocess.TimeoutExpired:
         return None, [f"{CAPTURE_TOOL} did not finish within {CAPTURE_TIMEOUT}s"]
     except OSError as e:
         return None, [f"{CAPTURE_TOOL} could not run ({e.strerror or type(e).__name__})"]
-    detail = [f"  {line.strip()}" for line in proc.stderr.splitlines() if line.strip()]
-    if proc.returncode == 0 and TOPO_ID.fullmatch(proc.stdout.strip()):
-        return proc.stdout.strip(), []
-    if proc.returncode == 0:
+    detail = [f"  {line.strip()}" for line in stderr.splitlines() if line.strip()]
+    if code == 0 and TOPO_ID.fullmatch(stdout.strip()):
+        return stdout.strip(), []
+    if code == 0:
         return None, [f"{CAPTURE_TOOL} printed no topo1 id", *detail]
-    kinds = {2: "a partial capture", 3: "a failed leak check"}
-    why = kinds.get(proc.returncode, f"exit {proc.returncode}")
-    return None, [f"{CAPTURE_TOOL} reported {why} (exit {proc.returncode})", *detail]
+    why = CAPTURE_EXITS.get(code, f"exit {code}")
+    return None, [f"{CAPTURE_TOOL} reported {why} (exit {code})", *detail]
+
+
+def _print_id(tool: str) -> tuple[int, str, str]:
+    """subprocess.run's timeout sends SIGKILL, which leaves the tool's scratch directory in
+    $TMPDIR; SIGTERM first lets its handler remove it (RFC-0003 §1)."""
+    proc = subprocess.Popen(
+        [tool, "--print-id"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=CAPTURE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        proc.terminate()
+        try:
+            proc.communicate(timeout=CAPTURE_TERM_GRACE)
+        except subprocess.TimeoutExpired:
+            if proc.poll() is None:
+                proc.kill()
+            proc.communicate()
+        raise
+    return proc.returncode, stdout, stderr
 
 
 def _topology_missing(lines: list[str], require: bool) -> BenchError | None:
@@ -261,13 +282,22 @@ def _topology_missing(lines: list[str], require: bool) -> BenchError | None:
     that cannot carry a topology id."""
     head, *detail = lines
     if require:
+        if CAPTURE_EXITS[3] in head:
+            fix = (
+                "find the file, line and kind in the tool's diagnostics and follow "
+                "docs/guides/fixtures.md#leak-check"
+            )
+        else:
+            fix = (
+                "run on a machine where ostia-topo-capture works, or set OSTIA_TOPO_CAPTURE "
+                "to it; build it with pixi run ostia-dev build"
+            )
         return BenchError(
             f"error: no topology id for these records: {head}\n"
             + "".join(f"{d}\n" for d in detail)
             + "  rule: --require-topology needs the machine's topo1 id in every record "
             "(RFC-0001 §6.2)\n"
-            "  fix: run on a machine where ostia-topo-capture works, or set "
-            "OSTIA_TOPO_CAPTURE to it; build it with pixi run ostia-dev build\n"
+            f"  fix: {fix}\n"
             "  see: RFC-0003 §1"
         )
     print(

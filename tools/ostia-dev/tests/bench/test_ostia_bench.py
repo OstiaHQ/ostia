@@ -431,11 +431,11 @@ def test_the_topology_id_reaches_every_record_with_one_call(program, tmp_path, m
     count = tmp_path / "count"
     monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(_tool(tmp_path / "cap", count=count)))
     timeouts = []
-    real = subprocess.run
+    real = subprocess.Popen.communicate
     monkeypatch.setattr(
-        ob.subprocess,
-        "run",
-        lambda cmd, **kw: timeouts.append(kw.get("timeout")) or real(cmd, **kw),
+        subprocess.Popen,
+        "communicate",
+        lambda self, *a, **kw: timeouts.append(kw.get("timeout")) or real(self, *a, **kw),
     )
     assert _drive(tmp_path, program, "--runs", "2") == 0
     [record] = _records(tmp_path)
@@ -480,8 +480,9 @@ def test_lookup_order_is_the_variable_then_the_build_dir_then_path(tmp_path, mon
 
 FAILURES = [
     ("absent", {}, "was not found"),
+    ("failed", {"code": 1, "err": SUMMARY}, "a failed capture"),
     ("partial", {"code": 2, "err": SUMMARY}, "a partial capture"),
-    ("leak", {"code": 3, "err": SUMMARY}, "a failed leak check"),
+    ("leak", {"code": 3, "err": SUMMARY}, "a leak or schema violation"),
     ("timeout", {"hang": True}, "did not finish"),
 ]
 
@@ -525,6 +526,43 @@ def test_require_topology_turns_the_warning_into_a_contract_error(
     if spec.get("err"):
         assert "  error nvml-missing: NVML could not be loaded" in err.splitlines()
     assert not (tmp_path / "results").exists()
+
+
+def test_require_topology_after_a_leak_points_at_the_leak_triage(
+    program, tmp_path, monkeypatch, capsys
+):
+    _failing_tool(tmp_path, monkeypatch, {"code": 3, "err": SUMMARY})
+    assert _drive(tmp_path, program, "--require-topology") == 1
+    err = capsys.readouterr().err
+    assert "fix: find the file, line and kind" in err
+    assert "docs/guides/fixtures.md#leak-check" in err
+
+
+def test_a_timed_out_tool_gets_sigterm_to_remove_its_scratch_directory(
+    program, tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(ob, "CAPTURE_TIMEOUT", 1)
+    # The sleep runs in the background so the trap fires at once, and away from the pipes so
+    # the driver's read ends when the script does.
+    tool = _script(
+        tmp_path / "cap",
+        "trap 'echo term > \"$0.term\"; kill $!; exit 143' TERM\n"
+        "sleep 30 >/dev/null 2>&1 &\nwait\n",
+    )
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(tool))
+    assert _drive(tmp_path, program) == 0
+    assert (tmp_path / "cap.term").read_text() == "term\n"
+    assert _records(tmp_path)[0]["compat"]["topology"] is None
+    assert "did not finish within 1s" in capsys.readouterr().err
+
+
+def test_a_tool_that_ignores_sigterm_is_killed_after_the_grace(program, tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "CAPTURE_TIMEOUT", 1)
+    monkeypatch.setattr(ob, "CAPTURE_TERM_GRACE", 1)
+    tool = _script(tmp_path / "cap", "trap '' TERM\nsleep 5 >/dev/null 2>&1 &\nwait\n")
+    monkeypatch.setenv("OSTIA_TOPO_CAPTURE", str(tool))
+    assert _drive(tmp_path, program) == 0
+    assert _records(tmp_path)[0]["compat"]["topology"] is None
 
 
 def test_a_non_executable_variable_is_not_found_even_with_a_tool_on_path(
