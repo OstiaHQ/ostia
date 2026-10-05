@@ -14,9 +14,9 @@ pixi run ostia-dev topo show fabric/tests/fixtures/topology/synthetic/nvswitch-8
 On a Linux box, `pixi run ostia-dev build` builds the tool, and `build/default/dev/fabric/tools/topo-capture/ostia-topo-capture --help` lists its flags. To run it on the committed fake machine, set what `fabric/tools/topo-capture/tests/e2e.py` sets: hwloc reads the made-up topology through `HWLOC_XMLFILE`, and the fake NVML is a test-built `libnvidia-ml.so.1` found through `LD_LIBRARY_PATH` and configured by `OSTIA_FAKE_NVML`. `--sysfs-root` and `--no-verbs` exist for this and for the tests only.
 
 ```bash
-# Linux only; <fake-nvml-dir> is where the tests build libnvidia-ml.so.1
+# Linux only; the tests build the fake libnvidia-ml.so.1 into the fake-nvml directory
 D=fabric/tests/topology/data
-HWLOC_XMLFILE=$D/hwloc-input.xml LD_LIBRARY_PATH=<fake-nvml-dir> OSTIA_FAKE_NVML=$D/fake-nvml/complete.json \
+HWLOC_XMLFILE=$D/hwloc-input.xml LD_LIBRARY_PATH=build/default/dev/fabric/tools/topo-capture/fake-nvml OSTIA_FAKE_NVML=$D/fake-nvml/complete.json \
   build/default/dev/fabric/tools/topo-capture/ostia-topo-capture --out /tmp/fake-capture \
   --provider test --instance-type test --sysfs-root $D/capture-root/sys --no-verbs
 ```
@@ -25,7 +25,7 @@ A machine without NVIDIA GPUs gives a complete capture with no `nvml.json`.
 
 ## Capture a machine
 
-A capture needs the machine itself: bare metal or a VM you rented, with the NVIDIA driver loaded. Run it as a normal user, never root; root would also expose root-only identifiers such as DMI serial numbers.
+A capture needs the machine itself: bare metal or a VM you rented, with the NVIDIA driver loaded. Run it as a normal user, since root is not needed. A root run still works: it adds a note to `diagnostics.txt`, and the root-only DMI serial numbers it can read join the leak check's identifiers.
 
 ```bash
 pixi run ostia-dev topo capture --out capture/ --provider onprem --instance-type dgx-h100 \

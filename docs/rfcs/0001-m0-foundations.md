@@ -141,7 +141,7 @@ This RFC is the approval that docs/README.md requires for new dependencies.
 | Dependency | Licence | Purpose | Source | Integration milestone | Required by |
 | --- | --- | --- | --- | --- | --- |
 | hwloc | BSD-3-Clause | Topology discovery *(update: Rollout PR 6a: version 2.4 or newer, found by `cmake/Findhwloc.cmake`: pixi's `libhwloc`, `libhwloc-dev` on Ubuntu, `hwloc-devel` from CRB on Rocky (#32).)* | pixi | M0 (fixture replay), M1 (live) | fabric |
-| UCX + rdma-core | BSD-3-Clause, BSD/GPL-2.0 dual | Transports, multi-process tests | pixi, Linux | M0 (tests), M1 | fabric tests **(update: Rollout PR 6b: the rdma-core headers also build `ostia-topo-capture`'s ibverbs probe in every Linux environment, with the library loaded at run time; distros need `libibverbs-dev` or `rdma-core-devel` (#45).)** |
+| UCX + rdma-core | BSD-3-Clause, BSD/GPL-2.0 dual | Transports, multi-process tests | pixi, Linux | M0 (tests), M1 | fabric tests *(update: Rollout PR 6b: the rdma-core headers also build `ostia-topo-capture`'s ibverbs probe in every Linux environment, with the library loaded at run time; distros need `libibverbs-dev` or `rdma-core-devel` (#45).)* |
 | opentelemetry-cpp, protobuf, abseil | Apache-2.0, BSD-3-Clause, Apache-2.0 | Metrics and span export | CPM, static PIC, symbols hidden (RFC-0002 §4) | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
 | libcurl | curl (MIT-style) | OTLP over HTTP | pixi or system, shared | With RFC-0002 | telemetry, `metrics`/`trace` builds only |
 | CCCL | Apache-2.0 with LLVM exception | CUB, Thrust, libcu++ | CPM, from GitHub | M0 | CUDA targets |

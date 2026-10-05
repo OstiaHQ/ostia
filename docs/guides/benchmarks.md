@@ -22,7 +22,7 @@ One JSON object per line:
   - **provenance** (git SHA, date, run ID), which never affects comparisons;
   - **compatibility** (GPU, driver, CUDA, NIC, topology, telemetry build level, compiler, dependencies), which must be equal for two results to be compared.
 
-`topology` is the machine's `topo1` id, taken with `ostia-topo-capture --print-id` ([fixtures.md](fixtures.md)), or `null` when the tool is not available on that machine. Records may also carry a top-level `devices` object with the PCI bus IDs of the devices a program measured (`p2p_copy`, `pipelining`, `batching` and `dual_link --mode nvlink` write it), which `ostia-dev topo links` turns into a fixture's `links.json`. A gate stamps `provenance.topology_source` as `gate` when it sets the pair id afterwards; the driver never sets it. Tools reject schema versions they do not know.
+`topology` is the machine's `topo1` id, taken with `ostia-topo-capture --print-id` ([fixtures.md](fixtures.md)). It is `null` when the tool is not available on that machine, when the capture is partial, fails its leak or schema check or does not finish in time, and always for `--remote` records until a gate stamps them. Records may also carry a top-level `devices` object with the PCI bus IDs of the devices a program measured (`p2p_copy`, `pipelining`, `batching` and `dual_link --mode nvlink` write it), which `ostia-dev topo links` turns into a fixture's `links.json`. A gate stamps `provenance.topology_source` as `gate` when it sets the pair id afterwards; the driver never sets it. Tools reject schema versions they do not know.
 
 ## Running a benchmark
 

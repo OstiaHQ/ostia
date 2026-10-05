@@ -189,7 +189,6 @@ This RFC is the approval that `docs/README.md` requires.
 
 PR A measures whether `typer-slim` (without rich) is enough; if it is, that is used instead and the table is updated in the PR. *Update (Rollout PR A): measured. `typer-slim` 0.24 is a shim that depends on `typer` itself, on conda-forge and on PyPI alike, so choosing it drops nothing; PR A uses plain `typer` (`>=0.27,<0.28`). conda-forge's `typer` depends on colorama on every platform, though typer only uses it on Windows.* Cloud credential plugins (`gke-gcloud-auth-plugin`, `aws`, `kubelogin`) are not dependencies: kubectl uses whatever the developer's kubeconfig names, and the guide lists them per provider.
 
-
 ### 3. Remote runs
 
 #### 3.1 Backends
