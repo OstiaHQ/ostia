@@ -569,10 +569,17 @@ TEST(IdentityCorpus, Q4) {
               "topo1:sha256:dd232216e05b5bed8051eef39c586dec5146119832a3ed67a78b03c886c9d503");
 }
 
-// Only pair-tcp's expected.json carries an id, so the other synthetic fixtures are pinned here.
-static std::string fixture_id(const char* name) {
-    const FixtureSource source(std::filesystem::path(OSTIA_TOPO_FIXTURE_DIR) / "synthetic" / name);
+// Only pair-tcp's expected.json carries an id, so the other fixtures are pinned here.
+static std::string fixture_id(const char* name, const char* group = "synthetic") {
+    const FixtureSource source(std::filesystem::path(OSTIA_TOPO_FIXTURE_DIR) / group / name);
     return topo1(build(source.facts()));
+}
+
+// The id the capture's manifest recorded on the machine and that L4 bench records carry
+// (RFC-0003 §4, §5): replaying the committed files must reproduce it.
+TEST(IdentityCorpus, CapturedGcpG2Standard16) {
+    EXPECT_EQ(fixture_id("gcp-g2-standard-16", "captured"),
+              "topo1:sha256:3366daef69f68cd1359a1da5978d786fc5d1c59ac5b7620827f5344b83ef3ec4");
 }
 
 TEST(IdentityCorpus, FixtureAsymmetricLinks) {

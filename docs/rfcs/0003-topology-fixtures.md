@@ -311,11 +311,11 @@ graph LR
 
 **Done when**
 
-- [ ] `ostia-topo-capture` produces schema-valid, leak-checked captures on the GPU CI machine and on each rented setup.
-- [ ] The manifest contract is implemented, including atomic writes, the exit-code precedence and consumer-side hash verification in RFC-0004's tool.
-- [ ] `topo1` is implemented and RFC-0001's benchmark records carry it.
-- [ ] At least one fixture per RFC-0004 setup and every synthetic case have golden files that pass on Linux and macOS. *(update: Rollout PR 6b: the per-setup fixtures arrive with RFC-0004 PR 7, and the L4 fixtures in a follow-up pull request after this one merges; `docs/guides/fixtures.md` now shows how to capture a machine and add a fixture (#45).)*
-- [ ] `docs/guides/fixtures.md` shows how to capture a machine and add a fixture (RFC-0001 Rollout).
+- [ ] `ostia-topo-capture` produces schema-valid, leak-checked captures on the GPU CI machine and on each rented setup. *(update: done on the GKE L4 machine (`remote k8s --suite topo-capture`); the rented setups follow with RFC-0004 PR 7.)*
+- [ ] The manifest contract is implemented, including atomic writes, the exit-code precedence and consumer-side hash verification in RFC-0004's tool. *(update: the writer and the `ostia-dev` consumer are done (#45); RFC-0004's tool uses the consumer from PR 7.)*
+- [x] `topo1` is implemented and RFC-0001's benchmark records carry it.
+- [ ] At least one fixture per RFC-0004 setup and every synthetic case have golden files that pass on Linux and macOS. *(update: Rollout PR 6b: the per-setup fixtures arrive with RFC-0004 PR 7, and the L4 fixtures in a follow-up pull request after this one merges; `docs/guides/fixtures.md` now shows how to capture a machine and add a fixture (#45). The first captured fixture is `captured/gcp-g2-standard-16`, the GKE L4 machine (#<PR>); `captured/aws-g6-4xlarge` follows when EKS has g6.4xlarge capacity.)*
+- [x] `docs/guides/fixtures.md` shows how to capture a machine and add a fixture (RFC-0001 Rollout).
 
 ## Failure handling
 

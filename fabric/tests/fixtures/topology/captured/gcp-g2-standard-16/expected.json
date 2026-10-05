@@ -1,0 +1,59 @@
+{
+  "edges": [
+    {
+      "from": "0000:00:03.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:00:04.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "hostbridge-0000:00",
+      "kind": "pcie",
+      "to": "0000:00:03.0"
+    },
+    {
+      "from": "hostbridge-0000:00",
+      "kind": "pcie",
+      "to": "0000:00:04.0"
+    }
+  ],
+  "nodes": [
+    {
+      "cc_major": 8,
+      "cc_minor": 9,
+      "cuda_ordinal": 0,
+      "key": "0000:00:03.0",
+      "kind": "gpu",
+      "memory_bytes": 24152899584,
+      "model": "NVIDIA L4"
+    },
+    {
+      "driver": "virtio-pci",
+      "key": "0000:00:04.0",
+      "kind": "nic",
+      "link_layer": "unknown",
+      "numa_node": 0,
+      "pci_device": 4096,
+      "pci_vendor": 6900,
+      "port_speed_mbps": "unknown",
+      "rdma": 0,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "hostbridge-0000:00",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "numa-0",
+      "kind": "numa"
+    },
+    {
+      "key": "package-0",
+      "kind": "package"
+    }
+  ]
+}

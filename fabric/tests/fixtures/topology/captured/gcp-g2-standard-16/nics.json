@@ -1,0 +1,16 @@
+{
+  "nics": [
+    {
+      "bus_id": "0000:00:04.0",
+      "driver": "virtio-pci",
+      "link_layer": "unknown",
+      "max_pcie_gen": 0,
+      "max_pcie_width": 0,
+      "numa_node": 0,
+      "port_speed_mbps": "unknown"
+    }
+  ],
+  "rdma": [],
+  "rdma_probe": "ok",
+  "schema": 1
+}
