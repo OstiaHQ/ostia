@@ -234,9 +234,16 @@ GKE = "gke_example-gpu-project_us-central1-a_example-cluster"
     [
         ([ARN], [ARN, "111122223333", "example-gpu"]),
         ([GKE], [GKE, "example-gpu-project", "example-cluster"]),
-        # a project id shaped like a region name is dropped as a segment, kept in the whole
+        # region and zone names have at most two digits, so a numbered project id is kept
         (["gke_example-project-123456_us-central1-a_example-cluster"],
-         ["gke_example-project-123456_us-central1-a_example-cluster", "example-cluster"]),
+         ["gke_example-project-123456_us-central1-a_example-cluster", "example-project-123456",
+          "example-cluster"]),
+        (["gke_example-gpu-project_ap-southeast-1a_example-cluster"],
+         ["gke_example-gpu-project_ap-southeast-1a_example-cluster", "example-gpu-project",
+          "example-cluster"]),
+        (["gke_example-gpu-project_europe-west4_example-cluster"],
+         ["gke_example-gpu-project_europe-west4_example-cluster", "example-gpu-project",
+          "example-cluster"]),
         (["example-context", " example-context ", ""], ["example-context"]),
         (["c1", None, "default"], ["c1", "default"]),
         (["arn:aws:eks:us-east-1:12345:cluster/abc"], ["arn:aws:eks:us-east-1:12345:cluster/abc"]),

@@ -155,7 +155,7 @@ Never include the value itself in a report.
 
 A `--require-topology` run that fails with capture exit 3 is a finding of this check.
 
-Known limit: the node name is searched as one whole value, and the kube context and the kubeconfig's cluster name are searched whole and as long segments; segments shaped like cloud regions or zones (such as `us-central1-a`) and short or provider-word segments are skipped, because every account shares them. Whole values are still searched. Put a distinctive site name in `--extra-identifiers` if it would otherwise survive.
+Known limit: the node name is searched as one whole value, and the kube context and the kubeconfig's cluster name are searched whole and as long segments; segments shaped like cloud regions or zones (a word pair and at most two digits, such as `us-central1-a`, `ap-southeast-1a` or `europe-west4`) and short or provider-word segments are skipped, because every account shares them; a numbered project id such as `my-project-123456` is kept. Whole values are still searched. Put a distinctive site name in `--extra-identifiers` if it would otherwise survive.
 
 ## Troubleshooting
 

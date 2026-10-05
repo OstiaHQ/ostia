@@ -35,7 +35,7 @@ LEAK_STOPLIST = frozenset(
     ("cluster", "clusters", "arn", "aws", "eks", "gke", "gcp", "azure", "aks", "default", "context")
 )
 # Region and zone names (us-central1-a, us-west-2) are shared by every account.
-REGION = re.compile(r"^[a-z]{2,}-[a-z]+-?\d+(-?[a-z])?$")
+REGION = re.compile(r"^[a-z]{2,}-[a-z]+-?\d{1,2}(-?[a-z])?$")
 MIN_IDENTIFIER = 6
 LEAK_CHECK = "docs/guides/fixtures.md#leak-check"
 
