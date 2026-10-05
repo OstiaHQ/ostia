@@ -428,7 +428,50 @@ def test_a_rejected_capture_against_a_paired_baseline_fails_the_gate(
     assert go({"node-0": OK, "node-1": REJECTED}, baseline=base) == 1
     out = capsys.readouterr().out
     assert "topology is cdcdcdcdcdcd in the baseline and null in the candidate" in out
-    assert "error: the baseline has a pair id and these records have none" in out
+    assert "error: the candidate's topology (null) is not one the baseline was recorded on" in out
+    assert "status.json says why a capture was not used" in out
+
+
+OTHER = "topo1:sha256:" + "ab" * 32
+NVLINK_RECORDS = [("p2p_copy", {}), ("pipelining", {}), ("batching", {}), ("dual_link", {})]
+
+
+def _topology_gate(tmp_path, cfg, monkeypatch, setup, records, candidate, baseline):
+    """A gate whose compare passes (it skips cases whose topology differs) against a baseline
+    recorded on `baseline`, with candidate records carrying `candidate`."""
+    monkeypatch.setattr(gate, "_compare_main", lambda: lambda argv: 0)
+    monkeypatch.setattr(gate, "_evidence_problems", lambda workloads, ev_dir: [])
+    base = tmp_path / "base.json"
+    docs = [_record(b, p, topology=baseline) for b, p in records]
+    base.write_text(json.dumps({"schema": 1, "setup": "s", "records": docs}))
+    run = FakeRun(tmp_path, full=[_record(b, p, topology=candidate) for b, p in records])
+    return _gate(tmp_path, cfg, setup, run, baseline=base)
+
+
+@pytest.mark.parametrize("candidate", [OTHER, None], ids=["differing-id", "null-id"])
+def test_a_one_pod_topology_the_baseline_lacks_fails_the_gate(
+    tmp_path, cfg, monkeypatch, capsys, candidate
+):
+    setup = _setup(tmp_path, NVLINK, "nvlink-node")
+    assert _topology_gate(tmp_path, cfg, monkeypatch, setup, NVLINK_RECORDS, candidate, PAIR) == 1
+    out = capsys.readouterr().out
+    shown = "null" if candidate is None else OTHER
+    assert f"error: the candidate's topology ({shown}) is not one the baseline" in out
+    assert "pixi run ostia-dev topo which <id>" in out
+
+
+def test_a_two_pod_gate_without_topo_capture_fails_against_a_paired_baseline(
+    tmp_path, cfg, monkeypatch, capsys
+):
+    setup = _setup(tmp_path, RDMA.replace("also_run: [topo_capture]\n", ""), "rdma-pair", nodes=2)
+    assert _topology_gate(tmp_path, cfg, monkeypatch, setup, RDMA_RECORDS, None, PAIR) == 1
+    assert "error: the candidate's topology (null)" in capsys.readouterr().out
+
+
+def test_a_topology_the_baseline_has_passes_the_gate(tmp_path, cfg, monkeypatch, capsys):
+    setup = _setup(tmp_path, NVLINK, "nvlink-node")
+    assert _topology_gate(tmp_path, cfg, monkeypatch, setup, NVLINK_RECORDS, PAIR, PAIR) == 0
+    assert "error:" not in capsys.readouterr().out
 
 
 def test_a_one_pod_gate_never_stamps(tmp_path, cfg, monkeypatch):

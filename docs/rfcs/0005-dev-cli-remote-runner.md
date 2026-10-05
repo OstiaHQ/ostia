@@ -572,7 +572,7 @@ A setup file whose k8s machine has no mapping is exit 2, naming the key to add. 
 
 - RFC-0004 §1.1's preflight and active capability probes;
 - RFC-0001 §6.4's transport evidence;
-- RFC-0003's manifest-gated captures. *(update: Rollout PR 6b: captures are now checked: a gate whose setup lists `topo_capture` in `also_run` fetches them, writes `pair.json` for two pods and stamps the records with the pair id only when both captures are complete. A rejected or partial capture leaves the records unstamped, and a gate compared with a baseline that has a pair id exits 1 (#45).)*
+- RFC-0003's manifest-gated captures. *(update: Rollout PR 6b: captures are now checked: a gate whose setup lists `topo_capture` in `also_run` fetches them, writes `pair.json` for two pods and stamps the records with the pair id only when both captures are complete. A rejected or partial capture leaves the records unstamped. After `compare.py --require-pass` passes, the gate exits 1 when any record's topology is one the baseline was not recorded on, null included, since compare skips such cases rather than failing them (#45).)*
 
 Before any gate workload runs, a probe checks that every evidence counter it needs is readable in the pod (InfiniBand port counters in sysfs; `nvidia-smi nvlink` counters). If one isn't, the gate fails closed on that machine. RDMA gate workloads (`rdma_put`, `gdr_stream`, `dual_link` rails) must use an `rdma` profile (§4.12): loading a setup file that puts them on another kind of profile is an exit 2, because the counters that prove RDMA traffic are only visible with RDMA devices in the pod. NVLink workloads may use normal GPU profiles.
 

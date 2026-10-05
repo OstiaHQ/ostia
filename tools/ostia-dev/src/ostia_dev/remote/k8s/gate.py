@@ -253,13 +253,40 @@ def _stamp_pair(captures: Path, profile: Profile, records: Path) -> bool:
     return True
 
 
-def _baseline_topologies(baseline: Path) -> set:
+def _baseline_topologies(baseline: Path) -> set | None:
     from ostia_dev.bench import compare
 
     try:
         return {r["compat"].get("topology") for r in compare.load_baseline(baseline)}
     except (OSError, ValueError, KeyError, TypeError):
-        return set()  # compare reports an unreadable baseline itself
+        return None  # compare reports an unreadable baseline itself
+
+
+def _candidate_topologies(results: Path) -> set:
+    found = set()
+    for line in results.read_text().splitlines():
+        if line.strip():
+            compat = json.loads(line).get("compat")
+            found.add(compat.get("topology") if isinstance(compat, dict) else None)
+    return found
+
+
+def _topology_mismatch(baseline: Path, results: Path, fix: str) -> list[str]:
+    """compare skips a case whose topology differs, and a skipped case does not fail it; a
+    required gate never passes on what it could not compare (RFC-0001 §6.3)."""
+    known = _baseline_topologies(baseline)
+    if known is None:
+        return []
+    unknown = _candidate_topologies(results) - known
+    if not unknown:
+        return []
+    shown = ", ".join(sorted("null" if t is None else t for t in unknown))
+    return [
+        f"error: the candidate's topology ({shown}) is not one the baseline was recorded on",
+        "  rule: a required gate compares only records whose topology the baseline has",
+        f"  fix: {fix}",
+        "  see: RFC-0001 §6.3, RFC-0005 §6",
+    ]
 
 
 def gate(
@@ -336,15 +363,15 @@ def gate(
     argv = ["--baseline", str(baseline), "--candidate", str(out / "results.jsonl"),
             "--evidence-dir", str(out / "evidence"), "--require-pass"]  # fmt: skip
     code = _compare_main()(argv)
-    # compare skips cases whose topology differs, and a skipped case does not fail it; a gate
-    # whose records could not be stamped has not shown it ran on the baseline's pair.
-    if code == 0 and stamped is False and _baseline_topologies(baseline) - {None}:
+    if code != 0:
+        return code
+    if stamped is False:
         status = Path(spec.results) / run_ids[-1] / "capture" / "status.json"
-        print(
-            "error: the baseline has a pair id and these records have none\n"
-            "  rule: a two-pod gate compares only records stamped with the pair id (RFC-0003 §7)\n"
-            f"  fix: rerun the gate; {status} says why a capture was not used\n"
-            "  see: RFC-0005 §6"
-        )
+        fix = f"rerun the gate; {status} says why a capture was not used"
+    else:
+        fix = "`pixi run ostia-dev topo which <id>` names the fixture of each id"
+    problems = _topology_mismatch(baseline, out / "results.jsonl", fix)
+    if problems:
+        print("\n".join(problems))
         return 1
-    return code
+    return 0
