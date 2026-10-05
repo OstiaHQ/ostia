@@ -3,7 +3,7 @@
 import copy
 
 import pytest
-from ostia_dev.bench.schema import SchemaError, compat_key, validate
+from ostia_dev.bench.schema import SchemaError, case_key, compat_key, validate
 
 RECORD = {
     "schema": 1,
@@ -65,3 +65,19 @@ def test_null_topology_matches_only_null():
     b = copy.deepcopy(a)
     assert compat_key(a) == compat_key(b)
     assert compat_key(a) != compat_key(RECORD)
+
+
+def test_devices_and_topology_source_validate_and_stay_out_of_the_key():
+    r = copy.deepcopy(RECORD)
+    r["devices"] = {"src_bus": "0000:3b:00.0", "dst_bus": "0000:86:00.0"}
+    r["provenance"]["topology_source"] = "gate"
+    validate(r)
+    assert compat_key(r) == compat_key(RECORD)
+    assert case_key(r) == case_key(RECORD)
+
+
+@pytest.mark.parametrize("devices", [["0000:3b:00.0"], {"src_bus": 7}])
+def test_malformed_devices_are_rejected(devices):
+    r = dict(copy.deepcopy(RECORD), devices=devices)
+    with pytest.raises(SchemaError, match="devices"):
+        validate(r)

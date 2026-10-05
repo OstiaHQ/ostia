@@ -23,6 +23,7 @@ Every command runs as `pixi run ostia-dev …`, or as plain `ostia-dev …` insi
 | `sanitizer` | `compute-sanitizer` memcheck, racecheck and synccheck on the GPU tests, and memcheck on the CUDA bench programs |
 | `bench-smoke` | the benchmark driver end to end, and every `fabric/bench` program with `--smoke` |
 | `overhead-aa` | the overhead self-test (fails on a wrong verdict) and the A/A noise floor, which is reported and never fails the run |
+| `topo-capture` | `ostia-dev topo capture` on the node; the runner fetches the capture ([below](#topology-captures)). A failed capture fails this suite |
 
 The GPU suites need a GPU: a Linux host with `--gpus`, or a cluster's GPU node.
 
@@ -153,7 +154,9 @@ profile = "a100x4"             # a profile with at least the declared GPUs
 
 `pixi run ostia-dev remote gate nvlink-node --fallback` then checks the capabilities and the mapping, probes that the evidence counters are readable, runs every gate workload through the benchmark driver with `--evidence`, and checks that each workload left records and evidence. `--baseline <file>` also compares the results with `compare.py --require-pass`. RDMA workloads need a profile of kind `rdma` (below).
 
-The gate is partial for now: RFC-0004's active capability probes, RFC-0003's topology captures and `rent`'s fallback handover come with RFC-0004 PR 7 and RFC-0003 PR 6. The command says so when it runs.
+When the setup's `also_run` lists `topo_capture`, the gate also captures the machine's topology. That step reports and never fails the gate ([Topology captures](#topology-captures)). In a two-pod gate, `pair.json` is built from the two captures and every record in `bench/results/<run>/results.jsonl` is stamped with the pair id (`provenance.topology_source` is `gate`); the copies in `build/remote/<run>/rank-*/` are not stamped. If either capture is rejected or partial, the records stay unstamped (`topology: null`). `compare` alone would pass such a run, because it skips cases whose topology differs and a skipped case does not fail it, so the gate adds a check: once `compare` passes, a candidate topology the baseline was not recorded on (another id, or `null` against a baseline with an id) exits 1. This holds for one-pod gates too, whose records carry the driver's `--print-id` id.
+
+The gate is partial for now: RFC-0004's active capability probes and `rent`'s fallback handover come with RFC-0004 PR 7. The command says so when it runs.
 
 ### RDMA profiles
 
@@ -174,6 +177,26 @@ rdma_nics = "mlx5_0:1,mlx5_1:1"   # the node's two NIC ports, for dual_link's ra
 
 Its pods run as root with `IPC_LOCK`, request the `rdma/*` resources, and use the pod network. `host_network = true` puts the pod on the node's network: it then has the node's cloud identity and no network policy applies, and the summary says so on every such run. No RDMA cluster has run this yet.
 
+## Topology captures
+
+A k8s run whose pod wrote `/w/capture/manifest.json` has its capture fetched before the pod is removed, whatever suite or command ran. The runner reads the manifest first, checks it, then fetches only the files it lists and verifies every hash; a rejected capture keeps only `diagnostics.txt`. The capture never changes the run's exit code. See [fixtures.md](fixtures.md) for what a capture is.
+
+```text
+build/remote/<run-id>/capture/            # one pod
+  manifest.json  hwloc.xml  nvml.json  nics.json  meta.json  diagnostics.txt
+  status.json                             # per node: accepted or rejected, the status, the reason
+build/remote/<run-id>/capture/            # two pods
+  node-0/  node-1/  pair.json  status.json
+```
+
+- `summary.json` has a `capture` entry with the same per-node result.
+- A pod gets `NODE_NAME` (downward API), `OSTIA_CAPTURE_PROVIDER`, `OSTIA_CAPTURE_INSTANCE_TYPE` and `OSTIA_LEAK_IDENTIFIERS`. `topo capture` adds `NODE_NAME` (as one whole value), the kube context and the kubeconfig's cluster name (each whole and as long segments) to the leak check (region and zone names are skipped, [fixtures.md](fixtures.md#leak-check)).
+- Exit codes of the capture tool: 0 complete, 2 partial, 1 failed, 3 leak or schema violation ([fixtures.md](fixtures.md#the-manifest-and-exit-codes)). `status.json` records `accepted` for 0 and 2, `rejected` for the rest, and `absent` when the pod wrote no manifest.
+- Run `--suite topo-capture` to capture a node, with `--pods 2 --same-node` for two. The suite step is an ordinary command, so a failed capture fails that suite. In a gate, the capture is a report step instead.
+- Without a pair id, a one-pod run's bench records carry the driver's own `topo1` id from `ostia-topo-capture --print-id`.
+
+Captures are for you to inspect: do not commit one, use `ostia-dev topo import` after review.
+
 ## Results and exit codes
 
 Each run's results land in `build/remote/<run-id>/`:
@@ -186,9 +209,10 @@ build/remote/container-cpu-20261002-141501-a1b2c3/
   ostia-summary.txt   # the configure summary
   junit.xml           # ctest's results; junit-<level>.xml for the gpu suite
   Testing/            # ctest's own output
+  capture/            # a topology capture, when the pod wrote one (below)
 ```
 
-Two-pod runs have the same files in `rank-0/` and `rank-1/`, with `summary.json` at the top. Benchmark output is also copied to `bench/results/<run-id>/`, where `compare.py` looks for it. At the end the CLI prints one summary line, which is what you paste into a pull request:
+Two-pod runs have the same files in `rank-0/` and `rank-1/`, with `summary.json` and `capture/` at the top. Benchmark output is also copied to `bench/results/<run-id>/`, where `compare.py` looks for it. At the end the CLI prints one summary line, which is what you paste into a pull request:
 
 ```text
 container-cpu-20261002-141501-a1b2c3  passed  cpu  sha 3f2a9c1+dirty(tree 9ab3…)  suite cpu  41s

@@ -115,7 +115,7 @@ preset = "release"
 steps = [
   { name = "configure", kind = "build", run = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON", "-DCMAKE_CUDA_ARCHITECTURES={cc}-real"] },
   { name = "build", kind = "build", run = ["cmake", "--build", "--preset", "release"] },
-  { name = "bench-driver", kind = "command", run = ["ostia-dev", "bench", "run", "--needs-gpu", "--runs", "3", "--bench", "{build_dir}/telemetry/bench/ostia_telemetry_bench_noop", "--build-dir", "{build_dir}", "--out", "{source_dir}/bench/results", "--run-id", "{run_id}"] },
+  { name = "bench-driver", kind = "command", run = ["ostia-dev", "bench", "run", "--needs-gpu", "--require-topology", "--runs", "3", "--bench", "{build_dir}/telemetry/bench/ostia_telemetry_bench_noop", "--build-dir", "{build_dir}", "--out", "{source_dir}/bench/results", "--run-id", "{run_id}"] },
   { name = "bench-programs", kind = "command", run = ["ctest", "--test-dir", "{build_dir}", "-R", "^fabric\\.bench\\.", "--output-on-failure", "--output-junit", "junit.xml"] },
 ]
 
@@ -147,4 +147,13 @@ steps = [
   { name = "configure", kind = "build", run = ["cmake", "--preset", "release", "-DOSTIA_BUILD_BENCH=ON"] },
   { name = "build", kind = "build", run = ["cmake", "--build", "--preset", "release"] },
   { name = "summary", kind = "report", run = ["grep", "-E", "^(cuda|cuda_toolkit|architectures|compiler):", "{build_dir}/ostia-summary.txt"] },
+]
+
+# topo capture builds ostia-topo-capture in the dev preset itself; the runner fetches
+# /w/capture manifest-first before teardown (RFC-0003 §4, RFC-0005 §3.4)
+[suites.topo-capture]
+description = "capture this node's topology with ostia-topo-capture and fetch it"
+preset = "dev"
+steps = [
+  { name = "capture", kind = "command", run = ["ostia-dev", "topo", "capture", "--out", "/w/capture"] },
 ]

@@ -148,6 +148,12 @@ class Kube:
     def version(self) -> dict:
         return self._json(["version", "-o", "json"], namespaced=False)
 
+    def cluster_name(self) -> str | None:
+        """The kubeconfig's cluster name for this context, read locally, never from the server."""
+        doc = self._json(["config", "view", "--minify", "-o", "json"], namespaced=False)
+        contexts = doc.get("contexts") or [{}]
+        return (contexts[0].get("context") or {}).get("cluster")
+
     def get(self, kind: str, name: str, *, namespaced: bool = True) -> dict | None:
         doc = self._json(
             ["get", kind, name, "-o", "json", "--ignore-not-found"], namespaced=namespaced

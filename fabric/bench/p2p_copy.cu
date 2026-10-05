@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     emit("p2p_copy",
          "{\"bytes\": " + std::to_string(bytes) + ", \"direction\": \"" + direction +
              "\", \"concurrency\": 1}",
-         rates);
+         rates, devices_json(src, dst));
     OSTIA_CUDA(cudaStreamDestroy(s1));
     OSTIA_CUDA(cudaStreamDestroy(s2));
     return 0;

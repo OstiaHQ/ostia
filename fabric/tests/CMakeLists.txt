@@ -30,3 +30,41 @@ target_compile_definitions(
   PRIVATE OSTIA_TOPO_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/fabric/tests/fixtures/topology"
 )
 gtest_discover_tests(ostia_fabric_topology_tests PROPERTIES LABELS cpu)
+
+# The capture core is built with the tools; its host-only tests run on every platform.
+if(TARGET ostia_topo_capture_core)
+  add_executable(
+    ostia_topo_capture_tests
+    topology/capture/deps_test.cpp
+    topology/capture/emit_xml_test.cpp
+    topology/capture/sysfs_test.cpp
+    topology/capture/nics_test.cpp
+    topology/capture/writers_test.cpp
+    topology/capture/leak_test.cpp
+    topology/capture/manifest_test.cpp
+    topology/capture/pipeline_test.cpp
+  )
+  target_link_libraries(ostia_topo_capture_tests PRIVATE ostia_topo_capture_core GTest::gtest_main)
+  if(OSTIA_SANITIZE)
+    target_compile_definitions(ostia_topo_capture_tests PRIVATE OSTIA_TOPO_SANITIZED)
+  endif()
+  target_compile_definitions(
+    ostia_topo_capture_tests
+    PRIVATE
+      OSTIA_TOPO_DATA_DIR="${PROJECT_SOURCE_DIR}/fabric/tests/topology/data"
+      OSTIA_TOPO_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/fabric/tests/fixtures/topology"
+  )
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(ostia_topo_capture_tests PRIVATE ibverbs::headers)
+  endif()
+  gtest_discover_tests(ostia_topo_capture_tests PROPERTIES LABELS cpu)
+endif()
+
+# Captures the machine it runs on and replays the capture, so it needs a GPU: the executable
+# supplies its own main to skip with 77 when NVML lists none (RFC-0001 §4.2).
+if(TARGET ostia_topo_capture_live)
+  add_executable(ostia_topo_capture_live_tests topology/capture/live_vs_replay_test.cpp)
+  target_link_libraries(ostia_topo_capture_live_tests PRIVATE ostia_topo_capture_live GTest::gtest)
+  add_test(NAME fabric.topo.live_vs_replay COMMAND ostia_topo_capture_live_tests)
+  set_tests_properties(fabric.topo.live_vs_replay PROPERTIES LABELS gpu SKIP_RETURN_CODE 77)
+endif()

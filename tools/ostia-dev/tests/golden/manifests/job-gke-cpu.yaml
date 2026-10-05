@@ -69,6 +69,10 @@ spec:
           value: error
         - name: OSTIA_GIT_SHA
           value: 3f2a9c1+dirty
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         resources:
           requests:
             cpu: '4'

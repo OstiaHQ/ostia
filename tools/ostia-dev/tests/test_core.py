@@ -439,3 +439,24 @@ def test_prepare_uses_an_explicit_plan(cfg, repo, tmp_path):
     run = core.prepare(spec, "default", cfg, repo, tmp_path)
     assert [s.name for s in run.plan.steps] == ["only"]
     assert seen == {"profile": "cpu", "env": "default", "run_id": run.run_id}
+
+
+def test_a_fetched_capture_goes_into_the_summary_and_its_line(cfg, repo, tmp_path, capsys):
+    entry = {"result": "rejected", "reason": "the tar stream repeats a member", "status": None,
+             "fix": "rerun"}  # fmt: skip
+
+    class Capturing(FakeBackend):
+        def collect(self, run, workdir):
+            run.state["capture"] = {"node-0": entry}
+            return super().collect(run, workdir)
+
+    assert core.drive(Capturing(), _spec(tmp_path), cfg=cfg, repo=repo) == 0
+    (run_dir,) = (tmp_path / "results").iterdir()
+    assert json.loads((run_dir / "summary.json").read_text())["capture"] == {"node-0": entry}
+    assert "  capture rejected  " in capsys.readouterr().out
+
+
+def test_a_run_without_a_capture_has_a_null_entry(cfg, repo, tmp_path):
+    assert core.drive(FakeBackend(), _spec(tmp_path), cfg=cfg, repo=repo) == 0
+    (run_dir,) = (tmp_path / "results").iterdir()
+    assert json.loads((run_dir / "summary.json").read_text())["capture"] is None

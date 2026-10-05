@@ -301,3 +301,21 @@ def test_logs_for_a_selector_maps_errors():
     r = Runner((1, "", "error: You must be logged in to the server (Unauthorized)\n"))
     with pytest.raises(UsageError):
         _kube(r).logs(selector="ostia.dev/run-id=r")
+
+
+def test_cluster_name_is_read_from_the_kubeconfig():
+    view = {"contexts": [{"name": "gke_p_z_c", "context": {"cluster": "gke_p_z_c-cluster"}}]}
+    r = Runner((0, json.dumps(view), ""))
+    assert _kube(r).cluster_name() == "gke_p_z_c-cluster"
+    assert _argv(r) == [str(KUBECTL), "--context", "gke_p_z_c",
+                        "config", "view", "--minify", "-o", "json"]  # fmt: skip
+    assert _kube(Runner((0, "{}", ""))).cluster_name() is None
+
+
+def test_a_remote_exit_code_is_returned_and_a_kubectl_failure_raises():
+    """capture.fetch tells a pod's answer (exit 3: no manifest) from kubectl failing."""
+    r = Runner((3, b"", "command terminated with exit code 3\n"))
+    assert _kube(r).exec_out("p", ["sh", "-c", "test -f m || exit 3"]).returncode == 3
+    r = Runner((1, b"", 'Error from server (NotFound): pods "p" not found\n'))
+    with pytest.raises(InfraError):
+        _kube(r).exec_out("p", ["sh", "-c", "tar -cf - -- x"], stdout=io.BytesIO())

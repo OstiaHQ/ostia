@@ -87,9 +87,10 @@ int nvlink_main(const Args& a) {
     evidence("mode=nvlink peer_access=" + std::to_string(peer ? 1 : 0) +
              " src=" + std::to_string(src) + " paths=" + paths + " bytes=" + std::to_string(moved));
     const std::string tail = ", \"bytes\": " + std::to_string(bytes) + ", \"mode\": \"nvlink\"}";
-    emit("dual_link", "{\"path\": \"a\"" + tail, path_a);
-    emit("dual_link", "{\"path\": \"b\"" + tail, path_b);
-    emit("dual_link", "{\"path\": \"both\"" + tail, both);
+    const std::string devices = devices_json(src, dst_a, dst_b);
+    emit("dual_link", "{\"path\": \"a\"" + tail, path_a, devices);
+    emit("dual_link", "{\"path\": \"b\"" + tail, path_b, devices);
+    emit("dual_link", "{\"path\": \"both\"" + tail, both, devices);
     cudaEventDestroy(b_done);
     cudaStreamDestroy(sa);
     cudaStreamDestroy(sb);

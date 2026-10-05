@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+from fakes.capture import capture_files
 from fakes.clock import FakeClock
 from fakes.kube import (
     FakeKube,
@@ -16,6 +17,8 @@ from fakes.kube import (
     log,
     logs_fail,
     lose_connection,
+    lose_pod_on,
+    plant_capture,
     pod_phase,
 )
 from ostia_dev import config
@@ -58,14 +61,26 @@ def cfg(tmp_path):
 
 
 def _drive(
-    fake, clock, cfg, repo, tmp_path, timeline=HAPPY, *, envs=("default",), profile="cpu", **extra
+    fake,
+    clock,
+    cfg,
+    repo,
+    tmp_path,
+    timeline=HAPPY,
+    *,
+    envs=("default",),
+    profile="cpu",
+    provider="gke",
+    nodes=(),
+    **extra,
 ):
     target = Target(
         context="c1",
         namespace="ostia-test",
-        provider="gke",
+        provider=provider,
         kubectl=Path("/k"),
         allow_unguarded=bool(extra.get("allow_unguarded")),
+        nodes=list(nodes),
     )
     backend = K8sBackend(cfg=cfg, target=target, kube=fake, clock=clock)
     spec = core.RunSpec(
@@ -300,10 +315,177 @@ def test_failure_terminal_pod_reasons(
 def test_collect_then_collected(fake, clock, cfg, repo, tmp_path):
     assert _drive(fake, clock, cfg, repo, tmp_path) == 0
     outs = [c.args[1] for c in fake.calls if c.verb == "exec_out"]
-    assert ".ostia && tar" in outs[-3][2] and "tar -cf" in outs[-2][2]
+    assert ".ostia && tar" in outs[-4][2] and "tar -cf" in outs[-3][2]
+    assert outs[-2][2] == "test -f /w/capture/manifest.json || exit 3"
     assert outs[-1] == ("touch", "/w/.ostia/collected")
     run_dir = tmp_path / "res" / _summary(tmp_path)["run_id"]
     assert (run_dir / "junit.xml").exists() and (run_dir / "log.txt").exists()
+    # no capture anywhere: no capture/ directory and no summary entry
+    assert not (run_dir / "capture").exists() and _summary(tmp_path)["capture"] is None
+
+
+CAPTURED = [(3, pod_phase("Running")), (5, plant_capture(capture_files())), (9, log(OK_LOG))]
+
+
+def _capture_execs(fake) -> list[str]:
+    return [
+        c.args[1][2]
+        for c in fake.calls
+        if c.verb == "exec_out" and c.args[1][:2] == ("sh", "-c") and "/w/capture" in c.args[1][2]
+    ]
+
+
+def test_capture_is_fetched_manifest_first_before_collected(
+    fake, clock, cfg, repo, tmp_path, capsys
+):
+    from ostia_dev.topo import manifest
+
+    assert _drive(fake, clock, cfg, repo, tmp_path, CAPTURED) == 0
+    execs = [c.args[1] for c in fake.calls if c.verb == "exec_out"]
+    touch = execs.index(("touch", "/w/.ostia/collected"))
+    capture_at = [i for i, a in enumerate(execs) if "/w/capture" in " ".join(a)]
+    assert capture_at and max(capture_at) < touch
+    first = [a for a in execs if "/w/capture" in " ".join(a)][:3]
+    assert [a[2].split()[0] for a in first] == ["test", "cd", "cd"]
+    assert first[1][4:] == ("manifest.json",) and "wc -c" in first[1][2]
+    assert first[2][4:] == ("manifest.json",) and "tar -cf" in first[2][2]
+    s = _summary(tmp_path)
+    out = tmp_path / "res" / s["run_id"] / "capture"
+    assert manifest.accept(out)["status"] == "complete"
+    assert (
+        json.loads((out / "status.json").read_text())
+        == s["capture"]
+        == {"node-0": {"result": "accepted", "reason": None, "status": "complete", "fix": None}}
+    )
+    io = capsys.readouterr()
+    assert "[ostia] capture node-0: accepted (complete)" in io.err
+    assert "  capture accepted (complete)  " in io.out
+
+
+def test_two_pods_fetch_into_node_dirs_and_never_stamp(fake, clock, cfg, repo, tmp_path):
+    timeline = [*TWO_OK, (5, plant_capture(capture_files()))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline, pods=2) == 0
+    s = _summary(tmp_path)
+    out = tmp_path / "res" / s["run_id"] / "capture"
+    assert (out / "node-0" / "manifest.json").exists()
+    assert (out / "node-1" / "manifest.json").exists()
+    assert set(s["capture"]) == {"node-0", "node-1"}
+    assert not (out / "pair.json").exists()  # only remote gate writes the pair and stamps
+    assert "topology_source" not in json.dumps(s)
+
+
+def test_a_rejected_capture_keeps_only_diagnostics(fake, clock, cfg, repo, tmp_path, capsys):
+    timeline = [*HAPPY, (5, plant_capture(capture_files(sanitized=False)))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline) == 0
+    s = _summary(tmp_path)
+    out = tmp_path / "res" / s["run_id"] / "capture"
+    assert sorted(p.name for p in out.iterdir()) == ["diagnostics.txt", "status.json"]
+    assert s["capture"]["node-0"]["result"] == "rejected"
+    assert "fixtures.md#leak-check" in capsys.readouterr().err
+
+
+def test_a_symlink_in_the_capture_is_rejected(fake, clock, cfg, repo, tmp_path):
+    files = capture_files()
+    del files["nics.json"]
+    timeline = [*HAPPY, (5, plant_capture(files, links={"nics.json": "hwloc.xml"}))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline) == 0
+    entry = _summary(tmp_path)["capture"]["node-0"]
+    assert entry["result"] == "rejected" and entry["reason"].startswith("not_regular:")
+
+
+def test_a_pod_lost_mid_fetch_rejects_the_capture_and_keeps_the_results(
+    fake, clock, cfg, repo, tmp_path
+):
+    timeline = [*CAPTURED, (5, lose_pod_on("tar -cf - --"))]
+    assert _drive(fake, clock, cfg, repo, tmp_path, timeline) == 0
+    s = _summary(tmp_path)
+    assert s["capture"]["node-0"]["result"] == "rejected"
+    assert "rerun" in s["capture"]["node-0"]["fix"]
+    run_dir = tmp_path / "res" / s["run_id"]
+    assert (run_dir / "junit.xml").exists() and (run_dir / "log.txt").exists()
+    assert s["teardown"] == "verified" and fake.list("job") == []
+
+
+def test_one_failed_capture_exec_is_retried(fake, clock, cfg, repo, tmp_path):
+    from ostia_dev.remote import capture
+
+    flaky = exec_result(["sh", "-c", capture.tar_script()], 2, once=True)
+    assert _drive(fake, clock, cfg, repo, tmp_path, [*CAPTURED, (5, flaky)]) == 0
+    assert _summary(tmp_path)["capture"]["node-0"]["result"] == "accepted"
+    tars = [e for e in _capture_execs(fake) if "tar -cf" in e]
+    assert len(tars) == 4  # manifest twice, then the files and diagnostics.txt
+
+
+ARN = "arn:aws:eks:us-east-1:111122223333:cluster/example-gpu"
+GKE = "gke_example-gpu-project_us-central1-a_example-cluster"
+
+
+def _job_env(fake, clock, cfg, repo, tmp_path, **kw) -> dict:
+    seen = {}
+    original = fake.apply
+
+    def apply(obj, record=True):
+        if obj.get("kind") == "Job":
+            seen["job"] = obj
+        return original(obj, record=record)
+
+    fake.apply = apply
+    assert _drive(fake, clock, cfg, repo, tmp_path, **kw) == 0
+    env = seen["job"]["spec"]["template"]["spec"]["containers"][0]["env"]
+    names = [e["name"] for e in env]
+    assert len(names) == len(set(names))
+    return {e["name"]: e.get("value", e.get("valueFrom")) for e in env}
+
+
+def _node(name: str, instance_type: str | None) -> dict:
+    labels = {"node.kubernetes.io/instance-type": instance_type} if instance_type else {}
+    alloc = {"cpu": "8", "memory": "32Gi", "ephemeral-storage": "100Gi"}
+    return {"metadata": {"name": name, "labels": labels}, "status": {"allocatable": alloc}}
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected"),
+    [("gke", "gcp"), ("eks", "aws"), ("aks", "azure"), ("generic", "unknown")],
+)
+def test_the_job_env_names_the_capture_provider(
+    fake, clock, cfg, repo, tmp_path, provider, expected
+):
+    env = _job_env(fake, clock, cfg, repo, tmp_path, provider=provider)
+    assert env["OSTIA_CAPTURE_PROVIDER"] == expected
+    assert env["NODE_NAME"] == {"fieldRef": {"fieldPath": "spec.nodeName"}}
+
+
+@pytest.mark.parametrize(
+    ("types", "expected"),
+    [(["g6.4xlarge", "g6.4xlarge"], "g6.4xlarge"), (["g6.4xlarge", "g6.2xlarge"], "unknown"),
+     (["g6.4xlarge", None], "unknown"), ([], "unknown")],
+)  # fmt: skip
+def test_the_job_env_names_the_instance_type_only_when_unique(
+    fake, clock, cfg, repo, tmp_path, types, expected
+):
+    nodes = [_node(f"n{i}", t) for i, t in enumerate(types)]
+    env = _job_env(fake, clock, cfg, repo, tmp_path, nodes=nodes)
+    assert env["OSTIA_CAPTURE_INSTANCE_TYPE"] == expected
+
+
+@pytest.mark.parametrize(
+    ("cluster", "expected"),
+    [(ARN, ["c1", ARN, "111122223333", "example-gpu"]),
+     (GKE, ["c1", GKE, "example-gpu-project", "example-cluster"])],
+)  # fmt: skip
+def test_the_job_env_lists_the_leak_identifiers(
+    fake, clock, cfg, repo, tmp_path, cluster, expected
+):
+    fake.cluster = cluster
+    env = _job_env(fake, clock, cfg, repo, tmp_path)
+    assert env["OSTIA_LEAK_IDENTIFIERS"].split("\n") == expected
+
+
+def test_an_env_var_overrides_a_capture_default(fake, clock, cfg, repo, tmp_path):
+    env = _job_env(
+        fake, clock, cfg, repo, tmp_path, env_vars=["OSTIA_CAPTURE_INSTANCE_TYPE=g2-standard-16"]
+    )
+    assert env["OSTIA_CAPTURE_INSTANCE_TYPE"] == "g2-standard-16"
 
 
 def test_failure_tests_fail(fake, clock, cfg, repo, tmp_path):
@@ -547,6 +729,7 @@ def test_two_pod_happy_path(fake, clock, cfg, repo, tmp_path, capsys):
     assert (run_dir / "rank-0" / "steps.json").exists() and (
         run_dir / "rank-1" / "log.txt"
     ).exists()
+    assert not (run_dir / "capture").exists() and s["capture"] is None
     run_sel = f"ostia.dev/run-id={s['run_id']}"
     for kind in ("job", "pod", "service", "networkpolicy"):
         assert fake.list(kind, selector=run_sel) == [], kind

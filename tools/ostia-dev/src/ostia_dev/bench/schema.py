@@ -2,8 +2,14 @@
 
 Results are JSON Lines, one record per measurement. Provenance fields (git SHA, date,
 run ID) never affect comparability; compatibility fields decide whether two results may
-be compared. `topology` is RFC-0003's structural identity, or null before fixtures land;
-null is compatible only with null. Tools reject schema versions they do not know.
+be compared. `topology` is RFC-0003's `topo1` identity of the machine, taken by the driver
+from `ostia-topo-capture --print-id`, or null when none could be taken; null is compatible
+only with null. `provenance.topology_source` (optional) is set, to "gate", only by the
+gate's pair-id stamp.
+A record may carry a top-level `devices` object: the PCI bus IDs (`domain:bus:dev.fn`,
+lowercase) of the GPUs a program measured, keyed by role (`src_bus`, `dst_bus`, ...). It
+is a measurement fact, not a comparability field: `case_key` ignores it, so a baseline still
+matches after a device renumbering. Tools reject schema versions they do not know.
 """
 
 import json
@@ -45,6 +51,11 @@ def validate(record: dict) -> None:
     for f in COMPAT:
         if f not in record["compat"]:
             raise SchemaError(f"missing compat field '{f}'")
+    devices = record.get("devices")
+    if devices is not None and not (
+        isinstance(devices, dict) and all(isinstance(v, str) for v in devices.values())
+    ):
+        raise SchemaError("'devices' must be an object of bus ID strings")
     samples = record["samples"]
     if not isinstance(samples, list) or not samples:
         raise SchemaError("'samples' must be a non-empty list")

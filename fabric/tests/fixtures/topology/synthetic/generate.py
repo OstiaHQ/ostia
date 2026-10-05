@@ -451,6 +451,18 @@ def case_nvswitch_hidden() -> dict[str, str]:
     return machine_files(m)
 
 
+def case_nvswitch_8nic_2numa() -> dict[str, str]:
+    """The largest expected shape (RFC-0003 Performance): 8 GPUs on NVSwitch, one rail NIC per
+    GPU, two sockets with one NUMA node each."""
+    m = Machine(2, 1, 8)
+    m.gpus = [h100() for _ in range(8)]
+    m.nics = [ib_nic() for _ in range(8)]
+    place(m, [(i // 4, 0x10 * (i + 1), [m.gpus[i], m.nics[i]], True) for i in range(8)])
+    for g in m.gpus:
+        g.nvlinks = [("active", "switch", "") for _ in range(18)]
+    return machine_files(m)
+
+
 def case_broken_nvlink() -> dict[str, str]:
     m = Machine(1, 1, 8)
     m.gpus = [a100() for _ in range(4)]
@@ -578,6 +590,7 @@ def case_pair_tcp() -> dict[str, str]:
 
 CASES = {
     "nvswitch-hidden": case_nvswitch_hidden,
+    "nvswitch-8nic-2numa": case_nvswitch_8nic_2numa,
     "broken-nvlink": case_broken_nvlink,
     "no-nic": case_no_nic,
     "multi-numa": case_multi_numa,

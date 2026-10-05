@@ -31,8 +31,10 @@ constexpr std::string_view kUsageText =
     "usage: ostia-topo show <dir>\n"
     "       ostia-topo model <dir> [--check <expected.json>]\n"
     "       ostia-topo id <dir>\n"
+    "       ostia-topo diff <a> <b>\n"
     "       ostia-topo --help\n"
-    "<dir> is a fixture directory, or a pair directory holding pair.json and node dirs.\n";
+    "<dir> is a fixture directory, or a pair directory holding pair.json and node dirs.\n"
+    "diff exits 0 when the topology ids are equal and 1 when they differ.\n";
 
 struct Usage {};
 
@@ -89,7 +91,8 @@ std::vector<std::string> lines_of(const std::string& text) {
 // Positional, not an LCS diff: goldens are canonical JSON, so a mismatch is usually a value
 // change in place. The line counts expose an insertion or deletion, after which the rest of the
 // file is misaligned. Every printed line counts toward the cap.
-void print_diff(const std::string& expected, const std::string& actual) {
+void print_diff(const std::string& expected, const std::string& actual, std::string_view minus,
+                std::string_view plus) {
     const auto e = lines_of(expected), a = lines_of(actual);
     const std::size_t n = std::max(e.size(), a.size());
     std::vector<std::size_t> differing;
@@ -98,7 +101,8 @@ void print_diff(const std::string& expected, const std::string& actual) {
             differing.push_back(i);
         }
     }
-    std::cout << "--- expected (" << e.size() << " lines)\n+++ actual (" << a.size() << " lines)\n";
+    std::cout << "--- " << minus << " (" << e.size() << " lines)\n+++ " << plus << " (" << a.size()
+              << " lines)\n";
     std::size_t printed = 2;
     std::size_t consumed = 0;
     for (std::size_t k = 0; k < differing.size(); ++k) {
@@ -271,7 +275,7 @@ int cmd_model(const fs::path& dir, const char* check) {
     if (expected == actual) {
         return kOk;
     }
-    print_diff(expected, actual);
+    print_diff(expected, actual, "expected", "actual");
     return kMismatch;
 }
 
@@ -287,7 +291,97 @@ int cmd_id(const fs::path& dir) {
     return kOk;
 }
 
+// Object members recurse under their key; every array element is one line. A certificate's
+// nodes and edges are array elements, so a positional diff names the node or edge that changed.
+void outline(const nlohmann::json& j, const std::string& indent, std::string& out) {
+    if (j.is_object()) {
+        for (const auto& [key, value] : j.items()) {
+            if (value.is_structured()) {
+                out += indent + key + ":\n";
+                outline(value, indent + "  ", out);
+            } else {
+                out += indent + key + ": " + value.dump() + "\n";
+            }
+        }
+        return;
+    }
+    if (j.is_array()) {
+        for (const auto& element : j) {
+            out += indent + element.dump() + "\n";
+        }
+        return;
+    }
+    out += indent + j.dump() + "\n";
+}
+
+// What `diff` compares for one input: the identity (key-free, RFC-0003 §5) and the keyed model.
+struct Side {
+    std::string id;
+    std::string identity;
+    std::set<std::string> keys;
+    std::string model;
+};
+
+void add_keys(const Model& m, const std::string& prefix, std::set<std::string>& keys) {
+    for (const auto& n : m.nodes) {
+        keys.insert(prefix + n.key);
+    }
+}
+
+Side side_of(const fs::path& dir) {
+    Side side;
+    if (!is_pair(dir)) {
+        const Model m = load(dir);
+        side.id = topo1(m);
+        outline(nlohmann::json::parse(canonical_identity_json(m)), "", side.identity);
+        add_keys(m, "", side.keys);
+        side.model = canonical_dump(m);
+        return side;
+    }
+    const auto pair = read_pair(dir);
+    const auto name0 = pair["nodes"][0].get<std::string>();
+    const auto name1 = pair["nodes"][1].get<std::string>();
+    const Model m0 = load(dir / name0);
+    const Model m1 = load(dir / name1);
+    side.id = pair_id_of(pair, m0, m1);
+    nlohmann::json identity;
+    identity["link_class"] = pair.contains("link_class") ? pair["link_class"] : nlohmann::json();
+    identity["rails"] = pair.contains("rails") ? pair["rails"] : nlohmann::json();
+    identity[name0] = nlohmann::json::parse(canonical_identity_json(m0));
+    identity[name1] = nlohmann::json::parse(canonical_identity_json(m1));
+    outline(identity, "", side.identity);
+    add_keys(m0, name0 + "/", side.keys);
+    add_keys(m1, name1 + "/", side.keys);
+    side.model = model_text(dir);
+    return side;
+}
+
+// Exit 0 iff the ids are equal. The identity diff comes first because it is what the id hashes;
+// the keyed model diff follows only when both sides use the same bus IDs, since otherwise every
+// line would differ by key alone.
+int cmd_diff(const fs::path& a, const fs::path& b) {
+    if (is_pair(a) != is_pair(b)) {
+        throw TopologyError("diff_kinds", "", "cannot compare a pair with a single machine");
+    }
+    const Side sa = side_of(a);
+    const Side sb = side_of(b);
+    const bool same = sa.id == sb.id;
+    std::cout << "a: " << sa.id << "\nb: " << sb.id << "\n"
+              << (same ? "same topology\n" : "different topology\n");
+    if (!same) {
+        print_diff(sa.identity, sb.identity, "a identity", "b identity");
+    }
+    if (sa.keys == sb.keys && sa.model != sb.model) {
+        std::cout << "keyed model (the bus IDs match):\n";
+        print_diff(sa.model, sb.model, "a model", "b model");
+    }
+    return same ? kOk : kMismatch;
+}
+
 std::string fix_for(const std::string& code) {
+    if (code == "diff_kinds") {
+        return "pass two machine fixtures or two pair fixtures";
+    }
     if (code == "schema") {
         return "regenerate with fabric/tests/fixtures/topology/synthetic/generate.py, or recapture";
     }
@@ -321,6 +415,9 @@ int run(const std::vector<std::string_view>& args) {
         throw Usage{};
     }
     const fs::path dir{std::string(args[1])};
+    if (args[0] == "diff" && args.size() == 3) {
+        return cmd_diff(dir, fs::path{std::string(args[2])});
+    }
     if (args[0] == "show" && args.size() == 2) {
         return cmd_show(dir);
     }

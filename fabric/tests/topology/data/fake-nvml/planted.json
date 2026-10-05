@@ -1,0 +1,20 @@
+{
+  "cuda_driver_version": 12040,
+  "driver_version": "550.54.15",
+  "gpus": [
+    {
+      "board_id": 774430,
+      "bus_id": "00000000:11:00.0",
+      "cc": [
+        8,
+        9
+      ],
+      "memory_bytes": 25769803776,
+      "name": "OstiaFakeGPU-0001",
+      "nvlinks": "not_supported",
+      "serial": "OSTIA-GPU-SERIAL-0001",
+      "uuid": "GPU-0a1b2c3d-0000-4000-8000-0123456789ab"
+    }
+  ],
+  "p2p_status": 0
+}

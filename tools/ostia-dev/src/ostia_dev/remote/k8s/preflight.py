@@ -22,6 +22,9 @@ PROVIDER_LABELS = (
     ("karpenter.sh/nodepool", "eks"),
     ("kubernetes.azure.com/agentpool", "aks"),
 )
+# The capture tool's --provider names the cloud, not the Kubernetes service (RFC-0003 §9).
+CAPTURE_PROVIDERS = {"gke": "gcp", "eks": "aws", "aks": "azure", "generic": "unknown"}
+INSTANCE_TYPE_LABELS = ("node.kubernetes.io/instance-type", "beta.kubernetes.io/instance-type")
 
 
 @dataclass
@@ -52,6 +55,21 @@ def detect_provider(nodes: list[dict]) -> str | None:
             if label in labels:
                 return provider
     return None
+
+
+def capture_provider(provider: str) -> str:
+    return CAPTURE_PROVIDERS.get(provider, "unknown")
+
+
+def instance_type(nodes: list[dict], profile: Profile) -> str:
+    """The instance type of the nodes the profile selects, or "unknown" when they don't share
+    one: the pod may land on any of them."""
+    types = set()
+    for node in nodes:
+        labels = node.get("metadata", {}).get("labels", {})
+        if all(labels.get(k) == v for k, v in profile.node_selector.items()):
+            types.add(next((labels[k] for k in INSTANCE_TYPE_LABELS if labels.get(k)), None))
+    return types.pop() if len(types) == 1 and None not in types else "unknown"
 
 
 def _namespace(spec: RunSpec, ctx: dict, context: str, cfg: Config) -> str:

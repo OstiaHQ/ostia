@@ -102,6 +102,22 @@ def _evidence_problem(bench: str, evidence_dir: Path) -> str:
     return "; ".join(evidence.check(ev))
 
 
+def _short(topology_id: str | None) -> str:
+    return "null" if topology_id is None else topology_id.rpartition(":")[2][:12]
+
+
+def _topology_note(base: str | None, cand: str | None) -> str:
+    if base is None or cand is None:
+        return (
+            f"topology is {_short(base)} in the baseline and {_short(cand)} in the candidate; "
+            "re-record the baseline (or the run) with a topology id"
+        )
+    return (
+        f"topology {_short(base)} (baseline) vs {_short(cand)} (candidate); "
+        f"fix: pixi run ostia-dev topo which {_short(cand)}"
+    )
+
+
 def compare_runs(
     baseline: list[dict],
     candidate: list[dict],
@@ -131,7 +147,12 @@ def compare_runs(
             continue
         if compat_key(base) != compat_key(cand):
             diff = [f for f in COMPAT if base["compat"].get(f) != cand["compat"].get(f)]
-            results.append(CaseResult(*key, "skipped", "compat fields differ: " + ", ".join(diff)))
+            note = "compat fields differ: " + ", ".join(diff)
+            if "topology" in diff:
+                note += "; " + _topology_note(
+                    base["compat"]["topology"], cand["compat"]["topology"]
+                )
+            results.append(CaseResult(*key, "skipped", note))
             continue
         o = compare_case(base["samples"], cand["samples"], cand["higher_is_better"])
         results.append(CaseResult(*key, o.outcome, "", o.d, o.lo, o.hi))
@@ -159,7 +180,7 @@ def pool_baseline(runs: list[list[dict]], setup: str) -> dict:
     return {"schema": 1, "setup": setup, "records": list(pooled.values())}
 
 
-def _load_baseline(path: Path) -> list[dict]:
+def load_baseline(path: Path) -> list[dict]:
     if path.suffix == ".json":
         data = json.loads(path.read_text())
         for r in data["records"]:
@@ -204,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        baseline = _load_baseline(args.baseline)
+        baseline = load_baseline(args.baseline)
         if not args.candidate.exists() or not args.candidate.read_text().strip():
             raise SchemaError(f"{args.candidate}: missing or empty result file")
         candidate = load(args.candidate)

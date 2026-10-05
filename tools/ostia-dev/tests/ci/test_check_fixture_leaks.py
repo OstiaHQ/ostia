@@ -15,13 +15,18 @@ PLANTED = [
     ('"id": "i-0a1b2c3d4e5f67890"', "instance-id"),
     ('"host": "ip-10-0-1-23"', "ec2-hostname"),
     ('<info name="SerialNumber" value="1323020034567"/>', "serial"),
-    ('"serial": "1652520012345"', "serial"),
+    ('"serial": "0000000000001"', "serial"),
     ('<info name="HostName" value="x"/>', "hwloc-key"),
     ('<info name="DMIProductUUID" value="x"/>', "hwloc-key"),
     ('<info value="x" name="HostName"/>', "hwloc-key"),
     ("<info name='HostName' value=\"x\"/>", "hwloc-key"),
     ('<info name = "HostName" value="x"/>', "hwloc-key"),
     ('"0000:00:02.0 aa:bb:cc:dd:ee:ff"', "mac"),
+    ('<object type="OSDev" name="enx0c42a15e6f70"/>', "enx-name"),
+    ('"ifname": "enx0c42a15e6f70",', "enx-name"),
+    ('"node_guid": "0c42a10300a1b2c3"', "guid"),
+    ('"guid": "0C42A10300A1B2C3"', "guid"),
+    ("port_guid=0c42a10300a1b2c3", "guid"),
 ]
 
 LEGITIMATE = [
@@ -41,6 +46,12 @@ LEGITIMATE = [
     '<info name="OstiaPCIeMaxGen" value="4"/>',
     "<info value=\"4\" name='OstiaPCIeMaxGen'/>",
     '<info name="CPUModel" value="Fictional CPU"/>',
+    '<object type="OSDev" name="ens5"/>',
+    '"name": "enx0c42"',
+    '"memory_bytes": 85899345920',
+    '"local_memory": "68719476736"',
+    '"hex": "0c42a10300a1b2c3d"',
+    '"device": "mlx5_0"',
 ]
 
 
@@ -61,6 +72,14 @@ def test_output_names_line_and_kind_but_never_the_value(tmp_path, capsys):
     out = capsys.readouterr().out
     assert f"{f}:2: mac" in out
     assert "0c:42" not in out
+
+
+@pytest.mark.parametrize("name", ["diagnostics.txt", "status.json"])
+def test_capture_only_file_fails_by_name(tmp_path, capsys, name):
+    f = tmp_path / name
+    f.write_text("clean\n")
+    assert main(["--files", str(f)]) == 1
+    assert f"{f}:0: capture-only-file" in capsys.readouterr().out
 
 
 def test_committed_fixtures_are_clean():

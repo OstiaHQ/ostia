@@ -78,9 +78,16 @@ def _env(run: Run, keep: int, cache: bool, secret_keys: set[str], pods: int = 1)
     env["OSTIA_COLLECT_WINDOW"] = str(run.windows["collect"] + keep)
     if cache:
         env.update(CACHE_ENV)
+    # topo capture's defaults (RFC-0003 §1, §3); an --env-var of the same key wins.
+    for k, v in run.state.get("capture_env", {}).items():
+        env.setdefault(k, v)
     for k in secret_keys:
         env.pop(k, None)  # secret values reach the pod only from the per-run Secret
     items = [{"name": k, "value": v} for k, v in env.items()]
+    if "NODE_NAME" not in env and "NODE_NAME" not in secret_keys:
+        items.append(
+            {"name": "NODE_NAME", "valueFrom": {"fieldRef": {"fieldPath": "spec.nodeName"}}}
+        )
     if pods > 1:
         name = job_name(run.run_id)
         items += [

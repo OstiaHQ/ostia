@@ -1,0 +1,19 @@
+{
+  "expect": "valid",
+  "manifest": {
+    "errors": [
+      {
+        "code": "leak",
+        "message": "the leak check found an identifier of this machine in an output file; see diagnostics.txt for the file, line and kind"
+      }
+    ],
+    "files": {},
+    "leak_check": "failed",
+    "missing": [],
+    "sanitized": true,
+    "schema": 1,
+    "status": "failed",
+    "tool_version": "0.1.0",
+    "topology_id": null
+  }
+}

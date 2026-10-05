@@ -8,10 +8,11 @@ build-backend = "setuptools.build_meta"
 name = "ostia-dev"
 version = "0.0.0"
 description = "Ostia's contributor CLI and remote runner"
-requires-python = ">=3.11"
+# 3.12 matches pixi; the capture fetch needs tarfile filter="data" (3.11.4 and later).
+requires-python = ">=3.12"
 license = "Apache-2.0"
 classifiers = ["Private :: Do Not Upload"]
-dependencies = ["typer"]
+dependencies = ["typer", "jsonschema>=4.18"]
 
 [project.scripts]
 ostia-dev = "ostia_dev.cli:app"

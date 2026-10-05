@@ -257,3 +257,13 @@ def test_host_network_summary_warning():
     lines = results.summary_lines(_summary(backend="k8s", host_network=True))
     assert any("host network" in line and "cloud identity" in line for line in lines)
     assert not any("host network" in line for line in results.summary_lines(_summary()))
+
+
+def test_the_capture_result_is_on_the_first_line():
+    ok = {"result": "accepted", "reason": None, "status": "complete", "fix": None}
+    bad = {"result": "rejected", "reason": "x", "status": None, "fix": "rerun"}
+    one = results.summary_lines(_summary(capture={"node-0": ok}))[0]
+    assert one.endswith("suite gpu  capture accepted (complete)  18m12s")
+    two = results.summary_lines(_summary(capture={"node-1": bad, "node-0": ok}))[0]
+    assert "  capture node-0 accepted (complete), node-1 rejected  " in two
+    assert "capture" not in results.summary_lines(_summary(capture=None))[0]

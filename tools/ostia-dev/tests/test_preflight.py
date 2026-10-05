@@ -278,3 +278,27 @@ def test_yes_creates_a_namespace_with_the_detected_guardrails(fake, cfg_path):
     assert "to" not in egress["spec"]["egress"][0]  # DNS to any destination with NodeLocal
     assert "34.118.224.0/20" in egress["spec"]["egress"][1]["to"][0]["ipBlock"]["except"]
     assert fake.get("resourcequota", "ostia-test-quota")["spec"]["hard"]["pods"] == "3"
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected"),
+    [("gke", "gcp"), ("eks", "aws"), ("aks", "azure"), ("generic", "unknown"), ("x", "unknown")],
+)
+def test_capture_provider_names_the_cloud(provider, expected):
+    assert preflight.capture_provider(provider) == expected
+
+
+def _labelled(selected: bool, instance_type: str | None) -> dict:
+    labels = {"cloud.google.com/gke-accelerator": "nvidia-l4"} if selected else {}
+    if instance_type:
+        labels["node.kubernetes.io/instance-type"] = instance_type
+    return {"metadata": {"name": "n", "labels": labels}}
+
+
+def test_instance_type_comes_from_the_nodes_the_profile_selects(tmp_path):
+    l4 = profiles.resolve("l4", "gke", config.load(tmp_path / "none.toml"))
+    nodes = [_labelled(True, "g2-standard-8"), _labelled(False, "e2-standard-4")]
+    assert preflight.instance_type(nodes, l4) == "g2-standard-8"
+    assert preflight.instance_type([*nodes, _labelled(True, "g2-standard-16")], l4) == "unknown"
+    assert preflight.instance_type([_labelled(True, None)], l4) == "unknown"
+    assert preflight.instance_type([], l4) == "unknown"

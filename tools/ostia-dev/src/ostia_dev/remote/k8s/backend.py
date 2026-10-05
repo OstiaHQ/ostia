@@ -7,6 +7,7 @@ poll every 3 s (run_status + events)    wait for .ostia/ready
 exec -i tar -x, count files, touch ready -> install, build, command
 logs -f --timestamps, resumed, deduped  <- output
 exec tar -c control files, artifacts
+capture: test manifest, wc, tar (capture.fetch; RFC-0003 §4)
 touch collected (not when kept)         -> exit with the command's code
 delete Job (cascades), poll until gone
 """
@@ -14,6 +15,7 @@ delete Job (cascades), poll until gone
 import datetime
 import fnmatch
 import io
+import itertools
 import json
 import signal
 import sys
@@ -23,8 +25,8 @@ from pathlib import Path
 from ostia_dev.clock import Clock
 from ostia_dev.config import Config
 from ostia_dev.contract import violation
-from ostia_dev.errors import InfraError, UsageError
-from ostia_dev.remote import results, suites
+from ostia_dev.errors import InfraError, OstiaError, UsageError
+from ostia_dev.remote import capture, results, suites
 from ostia_dev.remote.container import supervisor_script
 from ostia_dev.remote.core import SECRET_KEYS, Collected, Run, owner_id
 from ostia_dev.remote.k8s import manifests, preflight
@@ -98,7 +100,25 @@ class K8sBackend:
             n=int(run.spec.extra.get("pods") or 1),
             same_node=bool(run.spec.extra.get("same_node")),
             secret_keys=_secret_keys(run.env_vars) if run.spec.allow_secret else set(),
+            capture_env=self._capture_env(run),
         )
+
+    def _capture_env(self, run: Run) -> dict[str, str]:
+        """The values topo capture defaults from in the pod (RFC-0003 §1, §3): the context and
+        cluster names are identifiers the leak check must find if the pod's files hold them."""
+        try:
+            cluster = self.kube.cluster_name()
+        except OstiaError:
+            cluster = None
+            self.notes.append("the kubeconfig cluster name could not be read for the leak check")
+        return {
+            "OSTIA_CAPTURE_PROVIDER": preflight.capture_provider(self.target.provider),
+            "OSTIA_CAPTURE_INSTANCE_TYPE": preflight.instance_type(self.target.nodes, run.profile),
+            # topo capture splits this on newlines only, so a value may hold spaces
+            "OSTIA_LEAK_IDENTIFIERS": "\n".join(
+                capture.leak_identifiers([self.target.context, cluster])
+            ),
+        }
 
     def gc(self, run: Run) -> list[str]:
         now = self.clock.now()
@@ -487,6 +507,60 @@ class K8sBackend:
                 see="RFC-0005 §3.4",
             )
 
+    def _read_capture(self, pod: str, workdir: Path, rank: int):
+        """capture.fetch's transport: three execs, so a missing manifest, an oversized
+        directory and a failed tar each have their own answer before anything is copied."""
+        calls = itertools.count()
+
+        def run_sh(script: str, names: list[str], stdout=None):
+            try:
+                return self.kube.exec_out(pod, ["sh", "-c", script, "sh", *names], stdout=stdout)
+            except OstiaError as e:  # kubectl itself failed: the pod or the connection is gone
+                raise capture.CaptureTransportError("kubectl exec failed") from e
+
+        def read_tar(names: list[str], limit: int) -> Path:
+            r = run_sh(capture.probe_script(), [])
+            if r.returncode == 3:
+                raise capture.CaptureAbsent()
+            if r.returncode != 0:
+                raise capture.CaptureTransportError(f"the manifest probe exited {r.returncode}")
+            r = run_sh(capture.sizes_script(), names)
+            if r.returncode == 4:
+                raise capture.CaptureNotRegular("a requested name is not a regular file")
+            if r.returncode != 0:
+                raise capture.CaptureTransportError(f"wc -c exited {r.returncode}")
+            if capture.parse_sizes((r.stdout or b"").decode(errors="replace"), names) > limit:
+                raise capture.CaptureTooLarge("the files are larger than the limit")
+            path = workdir / f"capture{rank}-{next(calls)}.tar"
+            with path.open("wb") as fh:
+                r = run_sh(capture.tar_script(), names, stdout=fh)
+            if r.returncode != 0:
+                raise capture.CaptureTransportError(f"tar exited {r.returncode}")
+            return path
+
+        return read_tar
+
+    def _fetch_captures(self, run: Run, workdir: Path) -> None:
+        """Before the collected marker, so the pod still exists (RFC-0003 §4). A run with no
+        capture anywhere leaves no trace; one with any gets capture/status.json."""
+        root = run.results_dir / "capture"
+        two = run.state["n"] > 1
+        found = {}
+        for i, pod in enumerate(run.state["pods"]):
+            node = capture.NODE_DIRS[i]
+            dest = root / node if two else root
+            outcome = capture.fetch(self._read_capture(pod, workdir, i), dest)
+            found[node] = capture.status_entry(outcome)
+        if all(e["result"] == "absent" for e in found.values()):
+            if root.is_dir() and not any(root.iterdir()):
+                root.rmdir()  # fetch made it as the parent of node-<i>/
+            return
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "status.json").write_text(json.dumps(found, indent=2, sort_keys=True) + "\n")
+        run.state["capture"] = found
+        for node, entry in found.items():
+            self._say(capture.describe(node, entry))
+
     def collect(self, run: Run, workdir: Path) -> list[Collected]:
         build_rel = run.plan.build_dir.removeprefix(suites.WORK + "/")
         out, failed = [], False
@@ -496,6 +570,7 @@ class K8sBackend:
             self._exec_tar(run, pod, results.artifact_tar_script(build_rel), artifacts)
             failed = failed or self._failed(control)
             out.append(Collected(f"rank-{i}" if run.state["n"] > 1 else "", control, artifacts))
+        self._fetch_captures(run, workdir)
         if run.state["keep"] and failed:
             run.state["kept"] = True
             end = self.clock.now() + datetime.timedelta(seconds=run.state["keep"])
@@ -509,8 +584,14 @@ class K8sBackend:
                 f"/w/.ostia/collected, Ctrl-C or {self.cleanup_hint(run)} ends it)"
             )
         else:
-            for pod in run.state["pods"]:
-                self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/collected"])
+            for i, pod in enumerate(run.state["pods"]):
+                try:
+                    self.kube.exec_out(pod, ["touch", f"{suites.WORK}/.ostia/collected"])
+                except OstiaError:
+                    # Everything is copied out already: without the marker the pod only waits
+                    # out its collect window, and teardown deletes it either way.
+                    who = f"rank {i}: " if run.state["n"] > 1 else ""
+                    self._say(f"{who}could not mark the pod collected; it ends with its window")
         return out
 
     @staticmethod

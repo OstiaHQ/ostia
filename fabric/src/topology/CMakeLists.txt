@@ -40,6 +40,7 @@ add_library(
   STATIC
   builder.cpp
   fixture_source.cpp
+  hwloc_facts.cpp
   identity.cpp
   model.cpp
   schema.cpp
