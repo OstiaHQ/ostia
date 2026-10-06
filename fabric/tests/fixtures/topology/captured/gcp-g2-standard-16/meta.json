@@ -1,0 +1,9 @@
+{
+  "captured_at": "2026-10-05T06:07:39Z",
+  "cuda_version": "13.0",
+  "driver_version": "580.173.02",
+  "instance_type": "g2-standard-16",
+  "provider": "gcp",
+  "schema": 1,
+  "tool_version": "0.0.0"
+}
