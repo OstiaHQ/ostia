@@ -1,0 +1,16 @@
+{
+  "errors": [],
+  "files": {
+    "hwloc.xml": "sha256:4295fb347532df4313331851dc35ae64daedaa1aa7fc0dd3cdfda956fd17ac75",
+    "meta.json": "sha256:f311ca63d519d743cc08b0872a20cec7327288254846cdb8908d59720f7a6d24",
+    "nics.json": "sha256:6cca525566ac97e8fdd3f277fac35d847c6401a6b11aad7bcc7e5f3a117c1804",
+    "nvml.json": "sha256:098a432bfc261abd1e12202f65471a3625995cc49cdb3faf03a94941394f1c6e"
+  },
+  "leak_check": "passed",
+  "missing": [],
+  "sanitized": true,
+  "schema": 1,
+  "status": "complete",
+  "tool_version": "0.0.0",
+  "topology_id": "topo1:sha256:cbf3c7b396e0124a6ba0dd397bce57d68e749d200267597d469c6b6fd1f113e1"
+}

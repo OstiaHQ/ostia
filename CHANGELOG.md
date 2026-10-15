@@ -6,6 +6,7 @@ All notable changes to Ostia are documented here. The format follows [Keep a Cha
 
 ### Added
 
+- A second captured topology fixture, `captured/aws-g6-4xlarge` (the AWS L4 machine: one L4, two ENA NICs, one NUMA node), with its golden file and a pinned `topo1` id (RFC-0003 §9).
 - The first captured topology fixture, `captured/gcp-g2-standard-16` (the GKE L4 machine: one L4, one virtio NIC, one NUMA node), with its golden file and a pinned `topo1` id (RFC-0003 §9).
 - Topology capture (RFC-0003 §1–§4, §7–§9, Rollout PR 6b): `ostia-topo-capture` (live hwloc, NVML and ibverbs sources, the leak check, the manifest and exit codes 0, 2, 1 and 3) and `ostia-topo diff`; `ostia-dev topo capture|links|diff|which|import`; the `topo-capture` remote suite with manifest-first collection into `build/remote/<run>/capture/`, gate pair files and pair ids; benchmark records carrying `topo1` ids and a `devices` field, with `bench run --require-topology`; the synthetic `nvswitch-8nic-2numa` fixture; and the guide `docs/guides/fixtures.md`. New dependencies: rdma-core headers on Linux (pixi and distro) and `jsonschema` (#45).
 - Fuzzing: a libFuzzer target over the topology fixture JSON path (schema validation, the model builder and `topo1`) with a JSON-aware custom mutator, the `fuzz` preset and `OSTIA_FUZZ` option, `ostia-dev fuzz`, and the `fuzz-topology` CI job (2 minutes per PR, 30 nightly).

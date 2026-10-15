@@ -582,6 +582,11 @@ TEST(IdentityCorpus, CapturedGcpG2Standard16) {
               "topo1:sha256:3366daef69f68cd1359a1da5978d786fc5d1c59ac5b7620827f5344b83ef3ec4");
 }
 
+TEST(IdentityCorpus, CapturedAwsG64xlarge) {
+    EXPECT_EQ(fixture_id("aws-g6-4xlarge", "captured"),
+              "topo1:sha256:cbf3c7b396e0124a6ba0dd397bce57d68e749d200267597d469c6b6fd1f113e1");
+}
+
 TEST(IdentityCorpus, FixtureAsymmetricLinks) {
     EXPECT_EQ(fixture_id("asymmetric-links"),
               "topo1:sha256:e1254a9e839fe2cf103a4da42244e69ad51236cf1ac6b4d4cb6f50de139d472e");

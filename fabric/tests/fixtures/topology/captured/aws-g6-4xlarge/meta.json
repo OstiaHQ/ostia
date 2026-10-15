@@ -1,0 +1,9 @@
+{
+  "captured_at": "2026-10-15T04:10:03Z",
+  "cuda_version": "13.0",
+  "driver_version": "580.178.04",
+  "instance_type": "g6.4xlarge",
+  "provider": "aws",
+  "schema": 1,
+  "tool_version": "0.0.0"
+}
