@@ -1,0 +1,144 @@
+{
+  "edges": [
+    {
+      "from": "0000:27:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:28:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:35:00.0",
+      "kind": "numa_local",
+      "to": "numa-0"
+    },
+    {
+      "from": "0000:24:00.0",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:25:00.0",
+      "width": 16
+    },
+    {
+      "from": "0000:25:00.0",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:26:00.0",
+      "width": 16
+    },
+    {
+      "from": "0000:25:00.0",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:26:00.1",
+      "width": 16
+    },
+    {
+      "from": "0000:26:00.0",
+      "kind": "pcie",
+      "to": "0000:27:00.0",
+      "width": 255
+    },
+    {
+      "from": "0000:26:00.1",
+      "kind": "pcie",
+      "to": "0000:28:00.0",
+      "width": 255
+    },
+    {
+      "from": "0000:34:00.0",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:35:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:24",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:24:00.0",
+      "width": 16
+    },
+    {
+      "from": "hostbridge-0000:34",
+      "gen": 4,
+      "kind": "pcie",
+      "to": "0000:34:00.0",
+      "width": 8
+    }
+  ],
+  "nodes": [
+    {
+      "key": "0000:24:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "0000:25:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "0000:26:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "0000:26:00.1",
+      "kind": "pcie_bridge"
+    },
+    {
+      "driver": "ena",
+      "key": "0000:27:00.0",
+      "kind": "nic",
+      "link_layer": "unknown",
+      "numa_node": 0,
+      "pci_device": 60448,
+      "pci_vendor": 7439,
+      "port_speed_mbps": "unknown",
+      "rdma": 0,
+      "rdma_probe": "ok"
+    },
+    {
+      "driver": "ena",
+      "key": "0000:28:00.0",
+      "kind": "nic",
+      "link_layer": "unknown",
+      "numa_node": 0,
+      "pci_device": 60448,
+      "pci_vendor": 7439,
+      "port_speed_mbps": "unknown",
+      "rdma": 0,
+      "rdma_probe": "ok"
+    },
+    {
+      "key": "0000:34:00.0",
+      "kind": "pcie_bridge"
+    },
+    {
+      "cc_major": 8,
+      "cc_minor": 9,
+      "cuda_ordinal": 0,
+      "key": "0000:35:00.0",
+      "kind": "gpu",
+      "memory_bytes": 24152899584,
+      "model": "NVIDIA L4"
+    },
+    {
+      "key": "hostbridge-0000:24",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "hostbridge-0000:34",
+      "kind": "pcie_bridge"
+    },
+    {
+      "key": "numa-0",
+      "kind": "numa"
+    },
+    {
+      "key": "package-0",
+      "kind": "package"
+    }
+  ]
+}
